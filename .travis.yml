@@ -17,7 +17,7 @@ install:
   - pip install -e .
 
 script:
-  - black --check
+  - black --check .
   - coverage run --source=uplc setup.py test
 
 after_success:
