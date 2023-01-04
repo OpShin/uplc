@@ -4,8 +4,6 @@ from functools import partial
 from enum import Enum, auto
 import hashlib
 
-# import frozendict
-
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -22,7 +20,7 @@ ConstantEvalMap = {
     ConstantType.bytestring: lambda x: bytes.fromhex(x[1:]),
     ConstantType.string: lambda x: str(x).encode("utf8"),
     ConstantType.unit: lambda _: (),
-    ConstantType.bool: lambda x: x == "True",
+    ConstantType.bool: bool,
 }
 
 
