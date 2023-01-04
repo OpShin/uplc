@@ -1,37 +1,31 @@
 language: python
-
 python:
-  - "3.8"
-  - "3.9"
-  - "3.10"
+- '3.8'
+- '3.9'
+- '3.10'
 dist: bionic
 sudo: true
-
 matrix:
   fast_finish: true
-
 install:
-  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata; fi
-  - pip install coverage coveralls
-  - pip install black
-  - pip install -e .
-
+- if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
+  fi
+- pip install coverage coveralls
+- pip install black
+- pip install -e .
 script:
-  - black --check .
-  - coverage run --source=uplc setup.py test
-
+- black --check .
+- coverage run --source=uplc setup.py test
 after_success:
-  - coverage report
-  - coveralls
-
+- coverage report
+- coveralls
 deploy:
   provider: pypi
   on:
     branch: master
-    python: "3.10"
-  distributions: "sdist bdist_wheel"
+    python: '3.10'
+  distributions: sdist bdist_wheel
   skip_existing: true
-  username: "nielstron"
+  username: nielstron
   password:
-    secure: "vTQIPd5alinVvM6/XI+5hbnFXigwkWqbebubsze4Ca7lKW+Vqy8DMGWvDKKSobjtANIDSQGJhOHM3pi6BOv79wBU2SRq1lIKTXFhiH/uUiGLSlRY8PEbL1b4OeGpS8N4ijGSJ+cIRrVmI4aGSuE/9J6pwe/vIeA1p4MbCyHghCZnXH9iuOv9QlaprU0xQDa9clpdzIZiDeFEu+orHGXs2tG4z3+mxOR0glugdupKNLLxm9+SAZSXkUcpTqXGIfjfUvkx235gtfgbOcTzKWH5QK+tPmR84U8WWvEdytBkmivfFrBHmpAgVdqeUmi3EAYVrb6Jbpw8D7HxJJiJBLIFsin6HgeTF2bEQyrBUuyb74rhb+FxWE3P6vZx89M787DaABYq7jHzJNkB1eiJVzMAoRzcGsx5uI4A1XZsIFHn0f3L++ihfukixCeBX0p7DVtsfHVMu8VmJ9p3FusBILFUiWU7vIhbJnIz26z5G5mKMOBKKjXp29L1SeAztFYhvKORXvyiuhXON5itIoMdP+cHFr5TDULEJNA8YgiQgvGSCmbwBgSreBkExuN87MeU0pL8sAX7zbYs6WgPpHSbem7KSiPWcEjOdYbgZLwl+NfQlsyxek1UoBv2K63VJrXa5UzrLx7T1z96ZUkb5dT9trFaat4kNOk//T0yT/lmWeavJQo="
-
+    secure: zWc93BSL9C76B0kmxSiy7mGS3XIkXsRtA+dZHJ32wcmXTd3d/HLLo4hJqvYHTGp5PALy0UUglo4U+m819AyUsNcEVAoDNvBGMFd/wlb03/P+/akeACTbA0geFnPc/OO1gpxJk9UeaD8GC3FvNGftE4k6bB76YEjFGccKe1JJFAG4uFerzwSr9Kd3B09XgxcLR9KTP3TZFduKwTt/wgDw9Ma48Qecn1k4Ho3Gtp7qgmYozFEVcEjbJRVXRR6mtGOXqtIp3QZyNmqK3cCENEYMRxoFPpzbHaFlYPX+C3wXFOt5TgXareymWEMJM35h2bs7SEsCKvEelDZpze3gjADlifsaMMdNGJX5ZRnzxe+m9eOG2mFNEDpqtnlzA80PCC6O603V4/74QAWiQUsho11LnlQsMndKpG6K03kXXGnsasPlKYBImgXkCkV165UFSFWi91vY0+RpdD1pSAewC30J37/ADSGBN+0V/zJ4xCjjFTKfTry1DZgjcKZBIH+zIwEyX8U5RRgkMy+8mzW6yYda5OaPeVg+I1ppnq9eyty10sUoc7dNhfNjGDbxAKFBERfSubL0/pqqKKeCAvHp9AeaUBgW23Zpkr/sB1VDPgyr7QA4O7OoAubnvirryNYgrhTNQKbeFh5QeQgpV13/LNTGHTjOywyHWXorGbpROd2sJu8=
