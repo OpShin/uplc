@@ -22,7 +22,7 @@ setup(
     author=uplc.__author__,
     author_email=uplc.__author_email__,
     url=uplc.__url__,
-    py_modules=["uplc"],
+    py_modules=["frozendict==2.3.4"],
     packages=find_packages(),
     install_requires=["frozendict"],
     long_description=long_description,
