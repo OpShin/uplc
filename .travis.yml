@@ -1,0 +1,37 @@
+language: python
+
+python:
+  - "3.8"
+  - "3.9"
+  - "3.10"
+dist: bionic
+sudo: true
+
+matrix:
+  fast_finish: true
+
+install:
+  - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata; fi
+  - pip install coverage coveralls
+  - pip install black
+  - pip install -e .
+
+script:
+  - black --check
+  - coverage run --source=uplc setup.py test
+
+after_success:
+  - coverage report
+  - coveralls
+
+deploy:
+  provider: pypi
+  on:
+    branch: master
+    python: "3.10"
+  distributions: "sdist bdist_wheel"
+  skip_existing: true
+  username: "nielstron"
+  password:
+    secure: "vTQIPd5alinVvM6/XI+5hbnFXigwkWqbebubsze4Ca7lKW+Vqy8DMGWvDKKSobjtANIDSQGJhOHM3pi6BOv79wBU2SRq1lIKTXFhiH/uUiGLSlRY8PEbL1b4OeGpS8N4ijGSJ+cIRrVmI4aGSuE/9J6pwe/vIeA1p4MbCyHghCZnXH9iuOv9QlaprU0xQDa9clpdzIZiDeFEu+orHGXs2tG4z3+mxOR0glugdupKNLLxm9+SAZSXkUcpTqXGIfjfUvkx235gtfgbOcTzKWH5QK+tPmR84U8WWvEdytBkmivfFrBHmpAgVdqeUmi3EAYVrb6Jbpw8D7HxJJiJBLIFsin6HgeTF2bEQyrBUuyb74rhb+FxWE3P6vZx89M787DaABYq7jHzJNkB1eiJVzMAoRzcGsx5uI4A1XZsIFHn0f3L++ihfukixCeBX0p7DVtsfHVMu8VmJ9p3FusBILFUiWU7vIhbJnIz26z5G5mKMOBKKjXp29L1SeAztFYhvKORXvyiuhXON5itIoMdP+cHFr5TDULEJNA8YgiQgvGSCmbwBgSreBkExuN87MeU0pL8sAX7zbYs6WgPpHSbem7KSiPWcEjOdYbgZLwl+NfQlsyxek1UoBv2K63VJrXa5UzrLx7T1z96ZUkb5dT9trFaat4kNOk//T0yT/lmWeavJQo="
+
