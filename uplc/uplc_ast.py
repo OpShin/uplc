@@ -3,8 +3,77 @@ from dataclasses import dataclass
 from functools import partial
 from enum import Enum, auto
 import hashlib
+from typing import List, Optional, Any, Tuple, Dict, Union
+
+import cbor2
 
 _LOGGER = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class PlutusData:
+    pass
+
+    def to_cbor(self) -> Any:
+        """ Returns a CBOR encodable representation of this object """
+        raise NotImplementedError
+
+@dataclass(frozen=True)
+class PlutusAtomic(PlutusData):
+    value: Any
+
+    def to_cbor(self):
+        return self.value
+
+@dataclass(frozen=True)
+class PlutusInteger(PlutusAtomic):
+    value: int
+
+@dataclass(frozen=True)
+class PlutusByteString(PlutusAtomic):
+    value: bytes
+
+@dataclass(frozen=True)
+class PlutusList(PlutusData):
+    value: List[PlutusData]
+
+    def to_cbor(self):
+        return [d.to_cbor() for d in self.value]
+
+@dataclass(frozen=True)
+class PlutusMap(PlutusData):
+    value: Dict[PlutusData, PlutusData]
+
+    def to_cbor(self):
+        return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
+
+@dataclass(frozen=True)
+class PlutusConstr(PlutusData):
+    constructor: int
+    fields: List[PlutusData]
+
+    def to_cbor(self):
+        return cbor2.dumps(cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields]))
+
+def data_from_cbortag(cbor) -> PlutusData:
+    if isinstance(cbor, cbor2.CBORTag):
+        constructor = cbor.tag - 121
+        fields = list(map(data_from_cbortag, cbor.value))
+        return PlutusConstr(
+            constructor,
+            fields
+        )
+    if isinstance(cbor, int):
+        return PlutusInteger(cbor)
+    if isinstance(cbor, bytes):
+        return PlutusByteString(cbor)
+    if isinstance(cbor, list):
+        return PlutusList(list(map(data_from_cbortag, cbor)))
+    if isinstance(cbor, dict):
+        return PlutusMap({data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()})
+
+def data_from_cbor(cbor: bytes) -> PlutusData:
+    raw_datum = cbor2.loads(cbor)
+    return data_from_cbortag(raw_datum)
 
 
 class ConstantType(Enum):
@@ -13,14 +82,18 @@ class ConstantType(Enum):
     string = auto()
     unit = auto()
     bool = auto()
+    pair = auto()
+    list = auto()
+    data = auto()
 
 
 ConstantEvalMap = {
     ConstantType.integer: int,
-    ConstantType.bytestring: lambda x: bytes.fromhex(x[1:]),
-    ConstantType.string: lambda x: str(x).encode("utf8"),
+    ConstantType.bytestring: bytes,
+    ConstantType.string: str,
     ConstantType.unit: lambda _: (),
     ConstantType.bool: bool,
+    ConstantType.data: data_from_cbor
 }
 
 
@@ -108,17 +181,19 @@ BuiltInFunEvalMap = {
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse: lambda x, y, z: y if x else z,
-    BuiltInFun.ChooseUnit: lambda x, y: y,
-    BuiltInFun.Trace: lambda x, y: print(x) or y,
-    BuiltInFun.FstPair: lambda x: lambda _: lambda _: x[0],
-    BuiltInFun.SndPair: lambda x: lambda _: lambda _: x[1],
+    BuiltInFun.IfThenElse: lambda _, x, y, z: y if x else z,
+    BuiltInFun.ChooseUnit: lambda _, y: y,
+    BuiltInFun.Trace: lambda _, x, y: print(x) or y,
+    BuiltInFun.FstPair: lambda _, _2, x: x[0],
+    BuiltInFun.SndPair: lambda _, _2, x: x[1],
+    BuiltInFun.ChooseList: lambda _, _2, l, x, y: x if l == [] else y,
+    BuiltInFun.MkCons: lambda _, e, l: [e] + l,
+    BuiltInFun.HeadList: lambda _, l: l[0],
+    BuiltInFun.TailList: lambda _, l: l[1:],
+    BuiltInFun.NullList: lambda _, l: l == [],
     # TODO proper implementation
     BuiltInFun.UnIData: lambda x: int(x),
     BuiltInFun.UnConstrData: lambda x: (0, x.__dict__.keys()),
-    BuiltInFun.NullList: lambda x: lambda _: x == [],
-    BuiltInFun.HeadList: lambda x: lambda _: x[0],
-    BuiltInFun.TailList: lambda x: lambda _: x[1:],
 }
 
 
@@ -162,13 +237,19 @@ class Variable(AST):
 @dataclass
 class Constant(AST):
     type: ConstantType
-    value: str
+    value: Union[Tuple, List, bytes, int, bool, str]
+    type_params: Optional[List[ConstantType]] = None
 
     def eval(self, state):
-        return self.type.value(self.value)
+        if self.type == ConstantType.pair:
+            return (Constant(self.type_params[0], self.value[0]).eval(state), Constant(self.type_params[1], self.value[1]).eval(state))
+        if self.type == ConstantType.list:
+            return [ConstantType(self.type_params[0], v) for v in self.value]
+        return ConstantEvalMap[self.type](self.value)
 
     def dumps(self) -> str:
-        return f"(con {self.type.name} {self.value})"
+        type_params_str = "<" + ",".join(x.name for x in self.type_params) + ">" if self.type_params is not None else ""
+        return f"(con {self.type.name}{type_params_str} {self.value})"
 
 
 @dataclass
