@@ -9,13 +9,15 @@ import cbor2
 
 _LOGGER = logging.getLogger(__name__)
 
+
 @dataclass(frozen=True)
 class PlutusData:
     pass
 
     def to_cbor(self) -> Any:
-        """ Returns a CBOR encodable representation of this object """
+        """Returns a CBOR encodable representation of this object"""
         raise NotImplementedError
+
 
 @dataclass(frozen=True)
 class PlutusAtomic(PlutusData):
@@ -24,13 +26,16 @@ class PlutusAtomic(PlutusData):
     def to_cbor(self):
         return self.value
 
+
 @dataclass(frozen=True)
 class PlutusInteger(PlutusAtomic):
     value: int
 
+
 @dataclass(frozen=True)
 class PlutusByteString(PlutusAtomic):
     value: bytes
+
 
 @dataclass(frozen=True)
 class PlutusList(PlutusData):
@@ -39,6 +44,7 @@ class PlutusList(PlutusData):
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
 
+
 @dataclass(frozen=True)
 class PlutusMap(PlutusData):
     value: Dict[PlutusData, PlutusData]
@@ -46,22 +52,23 @@ class PlutusMap(PlutusData):
     def to_cbor(self):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
 
+
 @dataclass(frozen=True)
 class PlutusConstr(PlutusData):
     constructor: int
     fields: List[PlutusData]
 
     def to_cbor(self):
-        return cbor2.dumps(cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields]))
+        return cbor2.dumps(
+            cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields])
+        )
+
 
 def data_from_cbortag(cbor) -> PlutusData:
     if isinstance(cbor, cbor2.CBORTag):
         constructor = cbor.tag - 121
         fields = list(map(data_from_cbortag, cbor.value))
-        return PlutusConstr(
-            constructor,
-            fields
-        )
+        return PlutusConstr(constructor, fields)
     if isinstance(cbor, int):
         return PlutusInteger(cbor)
     if isinstance(cbor, bytes):
@@ -69,7 +76,10 @@ def data_from_cbortag(cbor) -> PlutusData:
     if isinstance(cbor, list):
         return PlutusList(list(map(data_from_cbortag, cbor)))
     if isinstance(cbor, dict):
-        return PlutusMap({data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()})
+        return PlutusMap(
+            {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
+        )
+
 
 def data_from_cbor(cbor: bytes) -> PlutusData:
     raw_datum = cbor2.loads(cbor)
@@ -95,7 +105,7 @@ ConstantEvalMap = {
     ConstantType.bool: bool,
     ConstantType.pair: lambda x: (ConstantEvalMap[x[0]], ConstantEvalMap[x[1]]),
     ConstantType.list: lambda xs: [ConstantEvalMap[x] for x in xs],
-    ConstantType.data: data_from_cbor
+    ConstantType.data: data_from_cbor,
 }
 
 ConstantPrintMap = {
@@ -106,7 +116,7 @@ ConstantPrintMap = {
     ConstantType.bool: bool,
     ConstantType.pair: lambda x: (ConstantPrintMap[x[0]], ConstantPrintMap[x[1]]),
     ConstantType.list: lambda xs: [ConstantPrintMap[x] for x in xs],
-    ConstantType.data: data_from_cbor
+    ConstantType.data: data_from_cbor,
 }
 
 
@@ -163,6 +173,7 @@ class BuiltInFun(Enum):
     MkPairData = auto()
     MkNilData = auto()
     MkNilPairData = auto()
+
 
 def _ChooseList(_, d, v, w, x, y, z):
     if isinstance(d, PlutusConstr):
@@ -235,7 +246,6 @@ BuiltInFunEvalMap = {
 }
 
 
-
 class AST:
     def eval(self, state: dict):
         raise NotImplementedError()
@@ -281,13 +291,20 @@ class Constant(AST):
 
     def eval(self, state):
         if self.type == ConstantType.pair:
-            return (Constant(self.type_params[0], self.value[0]).eval(state), Constant(self.type_params[1], self.value[1]).eval(state))
+            return (
+                Constant(self.type_params[0], self.value[0]).eval(state),
+                Constant(self.type_params[1], self.value[1]).eval(state),
+            )
         if self.type == ConstantType.list:
             return [ConstantType(self.type_params[0], v) for v in self.value]
         return ConstantEvalMap[self.type](self.value)
 
     def dumps(self) -> str:
-        type_params_str = "<" + ",".join(x.name for x in self.type_params) + ">" if self.type_params is not None else ""
+        type_params_str = (
+            "<" + ",".join(x.name for x in self.type_params) + ">"
+            if self.type_params is not None
+            else ""
+        )
         return f"(con {self.type.name}{type_params_str} {self.value})"
 
 
