@@ -145,10 +145,23 @@ class BuiltInFun(Enum):
     UnMapData = auto()
     UnListData = auto()
     UnIData = auto()
+    UnBData = auto()
     EqualsData = auto()
     MkPairData = auto()
     MkNilData = auto()
     MkNilPairData = auto()
+
+def _ChooseList(_, d, v, w, x, y, z):
+    if isinstance(d, PlutusConstr):
+        return v
+    if isinstance(d, PlutusMap):
+        return w
+    if isinstance(d, PlutusList):
+        return x
+    if isinstance(d, PlutusInteger):
+        return y
+    if isinstance(d, PlutusByteString):
+        return z
 
 
 BuiltInFunEvalMap = {
@@ -191,10 +204,23 @@ BuiltInFunEvalMap = {
     BuiltInFun.HeadList: lambda _, l: l[0],
     BuiltInFun.TailList: lambda _, l: l[1:],
     BuiltInFun.NullList: lambda _, l: l == [],
-    # TODO proper implementation
-    BuiltInFun.UnIData: lambda x: int(x),
-    BuiltInFun.UnConstrData: lambda x: (0, x.__dict__.keys()),
+    BuiltInFun.ChooseData: _ChooseList,
+    BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
+    BuiltInFun.MapData: lambda x: PlutusMap({k: v for k, v in x}),
+    BuiltInFun.ListData: lambda x: PlutusList(x),
+    BuiltInFun.IData: lambda x: PlutusInteger(x),
+    BuiltInFun.BData: lambda x: PlutusByteString(x),
+    BuiltInFun.UnConstrData: lambda x: (x.constructor, x.fields),
+    BuiltInFun.UnMapData: lambda x: [(k, v) for k, v in x.value.items()],
+    BuiltInFun.UnListData: lambda x: x.value,
+    BuiltInFun.UnIData: lambda x: x.value,
+    BuiltInFun.UnBData: lambda x: x.value,
+    BuiltInFun.EqualsData: lambda x, y: x == y,
+    BuiltInFun.MkPairData: lambda x, y: (x, y),
+    BuiltInFun.MkNilData: lambda _: [],
+    BuiltInFun.MkNilPairData: lambda _: [],
 }
+
 
 
 class AST:
@@ -312,7 +338,7 @@ class BuiltIn(AST):
 @dataclass
 class Error(AST):
     def eval(self, state):
-        raise RuntimeError(f"Execution called {self.dumps()}")
+        raise RuntimeError(f"Execution called Error")
 
     def dumps(self) -> str:
         return f"(error)"
