@@ -93,6 +93,19 @@ ConstantEvalMap = {
     ConstantType.string: str,
     ConstantType.unit: lambda _: (),
     ConstantType.bool: bool,
+    ConstantType.pair: lambda x: (ConstantEvalMap[x[0]], ConstantEvalMap[x[1]]),
+    ConstantType.list: lambda xs: [ConstantEvalMap[x] for x in xs],
+    ConstantType.data: data_from_cbor
+}
+
+ConstantPrintMap = {
+    ConstantType.integer: str,
+    ConstantType.bytestring: lambda b: f"#{b.hex()}",
+    ConstantType.string: str,
+    ConstantType.unit: str,
+    ConstantType.bool: bool,
+    ConstantType.pair: lambda x: (ConstantPrintMap[x[0]], ConstantPrintMap[x[1]]),
+    ConstantType.list: lambda xs: [ConstantPrintMap[x] for x in xs],
     ConstantType.data: data_from_cbor
 }
 
