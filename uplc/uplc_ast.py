@@ -218,7 +218,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse: lambda: lambda _: lambda x, y, z: y if x else z,
+    BuiltInFun.IfThenElse: lambda: lambda x, y, z: y if x else z,
     BuiltInFun.ChooseUnit: lambda: lambda y: y,
     BuiltInFun.Trace: lambda: lambda x, y: print(x) or y,
     BuiltInFun.FstPair: lambda: lambda _2, x: x[0],
@@ -343,7 +343,8 @@ class Force(AST):
 
     def eval(self, state):
         try:
-            return partial(self.term.eval(state)())
+            res = self.term.eval(state)
+            return res()
         except TypeError as e:
             _LOGGER.error(
                 f"Trying to force an uncallable object, probably not delayed? in {self.dumps()}"
@@ -385,8 +386,8 @@ class Apply(AST):
         try:
             res = partial(f, x)
             # If this function has as many arguments bound as it takes, reduce i.e. call
-            if len(f.args) == f.func.__code__.co_argcount:
-                res = f()
+            if len(res.args) == res.func.__code__.co_argcount:
+                res = res()
             return res
         except AttributeError as e:
             _LOGGER.warning(f"Tried to apply value to non-function in {self.dumps()}")
