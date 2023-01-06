@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import warnings
+
+import logging
 
 try:
     from .uplc_ast import *
 except ImportError as e:
-    warnings.warn(ImportWarning(e))
+    logging.error(
+        "Error, trying to import dependencies. Should only occur upon package installation",
+        exc_info=e,
+    )
 
-VERSION = (0, 1, 3)
+VERSION = (0, 1, 4)
 
 __version__ = ".".join([str(i) for i in VERSION])
 __author__ = "nielstron"
