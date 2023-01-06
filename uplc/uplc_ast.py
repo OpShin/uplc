@@ -111,7 +111,7 @@ ConstantEvalMap = {
 ConstantPrintMap = {
     ConstantType.integer: str,
     ConstantType.bytestring: lambda b: f"#{b.hex()}",
-    ConstantType.string: str,
+    ConstantType.string: lambda x: f'"{x}"',
     ConstantType.unit: str,
     ConstantType.bool: bool,
     ConstantType.pair: lambda x: (ConstantPrintMap[x[0]], ConstantPrintMap[x[1]]),
@@ -218,16 +218,16 @@ BuiltInFunEvalMap = {
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse: lambda _, x, y, z: y if x else z,
-    BuiltInFun.ChooseUnit: lambda _, y: y,
-    BuiltInFun.Trace: lambda _, x, y: print(x) or y,
-    BuiltInFun.FstPair: lambda _, _2, x: x[0],
-    BuiltInFun.SndPair: lambda _, _2, x: x[1],
-    BuiltInFun.ChooseList: lambda _, _2, l, x, y: x if l == [] else y,
-    BuiltInFun.MkCons: lambda _, e, l: [e] + l,
-    BuiltInFun.HeadList: lambda _, l: l[0],
-    BuiltInFun.TailList: lambda _, l: l[1:],
-    BuiltInFun.NullList: lambda _, l: l == [],
+    BuiltInFun.IfThenElse: lambda: lambda _: lambda x, y, z: y if x else z,
+    BuiltInFun.ChooseUnit: lambda: lambda y: y,
+    BuiltInFun.Trace: lambda: lambda x, y: print(x) or y,
+    BuiltInFun.FstPair: lambda: lambda _2, x: x[0],
+    BuiltInFun.SndPair: lambda: lambda _2, x: x[1],
+    BuiltInFun.ChooseList: lambda: lambda _: lambda l, x, y: x if l == [] else y,
+    BuiltInFun.MkCons: lambda: lambda e, l: [e] + l,
+    BuiltInFun.HeadList: lambda: lambda l: l[0],
+    BuiltInFun.TailList: lambda: lambda l: l[1:],
+    BuiltInFun.NullList: lambda: lambda l: l == [],
     BuiltInFun.ChooseData: _ChooseList,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
     BuiltInFun.MapData: lambda x: PlutusMap({k: v for k, v in x}),
@@ -305,7 +305,7 @@ class Constant(AST):
             if self.type_params is not None
             else ""
         )
-        return f"(con {self.type.name}{type_params_str} {self.value})"
+        return f"(con {self.type.name}{type_params_str} {ConstantPrintMap[self.type](self.value)})"
 
 
 @dataclass
@@ -343,7 +343,7 @@ class Force(AST):
 
     def eval(self, state):
         try:
-            return self.term.eval(state)()
+            return partial(self.term.eval(state)())
         except TypeError as e:
             _LOGGER.error(
                 f"Trying to force an uncallable object, probably not delayed? in {self.dumps()}"
