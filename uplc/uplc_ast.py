@@ -356,14 +356,12 @@ class Force(AST):
     term: AST
 
     def eval(self, state):
-        try:
-            res = self.term.eval(state)
-            return res()
-        except TypeError as e:
-            _LOGGER.error(
+        res = self.term.eval(state)
+        if not callable(res):
+            raise TypeError(
                 f"Trying to force an uncallable object, probably not delayed? in {self.dumps()}"
             )
-            raise e
+        return res()
 
     def dumps(self) -> str:
         return f"(force {self.term.dumps()})"
