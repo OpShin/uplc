@@ -6,7 +6,7 @@ import frozendict
 import logging
 from dataclasses import dataclass
 
-from uplc_ast import *
+from .uplc_ast import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ class Machine:
                 self.return_compute(step.context, step.value, stack)
             elif isinstance(step, Done):
                 stack.append(step.term)
+                break
 
         return stack.pop()
 
@@ -50,7 +51,7 @@ class Machine:
                 ),
             )
         if isinstance(context, FrameForce):
-            stack.append(self.force_evaluate(context, value))
+            stack.append(self.force_evaluate(context.ctx, value))
         if isinstance(context, NoFrame):
             term = value
             stack.append(Done(term))
@@ -62,12 +63,12 @@ class Machine:
                 function.state | {function.var_name: argument},
                 function.term,
             )
-        if isinstance(function, BuiltIn):
+        if isinstance(function, ForcedBuiltIn):
             eval_fun = BuiltInFunEvalMap[function.builtin]
             needs_forces = BuiltInFunForceMap[function.builtin]
             if function.applied_forces == needs_forces:
-                if eval_fun.__code__.co_argcount == len(function.bound_arguments):
-                    res = eval_fun(*function.bound_arguments)
+                if eval_fun.__code__.co_argcount == len(function.bound_arguments) + 1:
+                    res = eval_fun(*function.bound_arguments, argument)
                 else:
                     res = ForcedBuiltIn(
                         function.builtin,
@@ -75,7 +76,7 @@ class Machine:
                         function.bound_arguments + [argument],
                     )
                 return Return(context, res)
-            raise RuntimeError("Tried to apply value to unforced function")
+        raise RuntimeError("Tried to apply arguments to unapplyiable object")
 
     def force_evaluate(self, context, value):
         if isinstance(value, BoundStateDelay):

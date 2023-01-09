@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -467,18 +468,16 @@ BuiltInFunEvalMap = {
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse: lambda: _IfThenElse,
-    BuiltInFun.ChooseUnit: lambda: lambda x, y: y,
-    BuiltInFun.Trace: lambda: lambda x, y: print(x.value) or y,
-    BuiltInFun.FstPair: lambda: lambda _2, x: x[0],
-    BuiltInFun.SndPair: lambda: lambda _2, x: x[1],
-    BuiltInFun.ChooseList: lambda: lambda _: lambda l, x, y: x
-    if l == BuiltinList([])
-    else y,
-    BuiltInFun.MkCons: lambda: lambda e, l: BuiltinList([e]) + l,
-    BuiltInFun.HeadList: lambda: lambda l: l[0],
-    BuiltInFun.TailList: lambda: lambda l: l[1:],
-    BuiltInFun.NullList: lambda: lambda l: l == BuiltinList([]),
+    BuiltInFun.IfThenElse: _IfThenElse,
+    BuiltInFun.ChooseUnit: lambda x, y: y,
+    BuiltInFun.Trace: lambda x, y: print(x.value) or y,
+    BuiltInFun.FstPair: lambda x: x[0],
+    BuiltInFun.SndPair: lambda x: x[1],
+    BuiltInFun.ChooseList: lambda l, x, y: x if l == BuiltinList([]) else y,
+    BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
+    BuiltInFun.HeadList: lambda l: l[0],
+    BuiltInFun.TailList: lambda l: l[1:],
+    BuiltInFun.NullList: lambda l: l == BuiltinList([]),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
     BuiltInFun.MapData: lambda x: PlutusMap({k: v for k, v in x}),
@@ -560,9 +559,12 @@ class BoundStateLambda(AST):
 
 
 @dataclass
-class Lambda(AST):
-    def __init__(self, var_name, term):
-        super().__init__(var_name, term, frozendict.frozendict())
+class Lambda(BoundStateLambda):
+    var_name: str
+    term: AST
+    state: frozendict.frozendict = dataclasses.field(
+        default_factory=frozendict.frozendict
+    )
 
 
 @dataclass
@@ -578,9 +580,11 @@ class BoundStateDelay(AST):
 
 
 @dataclass
-class Delay(AST):
-    def __init__(self, term):
-        super().__init__(term, frozendict.frozendict())
+class Delay(BoundStateDelay):
+    term: AST
+    state: frozendict.frozendict = dataclasses.field(
+        default_factory=frozendict.frozendict
+    )
 
 
 @dataclass
@@ -620,15 +624,17 @@ class ForcedBuiltIn(AST):
             return Apply(
                 ForcedBuiltIn(
                     self.builtin, self.applied_forces, self.bound_arguments[:-1]
-                )
+                ),
+                self.bound_arguments[-1],
             ).dumps()
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
 
 @dataclass
 class BuiltIn(ForcedBuiltIn):
-    def __init__(self, builtin):
-        super().__init__(builtin, 0, [])
+    builtin: BuiltInFun
+    applied_forces: int = dataclasses.field(default=0)
+    bound_arguments: list = dataclasses.field(default_factory=lambda: [])
 
 
 @dataclass
