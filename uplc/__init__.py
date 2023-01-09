@@ -6,6 +6,7 @@ import logging
 
 try:
     from .uplc_ast import *
+    from .machine import *
 except ImportError as e:
     logging.error(
         "Error, trying to import dependencies. Should only occur upon package installation",
