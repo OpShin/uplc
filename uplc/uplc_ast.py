@@ -1,20 +1,275 @@
 import logging
+from collections import defaultdict
 from dataclasses import dataclass
-from functools import partial
 from enum import Enum, auto
 import hashlib
-from typing import List, Optional, Any, Tuple, Dict, Union
+from typing import List, Any, Dict
 
 import cbor2
+import frozendict
+
+
+class Context:
+    pass
+
+
+@dataclass
+class FrameApplyFun(Context):
+    val: Any
+    ctx: Context
+
+
+@dataclass
+class FrameApplyArg(Context):
+    env: frozendict.frozendict
+    term: "AST"
+    ctx: Context
+
+
+@dataclass
+class FrameForce(Context):
+    ctx: Context
+
+
+@dataclass
+class NoFrame(Context):
+    pass
+
+
+class Step:
+    pass
+
+
+@dataclass
+class Return:
+    context: Context
+    value: Any
+
+
+@dataclass
+class Compute:
+    ctx: Context
+    env: frozendict.frozendict
+    term: "AST"
+
+
+@dataclass
+class Done:
+    term: "AST"
+
 
 _LOGGER = logging.getLogger(__name__)
 
 
+class AST:
+    def eval(self, context: Context, state: frozendict.frozendict):
+        raise NotImplementedError()
+
+    def dumps(self) -> str:
+        raise NotImplementedError()
+
+
 @dataclass(frozen=True)
-class PlutusData:
+class Constant(AST):
+    def eval(self, context, state):
+        return Return(context, self)
+
+    def dumps(self) -> str:
+        return f"(con {self.typestring()} {self.valuestring()})"
+
+    def valuestring(self):
+        raise NotImplementedError()
+
+    def typestring(self):
+        raise NotImplementedError()
+
+
+@dataclass(frozen=True)
+class BuiltinUnit(Constant):
+    def typestring(self):
+        return "unit"
+
+    def valuestring(self):
+        return "()"
+
+
+@dataclass(frozen=True)
+class BuiltinBool(Constant):
+    value: bool
+
+    def typestring(self):
+        return "bool"
+
+    def valuestring(self):
+        return str(self.value)
+
+
+@dataclass(frozen=True)
+class BuiltinInteger(Constant):
+    value: int
+
+    def typestring(self):
+        return "integer"
+
+    def valuestring(self):
+        return str(self.value)
+
+    def __add__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinInteger(self.value + other.value)
+
+    def __sub__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinInteger(self.value - other.value)
+
+    def __mul__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinInteger(self.value * other.value)
+
+    def __floordiv__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinInteger(self.value // other.value)
+
+    def __mod__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinInteger(self.value % other.value)
+
+    def __eq__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinBool(self.value == other.value)
+
+    def __le__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinBool(self.value <= other.value)
+
+    def __lt__(self, other):
+        assert isinstance(other, BuiltinInteger)
+        return BuiltinBool(self.value < other.value)
+
+
+@dataclass(frozen=True)
+class BuiltinByteString(Constant):
+    value: bytes
+
+    def typestring(self):
+        return "bytestring"
+
+    def valuestring(self):
+        return f"#{self.value.hex()}"
+
+    def __add__(self, other):
+        assert isinstance(other, BuiltinByteString)
+        return BuiltinByteString(self.value + other.value)
+
+    def __len__(self):
+        return BuiltinInteger(len(self.value))
+
+    def __getitem__(self, item):
+        # To implement slicing of bytestrings
+        if isinstance(item, slice):
+            assert isinstance(slice.start, BuiltinInteger)
+            assert isinstance(slice.stop, BuiltinInteger)
+            assert slice.step is None
+            return BuiltinByteString(self.value[slice.start.value : slice.stop.value])
+        elif isinstance(item, BuiltinInteger):
+            return BuiltinInteger(self.value[item.value])
+        raise ValueError()
+
+    def __eq__(self, other):
+        assert isinstance(other, BuiltinByteString)
+        return BuiltinBool(self.value == other.value)
+
+    def __le__(self, other):
+        assert isinstance(other, BuiltinByteString)
+        return BuiltinBool(self.value <= other.value)
+
+    def __lt__(self, other):
+        assert isinstance(other, BuiltinByteString)
+        return BuiltinBool(self.value < other.value)
+
+    def decode(self, *args):
+        return BuiltinString(self.value.decode("utf8"))
+
+
+@dataclass(frozen=True)
+class BuiltinString(Constant):
+    value: str
+
+    def typestring(self):
+        return "string"
+
+    def valuestring(self):
+        return f'"{self.value}"'
+
+    def __add__(self, other):
+        assert isinstance(other, BuiltinString)
+        return BuiltinString(self.value + other.value)
+
+    def __eq__(self, other):
+        assert isinstance(other, BuiltinString)
+        return BuiltinBool(self.value == other.value)
+
+    def encode(self, *args):
+        return BuiltinByteString(self.value.encode())
+
+
+@dataclass(frozen=True)
+class BuiltinPair(Constant):
+    l_value: Constant
+    r_value: Constant
+
+    def typestring(self):
+        return f"pair<{self.l_value.typestring()}, {self.r_value.typestring()}>"
+
+    def valuestring(self):
+        return f"[{self.l_value.valuestring()}, {self.r_value.valuestring()}]"
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            if item == 0:
+                return self.l_value
+            elif item == 1:
+                return self.r_value
+        raise ValueError()
+
+
+@dataclass(frozen=True)
+# TODO how should we handle empty lists?
+class BuiltinList(Constant):
+    values: List[Constant]
+
+    def typestring(self):
+        return f"list<{self.values[0].typestring()}>"
+
+    def valuestring(self):
+        return f"[{', '.join(v.valuestring() for v in self.values)}]"
+
+    def __add__(self, other):
+        assert isinstance(other, BuiltinList)
+        return BuiltinList(self.values + other.values)
+
+    def __eq__(self, other):
+        assert isinstance(other, BuiltinList)
+        return self.values == other.values
+
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            return self.values[item]
+        elif isinstance(item, slice):
+            return BuiltinList(self.values[item])
+
+
+@dataclass(frozen=True)
+class PlutusData(Constant):
     pass
 
-    def to_cbor(self) -> Any:
+    def typestring(self):
+        return "data"
+
+    def valuestring(self):
+        return f"#{cbor2.dumps(self.to_cbor()).hex()}"
+
+    def to_cbor(self) -> bytes:
         """Returns a CBOR encodable representation of this object"""
         raise NotImplementedError
 
@@ -27,17 +282,17 @@ class PlutusAtomic(PlutusData):
         return self.value
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class PlutusInteger(PlutusAtomic):
     value: int
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
     value: bytes
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class PlutusList(PlutusData):
     value: List[PlutusData]
 
@@ -45,7 +300,7 @@ class PlutusList(PlutusData):
         return [d.to_cbor() for d in self.value]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
     value: Dict[PlutusData, PlutusData]
 
@@ -53,15 +308,13 @@ class PlutusMap(PlutusData):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=True)
 class PlutusConstr(PlutusData):
     constructor: int
     fields: List[PlutusData]
 
     def to_cbor(self):
-        return cbor2.dumps(
-            cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields])
-        )
+        return cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields])
 
 
 def data_from_cbortag(cbor) -> PlutusData:
@@ -109,29 +362,6 @@ class ConstantType(Enum):
     pair = auto()
     list = auto()
     data = auto()
-
-
-ConstantEvalMap = {
-    ConstantType.integer: int,
-    ConstantType.bytestring: bytes,
-    ConstantType.string: str,
-    ConstantType.unit: lambda _: (),
-    ConstantType.bool: bool,
-    ConstantType.pair: lambda x: (ConstantEvalMap[x[0]], ConstantEvalMap[x[1]]),
-    ConstantType.list: lambda xs: [ConstantEvalMap[x] for x in xs],
-    ConstantType.data: data_from_cbor,
-}
-
-ConstantPrintMap = {
-    ConstantType.integer: str,
-    ConstantType.bytestring: lambda b: f"#{b.hex()}",
-    ConstantType.string: lambda x: f'"{x}"',
-    ConstantType.unit: str,
-    ConstantType.bool: bool,
-    ConstantType.pair: lambda x: (ConstantPrintMap[x[0]], ConstantPrintMap[x[1]]),
-    ConstantType.list: lambda xs: [ConstantPrintMap[x] for x in xs],
-    ConstantType.data: data_from_cbor,
-}
 
 
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
@@ -189,7 +419,12 @@ class BuiltInFun(Enum):
     MkNilPairData = auto()
 
 
-def _ChooseList(_, d, v, w, x, y, z):
+def _IfThenElse(i, t, e):
+    assert isinstance(i, BuiltinBool)
+    return t if i.value else e
+
+
+def _ChooseData(_, d, v, w, x, y, z):
     if isinstance(d, PlutusConstr):
         return v
     if isinstance(d, PlutusMap):
@@ -216,56 +451,67 @@ BuiltInFunEvalMap = {
     BuiltInFun.LessThanInteger: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
     BuiltInFun.AppendByteString: lambda x, y: x + y,
-    BuiltInFun.ConsByteString: lambda x, y: bytes([x]) + y,
+    BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x])) + y,
     BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + 1],
     BuiltInFun.LengthOfByteString: lambda x: len(x),
     BuiltInFun.IndexByteString: lambda x, y: x[y],
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
     BuiltInFun.LessThanByteString: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
-    BuiltInFun.Sha2_256: lambda x: hashlib.sha256(x).digest(),
-    BuiltInFun.Sha3_256: lambda x: hashlib.sha3_256(x).digest(),
-    BuiltInFun.Blake2b_256: lambda x: hashlib.blake2b(x).digest(),
+    BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x).digest()),
+    BuiltInFun.Sha3_256: lambda x: BuiltinByteString(hashlib.sha3_256(x).digest()),
+    BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(hashlib.blake2b(x).digest()),
     # TODO how to emulate this?
-    BuiltInFun.VerifySignature: lambda pk, m, s: True,
+    BuiltInFun.VerifySignature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.AppendString: lambda x, y: x + y,
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
     BuiltInFun.DecodeUtf8: lambda x: x.decode("utf8"),
-    BuiltInFun.IfThenElse: lambda: lambda x, y, z: y if x else z,
-    BuiltInFun.ChooseUnit: lambda: lambda y: y,
-    BuiltInFun.Trace: lambda: lambda x, y: print(x) or y,
+    BuiltInFun.IfThenElse: lambda: _IfThenElse,
+    BuiltInFun.ChooseUnit: lambda: lambda x, y: y,
+    BuiltInFun.Trace: lambda: lambda x, y: print(x.value) or y,
     BuiltInFun.FstPair: lambda: lambda _2, x: x[0],
     BuiltInFun.SndPair: lambda: lambda _2, x: x[1],
-    BuiltInFun.ChooseList: lambda: lambda _: lambda l, x, y: x if l == [] else y,
-    BuiltInFun.MkCons: lambda: lambda e, l: [e] + l,
+    BuiltInFun.ChooseList: lambda: lambda _: lambda l, x, y: x
+    if l == BuiltinList([])
+    else y,
+    BuiltInFun.MkCons: lambda: lambda e, l: BuiltinList([e]) + l,
     BuiltInFun.HeadList: lambda: lambda l: l[0],
     BuiltInFun.TailList: lambda: lambda l: l[1:],
-    BuiltInFun.NullList: lambda: lambda l: l == [],
-    BuiltInFun.ChooseData: _ChooseList,
+    BuiltInFun.NullList: lambda: lambda l: l == BuiltinList([]),
+    BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
     BuiltInFun.MapData: lambda x: PlutusMap({k: v for k, v in x}),
     BuiltInFun.ListData: lambda x: PlutusList(x),
-    BuiltInFun.IData: lambda x: PlutusInteger(x),
-    BuiltInFun.BData: lambda x: PlutusByteString(x),
-    BuiltInFun.UnConstrData: lambda x: (x.constructor, x.fields),
+    BuiltInFun.IData: lambda x: PlutusInteger(x.value),
+    BuiltInFun.BData: lambda x: PlutusByteString(x.value),
+    BuiltInFun.UnConstrData: lambda x: BuiltinPair(x.constructor, x.fields),
     BuiltInFun.UnMapData: lambda x: [(k, v) for k, v in x.value.items()],
     BuiltInFun.UnListData: lambda x: x.value,
-    BuiltInFun.UnIData: lambda x: x.value,
-    BuiltInFun.UnBData: lambda x: x.value,
+    BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
+    BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
     BuiltInFun.EqualsData: lambda x, y: x == y,
-    BuiltInFun.MkPairData: lambda x, y: (x, y),
-    BuiltInFun.MkNilData: lambda _: [],
-    BuiltInFun.MkNilPairData: lambda _: [],
+    BuiltInFun.MkPairData: lambda x, y: BuiltinPair(x, y),
+    BuiltInFun.MkNilData: lambda _: BuiltinList([]),
+    BuiltInFun.MkNilPairData: lambda _: BuiltinList([]),
 }
 
-
-class AST:
-    def eval(self, state: dict):
-        raise NotImplementedError()
-
-    def dumps(self) -> str:
-        raise NotImplementedError()
+BuiltInFunForceMap = defaultdict(int)
+BuiltInFunForceMap.update(
+    {
+        BuiltInFun.IfThenElse: 1,
+        BuiltInFun.ChooseUnit: 1,
+        BuiltInFun.Trace: 1,
+        BuiltInFun.FstPair: 2,
+        BuiltInFun.SndPair: 2,
+        BuiltInFun.ChooseList: 2,
+        BuiltInFun.MkCons: 1,
+        BuiltInFun.HeadList: 1,
+        BuiltInFun.TailList: 1,
+        BuiltInFun.NullList: 1,
+        BuiltInFun.ChooseData: 1,
+    }
+)
 
 
 @dataclass
@@ -273,8 +519,8 @@ class Program(AST):
     version: str
     term: AST
 
-    def eval(self, state):
-        return self.term.eval(state)
+    def eval(self, context, state):
+        return self.term.eval(context, state)
 
     def dumps(self) -> str:
         return f"(program {self.version} {self.term.dumps()})"
@@ -284,9 +530,9 @@ class Program(AST):
 class Variable(AST):
     name: str
 
-    def eval(self, state):
+    def eval(self, context, state):
         try:
-            return state[self.name]
+            return Return(context, state[self.name])
         except KeyError as e:
             _LOGGER.error(
                 f"Access to uninitialized variable {self.name} in {self.dumps()}"
@@ -298,89 +544,96 @@ class Variable(AST):
 
 
 @dataclass
-class Constant(AST):
-    type: ConstantType
-    value: Union[Tuple, List, bytes, int, bool, str]
-    type_params: Optional[List[ConstantType]] = None
-
-    def eval(self, state):
-        if self.type == ConstantType.pair:
-            return (
-                Constant(self.type_params[0], self.value[0]).eval(state),
-                Constant(self.type_params[1], self.value[1]).eval(state),
-            )
-        if self.type == ConstantType.list:
-            return [ConstantType(self.type_params[0], v) for v in self.value]
-        return ConstantEvalMap[self.type](self.value)
-
-    def dumps(self) -> str:
-        type_params_str = (
-            "<" + ",".join(x.name for x in self.type_params) + ">"
-            if self.type_params is not None
-            else ""
-        )
-        return f"(con {self.type.name}{type_params_str} {ConstantPrintMap[self.type](self.value)})"
-
-
-@dataclass
-class Lambda(AST):
+class BoundStateLambda(AST):
     var_name: str
     term: AST
+    state: frozendict.frozendict
 
-    def eval(self, state):
-        def f(x):
-            return self.term.eval(state | {self.var_name: x})
-
-        return partial(f)
+    def eval(self, context, state):
+        return Return(
+            context,
+            BoundStateLambda(self.var_name, self.term, self.state | state),
+        )
 
     def dumps(self) -> str:
         return f"(lam {self.var_name} {self.term.dumps()})"
 
 
 @dataclass
-class Delay(AST):
+class Lambda(AST):
+    def __init__(self, var_name, term):
+        super().__init__(var_name, term, frozendict.frozendict())
+
+
+@dataclass
+class BoundStateDelay(AST):
     term: AST
+    state: frozendict.frozendict
 
-    def eval(self, state):
-        def f():
-            return self.term.eval(state)
-
-        return f
+    def eval(self, context, state):
+        return Return(context, BoundStateDelay(self.term, self.state | state))
 
     def dumps(self) -> str:
         return f"(delay {self.term.dumps()})"
 
 
 @dataclass
+class Delay(AST):
+    def __init__(self, term):
+        super().__init__(term, frozendict.frozendict())
+
+
+@dataclass
 class Force(AST):
     term: AST
 
-    def eval(self, state):
-        res = self.term.eval(state)
-        if not callable(res):
-            raise TypeError(
-                f"Trying to force an uncallable object, probably not delayed? in {self.dumps()}"
-            )
-        return res()
+    def eval(self, context, state):
+        return Compute(
+            FrameForce(
+                context,
+            ),
+            state,
+            self.term,
+        )
 
     def dumps(self) -> str:
         return f"(force {self.term.dumps()})"
 
 
 @dataclass
-class BuiltIn(AST):
+class ForcedBuiltIn(AST):
     builtin: BuiltInFun
+    applied_forces: int
+    bound_arguments: List[AST]
 
-    def eval(self, state):
-        return partial(BuiltInFunEvalMap[self.builtin])
+    def eval(self, context, state):
+        return Return(context, self)
 
     def dumps(self) -> str:
+        if self.applied_forces > 0:
+            return Force(
+                ForcedBuiltIn(
+                    self.builtin, self.applied_forces - 1, self.bound_arguments
+                )
+            ).dumps()
+        if len(self.bound_arguments):
+            return Apply(
+                ForcedBuiltIn(
+                    self.builtin, self.applied_forces, self.bound_arguments[:-1]
+                )
+            ).dumps()
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
 
 @dataclass
+class BuiltIn(ForcedBuiltIn):
+    def __init__(self, builtin):
+        super().__init__(builtin, 0, [])
+
+
+@dataclass
 class Error(AST):
-    def eval(self, state):
+    def eval(self, context, state):
         raise RuntimeError(f"Execution called Error")
 
     def dumps(self) -> str:
@@ -392,18 +645,16 @@ class Apply(AST):
     f: AST
     x: AST
 
-    def eval(self, state):
-        f = self.f.eval(state)
-        x = self.x.eval(state)
-        try:
-            res = partial(f, x)
-            # If this function has as many arguments bound as it takes, reduce i.e. call
-            if len(res.args) == res.func.__code__.co_argcount:
-                res = res()
-            return res
-        except AttributeError as e:
-            _LOGGER.warning(f"Tried to apply value to non-function in {self.dumps()}")
-            raise e
+    def eval(self, context, state):
+        return Compute(
+            FrameApplyArg(
+                state,
+                self.x,
+                context,
+            ),
+            state,
+            self.f,
+        )
 
     def dumps(self) -> str:
         return f"[{self.f.dumps()} {self.x.dumps()}]"
