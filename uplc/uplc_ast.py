@@ -480,13 +480,17 @@ BuiltInFunEvalMap = {
     BuiltInFun.NullList: lambda l: l == BuiltinList([]),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
-    BuiltInFun.MapData: lambda x: PlutusMap({k: v for k, v in x}),
-    BuiltInFun.ListData: lambda x: PlutusList(x),
+    BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
+    BuiltInFun.ListData: lambda x: PlutusList(x.values),
     BuiltInFun.IData: lambda x: PlutusInteger(x.value),
     BuiltInFun.BData: lambda x: PlutusByteString(x.value),
-    BuiltInFun.UnConstrData: lambda x: BuiltinPair(x.constructor, x.fields),
-    BuiltInFun.UnMapData: lambda x: [(k, v) for k, v in x.value.items()],
-    BuiltInFun.UnListData: lambda x: x.value,
+    BuiltInFun.UnConstrData: lambda x: BuiltinPair(
+        BuiltinInteger(x.constructor), BuiltinList(x.fields)
+    ),
+    BuiltInFun.UnMapData: lambda x: BuiltinList(
+        [BuiltinPair(k, v) for k, v in x.value.items()]
+    ),
+    BuiltInFun.UnListData: lambda x: BuiltinList(x.value),
     BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
     BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
     BuiltInFun.EqualsData: lambda x, y: x == y,
