@@ -4,6 +4,7 @@ Untyped Plutus Language Core
  [![PyPI version](https://badge.fury.io/py/uplc.svg)](https://pypi.org/project/uplc/)
  ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/uplc.svg)
  [![PyPI - Status](https://img.shields.io/pypi/status/uplc.svg)](https://pypi.org/project/uplc/)
+[![Coverage Status](https://coveralls.io/repos/github/ImperatorLang/uplc/badge.svg?branch=dev)](https://coveralls.io/github/ImperatorLang/uplc?branch=dev)
 
 This is a basic library to support creating and manipulating programs written in [UPLC](https://blog.hachi.one/post/an-introduction-to-plutus-core/).
 It is a side product of the development of a pythonic smart contract language for the Cardano blockchain
