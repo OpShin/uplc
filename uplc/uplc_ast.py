@@ -559,7 +559,10 @@ class BoundStateLambda(AST):
         )
 
     def dumps(self) -> str:
-        return f"(lam {self.var_name} {self.term.dumps()})"
+        s = f"(lam {self.var_name} {self.term.dumps()})"
+        for k, v in reversed(self.state.items()):
+            s = f"[(lam {k} {s}) {v}]"
+        return s
 
 
 @dataclass
