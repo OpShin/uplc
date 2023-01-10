@@ -29,32 +29,30 @@ class Machine:
             if isinstance(step, Compute):
                 stack.append(step.term.eval(step.ctx, step.env))
             elif isinstance(step, Return):
-                self.return_compute(step.context, step.value, stack)
+                stack.append(self.return_compute(step.context, step.value))
             elif isinstance(step, Done):
                 stack.append(step.term)
                 break
 
         return stack.pop()
 
-    def return_compute(self, context, value, stack):
+    def return_compute(self, context, value):
         if isinstance(context, FrameApplyFun):
-            stack.append(self.apply_evaluate(context.ctx, context.val, value))
+            return self.apply_evaluate(context.ctx, context.val, value)
         if isinstance(context, FrameApplyArg):
-            stack.append(
-                Compute(
-                    FrameApplyFun(
-                        value,
-                        context.ctx,
-                    ),
-                    context.env,
-                    context.term,
+            return Compute(
+                FrameApplyFun(
+                    value,
+                    context.ctx,
                 ),
+                context.env,
+                context.term,
             )
         if isinstance(context, FrameForce):
-            stack.append(self.force_evaluate(context.ctx, value))
+            return self.force_evaluate(context.ctx, value)
         if isinstance(context, NoFrame):
             term = value
-            stack.append(Done(term))
+            return Done(term)
 
     def apply_evaluate(self, context, function, argument):
         if isinstance(function, BoundStateLambda):

@@ -116,35 +116,51 @@ class BuiltinInteger(Constant):
         return str(self.value)
 
     def __add__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to add two non-builtin-integers"
         return BuiltinInteger(self.value + other.value)
 
     def __sub__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to sub two non-builtin-integers"
         return BuiltinInteger(self.value - other.value)
 
     def __mul__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to mul two non-builtin-integers"
         return BuiltinInteger(self.value * other.value)
 
     def __floordiv__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to floordiv two non-builtin-integers"
         return BuiltinInteger(self.value // other.value)
 
     def __mod__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to mod two non-builtin-integers"
         return BuiltinInteger(self.value % other.value)
 
     def __eq__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to eq two non-builtin-integers"
         return BuiltinBool(self.value == other.value)
 
     def __le__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to le two non-builtin-integers"
         return BuiltinBool(self.value <= other.value)
 
     def __lt__(self, other):
-        assert isinstance(other, BuiltinInteger)
+        assert isinstance(
+            other, BuiltinInteger
+        ), "Trying to lt two non-builtin-integers"
         return BuiltinBool(self.value < other.value)
 
 
@@ -159,7 +175,9 @@ class BuiltinByteString(Constant):
         return f"#{self.value.hex()}"
 
     def __add__(self, other):
-        assert isinstance(other, BuiltinByteString)
+        assert isinstance(
+            other, BuiltinByteString
+        ), "Trying to add two non-builtin-bytestrings"
         return BuiltinByteString(self.value + other.value)
 
     def __len__(self):
@@ -168,24 +186,34 @@ class BuiltinByteString(Constant):
     def __getitem__(self, item):
         # To implement slicing of bytestrings
         if isinstance(item, slice):
-            assert isinstance(slice.start, BuiltinInteger)
-            assert isinstance(slice.stop, BuiltinInteger)
-            assert slice.step is None
+            assert isinstance(
+                slice.start, BuiltinInteger
+            ), "Trying to access a slice (start) with a non-builtin-integer"
+            assert isinstance(
+                slice.stop, BuiltinInteger
+            ), "Trying to access a slice (stop) with a non-builtin-integer"
+            assert slice.step is None, "Trying to access a slice with non-none step"
             return BuiltinByteString(self.value[slice.start.value : slice.stop.value])
         elif isinstance(item, BuiltinInteger):
             return BuiltinInteger(self.value[item.value])
-        raise ValueError()
+        raise ValueError(f"Invalid slice {item}")
 
     def __eq__(self, other):
-        assert isinstance(other, BuiltinByteString)
+        assert isinstance(
+            other, BuiltinByteString
+        ), "Trying to eq two non-builtin-bytestrings"
         return BuiltinBool(self.value == other.value)
 
     def __le__(self, other):
-        assert isinstance(other, BuiltinByteString)
+        assert isinstance(
+            other, BuiltinByteString
+        ), "Trying to le two non-builtin-bytestrings"
         return BuiltinBool(self.value <= other.value)
 
     def __lt__(self, other):
-        assert isinstance(other, BuiltinByteString)
+        assert isinstance(
+            other, BuiltinByteString
+        ), "Trying to lt two non-builtin-bytestrings"
         return BuiltinBool(self.value < other.value)
 
     def decode(self, *args):
@@ -421,7 +449,9 @@ class BuiltInFun(Enum):
 
 
 def _IfThenElse(i, t, e):
-    assert isinstance(i, BuiltinBool)
+    assert isinstance(
+        i, BuiltinBool
+    ), "Trying to compute ifthenelse with non-builtin-bool"
     return t if i.value else e
 
 
@@ -479,7 +509,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.TailList: lambda l: l[1:],
     BuiltInFun.NullList: lambda l: l == BuiltinList([]),
     BuiltInFun.ChooseData: _ChooseData,
-    BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x, y),
+    BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
     BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
     BuiltInFun.ListData: lambda x: PlutusList(x.values),
     BuiltInFun.IData: lambda x: PlutusInteger(x.value),
@@ -493,7 +523,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.UnListData: lambda x: BuiltinList(x.value),
     BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
     BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
-    BuiltInFun.EqualsData: lambda x, y: x == y,
+    BuiltInFun.EqualsData: lambda x, y: BuiltinBool(x == y),
     BuiltInFun.MkPairData: lambda x, y: BuiltinPair(x, y),
     BuiltInFun.MkNilData: lambda _: BuiltinList([]),
     BuiltInFun.MkNilPairData: lambda _: BuiltinList([]),
