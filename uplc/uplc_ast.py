@@ -449,12 +449,9 @@ class BuiltInFun(Enum):
 
 
 def _IfThenElse(i, t, e):
-    try:
-        assert isinstance(
-            i, BuiltinBool
-        ), "Trying to compute ifthenelse with non-builtin-bool"
-    except AssertionError:
-        print("gotcha")
+    assert isinstance(
+        i, BuiltinBool
+    ), "Trying to compute ifthenelse with non-builtin-bool"
     return t if i.value else e
 
 
