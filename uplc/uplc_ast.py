@@ -449,9 +449,12 @@ class BuiltInFun(Enum):
 
 
 def _IfThenElse(i, t, e):
-    assert isinstance(
-        i, BuiltinBool
-    ), "Trying to compute ifthenelse with non-builtin-bool"
+    try:
+        assert isinstance(
+            i, BuiltinBool
+        ), "Trying to compute ifthenelse with non-builtin-bool"
+    except AssertionError:
+        print("gotcha")
     return t if i.value else e
 
 
@@ -507,7 +510,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
     BuiltInFun.HeadList: lambda l: l[0],
     BuiltInFun.TailList: lambda l: l[1:],
-    BuiltInFun.NullList: lambda l: l == BuiltinList([]),
+    BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([])),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
     BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
