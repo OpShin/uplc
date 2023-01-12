@@ -262,19 +262,33 @@ class BuiltinPair(Constant):
         raise ValueError()
 
 
-@dataclass(frozen=True)
-# TODO how should we handle empty lists?
+@dataclass(frozen=True, init=False)
 class BuiltinList(Constant):
     values: List[Constant]
+    # dirty hack to handle the type of empty lists
+    sample_value: Constant
+
+    def __init__(self, values, sample_value=None):
+        object.__setattr__(self, "values", values)
+        if not values:
+            assert (
+                sample_value is not None
+            ), "Need to provide a sample value for empty lists to infer the type"
+            object.__setattr__(self, "sample_value", sample_value)
+        else:
+            object.__setattr__(self, "sample_value", values[0])
 
     def typestring(self):
-        return f"list<{self.values[0].typestring()}>"
+        return f"list<{self.sample_value.typestring()}>"
 
     def valuestring(self):
         return f"[{', '.join(v.valuestring() for v in self.values)}]"
 
     def __add__(self, other):
         assert isinstance(other, BuiltinList)
+        assert (
+            other.typestring() == self.typestring()
+        ), f"Expected {self.typestring()} but got {other.typestring()}"
         return BuiltinList(self.values + other.values)
 
     def __eq__(self, other):
@@ -285,7 +299,7 @@ class BuiltinList(Constant):
         if isinstance(item, int):
             return self.values[item]
         elif isinstance(item, slice):
-            return BuiltinList(self.values[item])
+            return BuiltinList(self.values[item], self.sample_value)
 
 
 @dataclass(frozen=True)
@@ -503,11 +517,13 @@ BuiltInFunEvalMap = {
     BuiltInFun.Trace: lambda x, y: print(x.value) or y,
     BuiltInFun.FstPair: lambda x: x[0],
     BuiltInFun.SndPair: lambda x: x[1],
-    BuiltInFun.ChooseList: lambda l, x, y: x if l == BuiltinList([]) else y,
+    BuiltInFun.ChooseList: lambda l, x, y: x
+    if l == BuiltinList([], l.sample_value)
+    else y,
     BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
     BuiltInFun.HeadList: lambda l: l[0],
     BuiltInFun.TailList: lambda l: l[1:],
-    BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([])),
+    BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([], l.sample_value)),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
     BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
@@ -515,18 +531,21 @@ BuiltInFunEvalMap = {
     BuiltInFun.IData: lambda x: PlutusInteger(x.value),
     BuiltInFun.BData: lambda x: PlutusByteString(x.value),
     BuiltInFun.UnConstrData: lambda x: BuiltinPair(
-        BuiltinInteger(x.constructor), BuiltinList(x.fields)
+        BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
     ),
     BuiltInFun.UnMapData: lambda x: BuiltinList(
-        [BuiltinPair(k, v) for k, v in x.value.items()]
+        [BuiltinPair(k, v) for k, v in x.value.items()],
+        BuiltinPair(PlutusData(), PlutusData()),
     ),
-    BuiltInFun.UnListData: lambda x: BuiltinList(x.value),
+    BuiltInFun.UnListData: lambda x: BuiltinList(x.value, PlutusData()),
     BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
     BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
     BuiltInFun.EqualsData: lambda x, y: BuiltinBool(x == y),
     BuiltInFun.MkPairData: lambda x, y: BuiltinPair(x, y),
-    BuiltInFun.MkNilData: lambda _: BuiltinList([]),
-    BuiltInFun.MkNilPairData: lambda _: BuiltinList([]),
+    BuiltInFun.MkNilData: lambda _: BuiltinList([], PlutusData()),
+    BuiltInFun.MkNilPairData: lambda _: BuiltinList(
+        [], BuiltinPair(PlutusData(), PlutusData())
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
