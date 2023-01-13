@@ -4,10 +4,11 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
 import hashlib
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Union
 
 import cbor2
 import frozendict
+import frozenlist
 
 
 class Context:
@@ -337,7 +338,7 @@ class PlutusByteString(PlutusAtomic):
 
 @dataclass(frozen=True, eq=True)
 class PlutusList(PlutusData):
-    value: List[PlutusData]
+    value: Union[List[PlutusData], frozenlist.FrozenList]
 
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
@@ -345,7 +346,7 @@ class PlutusList(PlutusData):
 
 @dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
-    value: Dict[PlutusData, PlutusData]
+    value: Union[Dict[PlutusData, PlutusData], frozendict.frozendict]
 
     def to_cbor(self):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
@@ -354,7 +355,7 @@ class PlutusMap(PlutusData):
 @dataclass(frozen=True, eq=True)
 class PlutusConstr(PlutusData):
     constructor: int
-    fields: List[PlutusData]
+    fields: Union[List[PlutusData], frozenlist.FrozenList]
 
     def to_cbor(self):
         return cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields])
@@ -363,17 +364,22 @@ class PlutusConstr(PlutusData):
 def data_from_cbortag(cbor) -> PlutusData:
     if isinstance(cbor, cbor2.CBORTag):
         constructor = cbor.tag - 121
-        fields = list(map(data_from_cbortag, cbor.value))
+        fields = frozenlist.FrozenList(list(map(data_from_cbortag, cbor.value)))
+        fields.freeze()
         return PlutusConstr(constructor, fields)
     if isinstance(cbor, int):
         return PlutusInteger(cbor)
     if isinstance(cbor, bytes):
         return PlutusByteString(cbor)
     if isinstance(cbor, list):
-        return PlutusList(list(map(data_from_cbortag, cbor)))
+        entries = frozenlist.FrozenList(list(map(data_from_cbortag, cbor)))
+        entries.freeze()
+        return PlutusList(entries)
     if isinstance(cbor, dict):
         return PlutusMap(
-            {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
+            frozendict.frozendict(
+                {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
+            )
         )
 
 

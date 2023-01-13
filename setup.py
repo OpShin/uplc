@@ -24,7 +24,11 @@ setup(
     url=uplc.__url__,
     py_modules=["uplc"],
     packages=find_packages(),
-    install_requires=["frozendict==2.3.4", "cbor2==5.4.6"],
+    install_requires=[
+        "frozendict==2.3.4",
+        "cbor2==5.4.6",
+        "frozenlist==1.3.3",
+    ],
     long_description=long_description,
     long_description_content_type="text/markdown",
     license=uplc.__license__,
