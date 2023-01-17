@@ -188,13 +188,13 @@ class BuiltinByteString(Constant):
         # To implement slicing of bytestrings
         if isinstance(item, slice):
             assert isinstance(
-                slice.start, BuiltinInteger
+                item.start, BuiltinInteger
             ), "Trying to access a slice (start) with a non-builtin-integer"
             assert isinstance(
-                slice.stop, BuiltinInteger
+                item.stop, BuiltinInteger
             ), "Trying to access a slice (stop) with a non-builtin-integer"
-            assert slice.step is None, "Trying to access a slice with non-none step"
-            return BuiltinByteString(self.value[slice.start.value : slice.stop.value])
+            assert item.step is None, "Trying to access a slice with non-none step"
+            return BuiltinByteString(self.value[item.start.value : item.stop.value])
         elif isinstance(item, BuiltinInteger):
             return BuiltinInteger(self.value[item.value])
         raise ValueError(f"Invalid slice {item}")
@@ -502,16 +502,20 @@ BuiltInFunEvalMap = {
     BuiltInFun.LessThanInteger: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
     BuiltInFun.AppendByteString: lambda x, y: x + y,
-    BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x])) + y,
-    BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + 1],
-    BuiltInFun.LengthOfByteString: lambda x: len(x),
+    BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
+    BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + BuiltinInteger(1)],
+    BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
     BuiltInFun.IndexByteString: lambda x, y: x[y],
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
     BuiltInFun.LessThanByteString: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
-    BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x).digest()),
-    BuiltInFun.Sha3_256: lambda x: BuiltinByteString(hashlib.sha3_256(x).digest()),
-    BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(hashlib.blake2b(x).digest()),
+    BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x.value).digest()),
+    BuiltInFun.Sha3_256: lambda x: BuiltinByteString(
+        hashlib.sha3_256(x.value).digest()
+    ),
+    BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
+        hashlib.blake2b(x.value).digest()
+    ),
     # TODO how to emulate this?
     BuiltInFun.VerifySignature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.AppendString: lambda x, y: x + y,
