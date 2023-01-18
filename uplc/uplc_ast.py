@@ -475,7 +475,7 @@ def _IfThenElse(i, t, e):
     return t if i.value else e
 
 
-def _ChooseData(_, d, v, w, x, y, z):
+def _ChooseData(d, v, w, x, y, z):
     if isinstance(d, PlutusConstr):
         return v
     if isinstance(d, PlutusMap):
