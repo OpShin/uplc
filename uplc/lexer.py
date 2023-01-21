@@ -21,7 +21,7 @@ TOKENS = {
     "DOT": "\.",
     "NUMBER": "\d+",
     "NAME": "[\w_~][\w\d_~!#]*",
-    "HEX": "#([\dabcdefABCDEF][\dabcdefABCDEF])+",
+    "HEX": "#([\dabcdefABCDEF][\dabcdefABCDEF])*",
 }
 
 

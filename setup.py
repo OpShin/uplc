@@ -29,6 +29,7 @@ setup(
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
         "rply",
+        "hypothesis",
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",

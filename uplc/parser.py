@@ -63,6 +63,8 @@ class Parser:
                 return ast.BuiltinInteger(0)
             if name == "bytestring":
                 return ast.BuiltinByteString(b"")
+            if name == "string":
+                return ast.BuiltinString("")
             if name == "bool":
                 return ast.BuiltinBool(False)
             if name == "unit":
