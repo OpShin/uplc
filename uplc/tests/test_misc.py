@@ -1528,7 +1528,7 @@ class MiscTest(unittest.TestCase):
             """
 (program
   1.0.0
-  (force (delay [(lam i_0 (con integer 2)) (con bytestring #02)]))
+  [ [ (force (delay [(lam i_0 (con integer 2)) (con bytestring #02)])) (builtin addInteger) ] (error) ]
 )
         """
         )

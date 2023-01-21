@@ -35,6 +35,21 @@ class Parser:
         def delay(p):
             return ast.Delay(p[2])
 
+        @self.pg.production("expression : PAREN_OPEN ERROR PAREN_CLOSE")
+        def error(p):
+            return ast.Error()
+
+        @self.pg.production("expression : PAREN_OPEN BUILTIN NAME PAREN_CLOSE")
+        def builtin(p):
+            bfn = p[2].value.lower()
+            correct_bfn = None
+            for e in ast.BuiltInFun:
+                if e.name.lower() == bfn:
+                    correct_bfn = e
+            if correct_bfn is None:
+                raise SyntaxError(f"Unknown builtin function {bfn}")
+            return ast.BuiltIn(correct_bfn)
+
         @self.pg.production("expression : BRACK_OPEN expression expression BRACK_CLOSE")
         def delay(p):
             return ast.Apply(p[1], p[2])
