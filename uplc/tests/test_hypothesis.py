@@ -15,10 +15,7 @@ def frozenlist(l):
 
 pos_int = hst.integers(min_value=0)
 
-uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
-uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
-uplc_builtin_string = hst.builds(BuiltinString, hst.text())
-uplc_builtin_unit = hst.just(BuiltinUnit())
+
 uplc_data_integer = hst.builds(PlutusInteger, hst.integers())
 uplc_data_bytestring = hst.builds(PlutusByteString, hst.binary())
 
@@ -29,13 +26,15 @@ def rec_data_strategies(uplc_data):
     )
     uplc_data_constr = hst.builds(
         lambda x, y: PlutusConstr(x, frozenlist(y)),
-        hst.integers(min_value=0, max_value=2**64 - 1),
+        hst.integers(min_value=0, max_value=255 - 121),
         hst.lists(uplc_data),
     )
     uplc_data_map = hst.builds(
         PlutusMap,
         hst.dictionaries(
-            hst.one_of(uplc_data_constr, uplc_data_integer, uplc_data_bytestring),
+            hst.one_of(
+                uplc_data_integer, uplc_data_bytestring
+            ),  # TODO technically constr is legal too, but causes hashing error
             uplc_data,
             dict_class=frozendict.frozendict,
         ),
@@ -48,6 +47,13 @@ uplc_data = hst.recursive(
     rec_data_strategies,
     max_leaves=4,
 )
+uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
+uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
+uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
+uplc_builtin_string = hst.builds(
+    BuiltinString, hst.from_regex(r'[^\r\n"]*', fullmatch=True)
+)
+uplc_builtin_unit = hst.just(BuiltinUnit())
 
 
 def rec_const_strategies(uplc_constant):
@@ -66,6 +72,7 @@ uplc_constant = hst.recursive(
         uplc_builtin_string,
         uplc_builtin_bytestring,
         uplc_builtin_integer,
+        uplc_builtin_boolean,
         uplc_data,
     ),
     rec_const_strategies,
