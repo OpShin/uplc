@@ -1528,7 +1528,8 @@ class MiscTest(unittest.TestCase):
             """
 (program
   1.0.0
-  (lam i_0 (con integer 2))
+  (force (delay [(lam i_0 (con integer 2)) (con bytestring #02)]))
 )
         """
         )
+        print(dumps(p))

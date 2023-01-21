@@ -9,6 +9,21 @@ try:
     from .machine import *
     from .lexer import *
     from .parser import *
+
+    def parse(s: str):
+        l = Lexer().get_lexer()
+        p = Parser().get_parser()
+        tks = l.lex(s)
+        program = p.parse(tks)
+        return program
+
+    def eval(u: AST):
+        m = Machine(u)
+        return m.eval()
+
+    def dumps(u: AST):
+        return u.dumps()
+
 except ImportError as e:
     logging.error(
         "Error, trying to import dependencies. Should only occur upon package installation",
@@ -23,20 +38,3 @@ __author_email__ = "n.muendler@web.de"
 __copyright__ = "Copyright (C) 2019 nielstron"
 __license__ = "MIT"
 __url__ = "https://github.com/imperatorlang/uplc"
-
-
-def parse(s: str):
-    l = Lexer().get_lexer()
-    p = Parser().get_parser()
-    tks = l.lex(s)
-    program = p.parse(tks)
-    return program
-
-
-def eval(u: AST):
-    m = Machine(u)
-    return m.eval()
-
-
-def dumps(u: AST):
-    return u.dumps()
