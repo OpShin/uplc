@@ -1,4 +1,5 @@
 import dataclasses
+import enum
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -9,6 +10,11 @@ from typing import List, Any, Dict, Union
 import cbor2
 import frozendict
 import frozenlist
+
+
+class UPLCDialect(enum.Enum):
+    Aiken = auto()
+    Plutus = auto()
 
 
 class Context:
@@ -67,7 +73,7 @@ class AST:
     def eval(self, context: Context, state: frozendict.frozendict):
         raise NotImplementedError()
 
-    def dumps(self) -> str:
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         raise NotImplementedError()
 
 
@@ -76,22 +82,22 @@ class Constant(AST):
     def eval(self, context, state):
         return Return(context, self)
 
-    def dumps(self) -> str:
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(con {self.typestring()} {self.valuestring()})"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         raise NotImplementedError()
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
 class BuiltinUnit(Constant):
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "unit"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return "()"
 
 
@@ -99,10 +105,10 @@ class BuiltinUnit(Constant):
 class BuiltinBool(Constant):
     value: bool
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "bool"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
 
 
@@ -110,10 +116,10 @@ class BuiltinBool(Constant):
 class BuiltinInteger(Constant):
     value: int
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "integer"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
 
     def __add__(self, other):
@@ -169,10 +175,10 @@ class BuiltinInteger(Constant):
 class BuiltinByteString(Constant):
     value: bytes
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "bytestring"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{self.value.hex()}"
 
     def __add__(self, other):
@@ -225,10 +231,10 @@ class BuiltinByteString(Constant):
 class BuiltinString(Constant):
     value: str
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "string"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return f'"{self.value}"'
 
     def __add__(self, other):
@@ -248,11 +254,17 @@ class BuiltinPair(Constant):
     l_value: Constant
     r_value: Constant
 
-    def typestring(self):
-        return f"pair<{self.l_value.typestring()}, {self.r_value.typestring()}>"
+    def typestring(self, dialect=UPLCDialect.Aiken):
+        if dialect == UPLCDialect.Aiken:
+            return f"pair<{self.l_value.typestring()}, {self.r_value.typestring()}>"
+        elif dialect == UPLCDialect.Plutus:
+            return f"(pair {self.l_value.typestring()} {self.r_value.typestring()})"
 
-    def valuestring(self):
-        return f"[{self.l_value.valuestring()}, {self.r_value.valuestring()}]"
+    def valuestring(self, dialect=UPLCDialect.Aiken):
+        if dialect == UPLCDialect.Aiken:
+            return f"[{self.l_value.valuestring()}, {self.r_value.valuestring()}]"
+        elif dialect == UPLCDialect.Plutus:
+            return f"({self.l_value.valuestring()}, {self.r_value.valuestring()})"
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -279,10 +291,13 @@ class BuiltinList(Constant):
         else:
             object.__setattr__(self, "sample_value", values[0])
 
-    def typestring(self):
-        return f"list<{self.sample_value.typestring()}>"
+    def typestring(self, dialect=UPLCDialect.Aiken):
+        if dialect == UPLCDialect.Aiken:
+            return f"list<{self.sample_value.typestring()}>"
+        elif dialect == UPLCDialect.Plutus:
+            return f"(list {self.sample_value.typestring()})"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"[{', '.join(v.valuestring() for v in self.values)}]"
 
     def __add__(self, other):
@@ -307,10 +322,10 @@ class BuiltinList(Constant):
 class PlutusData(Constant):
     pass
 
-    def typestring(self):
+    def typestring(self, dialect=UPLCDialect.Aiken):
         return "data"
 
-    def valuestring(self):
+    def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{cbor2.dumps(self.to_cbor()).hex()}"
 
     def to_cbor(self) -> bytes:
@@ -584,8 +599,8 @@ class Program(AST):
     def eval(self, context, state):
         return self.term.eval(context, state)
 
-    def dumps(self) -> str:
-        return f"(program {self.version} {self.term.dumps()})"
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+        return f"(program {self.version} {self.term.dumps(dialect=dialect)})"
 
 
 @dataclass
@@ -601,7 +616,7 @@ class Variable(AST):
             )
             raise e
 
-    def dumps(self) -> str:
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return self.name
 
 
@@ -617,8 +632,8 @@ class BoundStateLambda(AST):
             BoundStateLambda(self.var_name, self.term, self.state | state),
         )
 
-    def dumps(self) -> str:
-        s = f"(lam {self.var_name} {self.term.dumps()})"
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+        s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v}]"
         return s
@@ -641,8 +656,8 @@ class BoundStateDelay(AST):
     def eval(self, context, state):
         return Return(context, BoundStateDelay(self.term, self.state | state))
 
-    def dumps(self) -> str:
-        return f"(delay {self.term.dumps()})"
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+        return f"(delay {self.term.dumps(dialect=dialect)})"
 
 
 @dataclass
@@ -666,8 +681,8 @@ class Force(AST):
             self.term,
         )
 
-    def dumps(self) -> str:
-        return f"(force {self.term.dumps()})"
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+        return f"(force {self.term.dumps(dialect=dialect)})"
 
 
 @dataclass
@@ -679,20 +694,20 @@ class ForcedBuiltIn(AST):
     def eval(self, context, state):
         return Return(context, self)
 
-    def dumps(self) -> str:
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         if self.applied_forces > 0:
             return Force(
                 ForcedBuiltIn(
                     self.builtin, self.applied_forces - 1, self.bound_arguments
                 )
-            ).dumps()
+            ).dumps(dialect=dialect)
         if len(self.bound_arguments):
             return Apply(
                 ForcedBuiltIn(
                     self.builtin, self.applied_forces, self.bound_arguments[:-1]
                 ),
                 self.bound_arguments[-1],
-            ).dumps()
+            ).dumps(dialect=dialect)
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
 
@@ -708,7 +723,7 @@ class Error(AST):
     def eval(self, context, state):
         raise RuntimeError(f"Execution called Error")
 
-    def dumps(self) -> str:
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(error)"
 
 
@@ -728,5 +743,5 @@ class Apply(AST):
             self.f,
         )
 
-    def dumps(self) -> str:
-        return f"[{self.f.dumps()} {self.x.dumps()}]"
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+        return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"
