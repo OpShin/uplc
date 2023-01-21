@@ -27,11 +27,19 @@ def rec_data_strategies(uplc_data):
     uplc_data_list = hst.builds(
         lambda x: PlutusList(frozenlist(x)), hst.lists(uplc_data)
     )
+    uplc_data_constr = hst.builds(
+        lambda x, y: PlutusConstr(x, frozenlist(y)),
+        hst.integers(min_value=0, max_value=2**64 - 1),
+        hst.lists(uplc_data),
+    )
     uplc_data_map = hst.builds(
         PlutusMap,
-        hst.dictionaries(uplc_data, uplc_data, dict_class=frozendict.frozendict),
+        hst.dictionaries(
+            hst.one_of(uplc_data_constr, uplc_data_integer, uplc_data_bytestring),
+            uplc_data,
+            dict_class=frozendict.frozendict,
+        ),
     )
-    uplc_data_constr = hst.builds(PlutusConstr, pos_int, hst.lists(uplc_data))
     return hst.one_of(uplc_data_map, uplc_data_list, uplc_data_constr)
 
 
@@ -45,7 +53,9 @@ uplc_data = hst.recursive(
 def rec_const_strategies(uplc_constant):
     uplc_builtin_pair = hst.builds(BuiltinPair, uplc_constant, uplc_constant)
     uplc_builtin_list = hst.builds(
-        lambda x, y: BuiltinList(frozenlist([x] * y), x), uplc_constant, pos_int
+        lambda x, y: BuiltinList(frozenlist([x] * y), x),
+        uplc_constant,
+        hst.integers(min_value=0, max_value=10),
     )
     return hst.one_of(uplc_builtin_list, uplc_builtin_pair)
 
@@ -87,7 +97,11 @@ uplc_program = hst.builds(Program, uplc_version, uplc_expr)
 
 class MiscTest(unittest.TestCase):
     @hypothesis.given(uplc_program)
-    @hypothesis.settings(max_examples=100)
+    @hypothesis.settings(max_examples=1000)
     @hypothesis.example(Program(version="0.0.0", term=BuiltinByteString(value=b"")))
+    @hypothesis.example(
+        Program(version="0.0.0", term=BuiltIn(builtin=BuiltInFun.ConstrData))
+    )
+    @hypothesis.example(Program(version="0.0.0", term=BuiltinInteger(value=0)))
     def test_dumps_parse_roundtrip(self, p):
         assert parse(dumps(p)) == p
