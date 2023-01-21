@@ -6,7 +6,7 @@ import frozendict
 import logging
 from dataclasses import dataclass
 
-from .uplc_ast import *
+from .ast import *
 
 _LOGGER = logging.getLogger(__name__)
 

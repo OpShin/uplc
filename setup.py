@@ -28,6 +28,7 @@ setup(
         "frozendict==2.3.4",
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
+        "rply",
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",

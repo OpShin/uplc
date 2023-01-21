@@ -1522,3 +1522,13 @@ class MiscTest(unittest.TestCase):
                 ),
             ),
         )
+
+    def test_parse(self):
+        p = parse(
+            """
+(program
+  1.0.0
+  (lam i_0 (con integer 2))
+)
+        """
+        )
