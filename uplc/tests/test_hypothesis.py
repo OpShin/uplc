@@ -81,6 +81,7 @@ uplc_constant = hst.recursive(
 uplc_error = hst.just(Error())
 uplc_name = hst.from_regex(r"[a-z_~][\w~!#]*", fullmatch=True)
 uplc_builtin_fun = hst.builds(BuiltIn, hst.sampled_from(BuiltInFun))
+uplc_variable = hst.builds(Variable, uplc_name)
 
 
 def rec_expr_strategies(uplc_expr):
@@ -92,7 +93,7 @@ def rec_expr_strategies(uplc_expr):
 
 
 uplc_expr = hst.recursive(
-    hst.one_of(uplc_error, uplc_constant, uplc_builtin_fun),
+    hst.one_of(uplc_error, uplc_constant, uplc_builtin_fun, uplc_variable),
     rec_expr_strategies,
     max_leaves=10,
 )

@@ -29,6 +29,10 @@ class Parser:
         def expression(p):
             return ast.Lambda(p[2].value, p[3])
 
+        @self.pg.production("expression : NAME")
+        def expression(p):
+            return ast.Variable(p[0].value)
+
         @self.pg.production("expression : PAREN_OPEN FORCE expression PAREN_CLOSE")
         def force(p):
             return ast.Force(p[2])
