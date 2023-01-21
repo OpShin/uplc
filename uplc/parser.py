@@ -1,3 +1,5 @@
+import copy
+
 from rply import ParserGenerator
 from . import lexer, ast
 
@@ -54,41 +56,81 @@ class Parser:
         def delay(p):
             return ast.Apply(p[1], p[2])
 
-        @self.pg.production("expression : PAREN_OPEN CON NAME HEX PAREN_CLOSE")
-        def expression(p):
-            b = bytes.fromhex(p[3].value[1:])
-            if p[2].value == "bytestring":
-                return ast.BuiltinByteString(b)
-            if p[2].value == "data":
-                return ast.data_from_cbor(b)
-            raise SyntaxError(f"Unknown constructor value combination {p}")
+        @self.pg.production("builtintype : NAME")
+        def builtintype(p):
+            name = p[0].value
+            if name == "integer":
+                return ast.BuiltinInteger(0)
+            if name == "bytestring":
+                return ast.BuiltinByteString(b"")
+            if name == "bool":
+                return ast.BuiltinBool(False)
+            if name == "unit":
+                return ast.BuiltinUnit()
+            if name == "data":
+                return ast.PlutusData()
+            raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("expression : PAREN_OPEN CON NAME NUMBER PAREN_CLOSE")
-        def expression(p):
-            if p[2].value == "integer":
-                return ast.BuiltinInteger(int(p[3].value))
-            raise SyntaxError(f"Unknown constructor value combination {p}")
-
-        @self.pg.production("expression : PAREN_OPEN CON NAME TEXT PAREN_CLOSE")
-        def expression(p):
-            if p[2].value == "string":
-                return ast.BuiltinString(p[3].value[1:-1])
-            raise SyntaxError(f"Unknown constructor value combination {p}")
+        @self.pg.production("builtintype : NAME CARET_OPEN builtintype CARET_CLOSE")
+        def builtintype(p):
+            name = p[0].value
+            if name == "list":
+                return ast.BuiltinList([], p[2])
+            raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "expression : PAREN_OPEN CON NAME PAREN_OPEN PAREN_CLOSE PAREN_CLOSE"
+            "builtintype : NAME CARET_OPEN builtintype COMMA builtintype CARET_CLOSE"
         )
-        def expression(p):
-            if p[2].value == "unit":
-                return ast.BuiltinUnit()
-            raise SyntaxError(f"Unknown constructor value combination {p}")
+        def builtintype(p):
+            name = p[0].value
+            if name == "pair":
+                return ast.BuiltinPair(p[2], p[4])
+            raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("expression : PAREN_OPEN CON NAME NAME PAREN_CLOSE")
+        @self.pg.production(
+            "expression : PAREN_OPEN CON builtintype builtinvalue PAREN_CLOSE"
+        )
+        def constant(p):
+            typ = p[2]
+            val = p[3]
+            return wrap_builtin_type(typ, val)
+
+        @self.pg.production("builtinvalue : HEX")
         def expression(p):
-            if p[2].value == "bool":
-                assert p[3].value in ("True", "False"), f"Invalid boolean constant {p}"
-                return ast.BuiltinBool(p[3].value == "True")
-            raise SyntaxError(f"Unknown constructor value combination {p}")
+            return bytes.fromhex(p[0].value[1:])
+
+        @self.pg.production("builtinvalue : NUMBER")
+        def expression(p):
+            return int(p[0].value)
+
+        @self.pg.production("builtinvalue : TEXT")
+        def expression(p):
+            return p[0].value[1:-1]
+
+        @self.pg.production("builtinvalue : PAREN_OPEN PAREN_CLOSE")
+        def expression(p):
+            return None
+
+        @self.pg.production("builtinvalue : NAME")
+        def expression(p):
+            assert p[0].value in ("True", "False"), f"Invalid boolean constant {p}"
+            return p[0].value == "True"
+
+        @self.pg.production("builtinvaluelist : builtinvalue COMMA builtinvaluelist ")
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("builtinvaluelist : builtinvalue builtinvaluelist ")
+        def expression(p):
+            return [p[0]] + p[1]
+
+        @self.pg.production("builtinvaluelist : BRACK_CLOSE ")
+        def expression(p):
+            return []
+
+        @self.pg.production("builtinvalue : BRACK_OPEN builtinvaluelist")
+        def expression(p):
+            return p[1]
 
         @self.pg.error
         def error_handle(token):
@@ -96,3 +138,21 @@ class Parser:
 
     def get_parser(self):
         return self.pg.build()
+
+
+def wrap_builtin_type(typ: ast.Constant, val):
+    """Hmmmmmmm wraps ...."""
+    if isinstance(typ, ast.PlutusData):
+        return ast.data_from_cbor(val)
+    if isinstance(typ, ast.BuiltinList):
+        return ast.BuiltinList(
+            [wrap_builtin_type(typ.sample_value, v) for v in val], typ.sample_value
+        )
+    if isinstance(typ, ast.BuiltinPair):
+        return ast.BuiltinPair(
+            wrap_builtin_type(typ.l_value, val[0]),
+            wrap_builtin_type(typ.r_value, val[1]),
+        )
+    if isinstance(typ, ast.BuiltinUnit):
+        return ast.BuiltinUnit()
+    return typ.__class__(val)
