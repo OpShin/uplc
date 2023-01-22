@@ -5,6 +5,7 @@ from hypothesis import strategies as hst
 import frozenlist as fl
 
 from .. import *
+from ..transformer import unique_variables
 
 
 def frozenlist(l):
@@ -117,4 +118,22 @@ class MiscTest(unittest.TestCase):
         Program(version="0.0.0", term=BuiltinInteger(value=0)), UPLCDialect.Aiken
     )
     def test_dumps_parse_roundtrip(self, p, dialect):
-        assert parse(dumps(p, dialect)) == p
+        self.assertEqual(parse(dumps(p, dialect)), p)
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    def test_dumps_parse_roundtrip(self, p):
+        try:
+            res = Machine(p).eval()
+        except Exception as e:
+            res = e.__class__
+        try:
+            rewrite_p = unique_variables.UniqueVariableTransformer().visit(p)
+        except unique_variables.FreeVariableError:
+            return
+        try:
+            rewrite_res = Machine(rewrite_p).eval()
+        except Exception as e:
+            rewrite_res = e.__class__
+        print(res)
+        self.assertEqual(res, rewrite_res)
