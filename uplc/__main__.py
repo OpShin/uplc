@@ -55,6 +55,11 @@ def main():
         help="Assign variables a unique name.",
     )
     a.add_argument(
+        "--from-cbor",
+        action="store_true",
+        help="Read hex representation of flattened UPLC.",
+    )
+    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -65,6 +70,9 @@ def main():
     input_file = args.input_file if args.input_file != "-" else sys.stdin
     with open(input_file, "r") as f:
         source_code = f.read()
+
+    if args.from_cbor:
+        source_code = pyaiken.uplc.unflat(source_code)
 
     code = parse(source_code)
 
