@@ -21,8 +21,8 @@ try:
         m = Machine(u)
         return m.eval()
 
-    def dumps(u: AST):
-        return u.dumps()
+    def dumps(u: AST, dialect=UPLCDialect.Aiken):
+        return u.dumps(dialect)
 
 except ImportError as e:
     logging.error(

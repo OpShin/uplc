@@ -79,7 +79,16 @@ class Parser:
 
         @self.pg.production("builtintype : NAME CARET_OPEN builtintype CARET_CLOSE")
         def builtintype(p):
+            # the Aiken dialect
             name = p[0].value
+            if name == "list":
+                return ast.BuiltinList([], p[2])
+            raise SyntaxError(f"Unknown builtin type {name}")
+
+        @self.pg.production("builtintype : PAREN_OPEN NAME builtintype PAREN_CLOSE")
+        def builtintype(p):
+            # the Plutus dialect
+            name = p[1].value
             if name == "list":
                 return ast.BuiltinList([], p[2])
             raise SyntaxError(f"Unknown builtin type {name}")
@@ -88,7 +97,18 @@ class Parser:
             "builtintype : NAME CARET_OPEN builtintype COMMA builtintype CARET_CLOSE"
         )
         def builtintype(p):
+            # the Aiken dialect
             name = p[0].value
+            if name == "pair":
+                return ast.BuiltinPair(p[2], p[4])
+            raise SyntaxError(f"Unknown builtin type {name}")
+
+        @self.pg.production(
+            "builtintype : PAREN_OPEN NAME builtintype builtintype PAREN_CLOSE"
+        )
+        def builtintype(p):
+            # the Plutus dialect
+            name = p[1].value
             if name == "pair":
                 return ast.BuiltinPair(p[2], p[4])
             raise SyntaxError(f"Unknown builtin type {name}")
@@ -136,7 +156,16 @@ class Parser:
 
         @self.pg.production("builtinvalue : BRACK_OPEN builtinvaluelist")
         def expression(p):
+            # the Aiken dialect for pair and list values
+            # and the Plutus dialect for list values
             return p[1]
+
+        @self.pg.production(
+            "builtinvalue : PAREN_OPEN builtinvalue COMMA builtinvalue PAREN_CLOSE"
+        )
+        def expression(p):
+            # and the Plutus dialect for pairs
+            return (p[1], p[3])
 
         @self.pg.error
         def error_handle(token):

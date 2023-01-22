@@ -104,12 +104,17 @@ uplc_program = hst.builds(Program, uplc_version, uplc_expr)
 
 
 class MiscTest(unittest.TestCase):
-    @hypothesis.given(uplc_program)
+    @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000)
-    @hypothesis.example(Program(version="0.0.0", term=BuiltinByteString(value=b"")))
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltIn(builtin=BuiltInFun.ConstrData))
+        Program(version="0.0.0", term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
     )
-    @hypothesis.example(Program(version="0.0.0", term=BuiltinInteger(value=0)))
-    def test_dumps_parse_roundtrip(self, p):
-        assert parse(dumps(p)) == p
+    @hypothesis.example(
+        Program(version="0.0.0", term=BuiltIn(builtin=BuiltInFun.ConstrData)),
+        UPLCDialect.Aiken,
+    )
+    @hypothesis.example(
+        Program(version="0.0.0", term=BuiltinInteger(value=0)), UPLCDialect.Aiken
+    )
+    def test_dumps_parse_roundtrip(self, p, dialect):
+        assert parse(dumps(p, dialect)) == p
