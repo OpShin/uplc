@@ -18,11 +18,11 @@ install:
 script:
 - black --check .
 - coverage run --source=uplc setup.py test
-- uplc parse examples/fibonacci.uplc
-- uplc dump examples/fibonacci.uplc --dialect aiken
-- uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
-- uplc eval examples/fibonacci.uplc "(con integer 5)"
-- uplc build examples/fibonacci.uplc
+- coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
+- coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect aiken
+- coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
+- coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
 after_success:
 - coverage report
 - coveralls
