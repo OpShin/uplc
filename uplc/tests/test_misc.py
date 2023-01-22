@@ -1,496 +1,242 @@
 import unittest
 
 from .. import *
+from ..transformer import unique_variables
 
-
-class MiscTest(unittest.TestCase):
-    def test_simple_contract(self):
-        p = Program(
-            version="0.0.1",
-            term=Apply(
-                Apply(
-                    Apply(
-                        Lambda(
-                            var_name="p0",
-                            term=Lambda(
-                                var_name="p1",
-                                term=Lambda(
-                                    var_name="p2",
-                                    term=Force(
-                                        term=Apply(
-                                            f=Apply(
-                                                f=Apply(
-                                                    f=Force(
-                                                        term=BuiltIn(
-                                                            builtin=BuiltInFun.IfThenElse,
-                                                            applied_forces=0,
-                                                            bound_arguments=[],
-                                                        )
-                                                    ),
-                                                    x=Apply(
+SAMPLE_CONTRACT = p = Program(
+    version="0.0.1",
+    term=Apply(
+        Apply(
+            Apply(
+                Lambda(
+                    var_name="p0",
+                    term=Lambda(
+                        var_name="p1",
+                        term=Lambda(
+                            var_name="p2",
+                            term=Force(
+                                term=Apply(
+                                    f=Apply(
+                                        f=Apply(
+                                            f=Force(
+                                                term=BuiltIn(
+                                                    builtin=BuiltInFun.IfThenElse,
+                                                    applied_forces=0,
+                                                    bound_arguments=[],
+                                                )
+                                            ),
+                                            x=Apply(
+                                                f=Lambda(
+                                                    var_name="s",
+                                                    term=Apply(
                                                         f=Lambda(
-                                                            var_name="s",
+                                                            var_name="g",
                                                             term=Apply(
-                                                                f=Lambda(
-                                                                    var_name="g",
-                                                                    term=Apply(
+                                                                f=Apply(
+                                                                    f=Apply(
                                                                         f=Apply(
                                                                             f=Apply(
-                                                                                f=Apply(
-                                                                                    f=Apply(
-                                                                                        f=Variable(
-                                                                                            name="g"
-                                                                                        ),
-                                                                                        x=Variable(
-                                                                                            name="g"
-                                                                                        ),
-                                                                                    ),
-                                                                                    x=Apply(
-                                                                                        f=BuiltIn(
-                                                                                            builtin=BuiltInFun.UnIData,
-                                                                                            applied_forces=0,
-                                                                                            bound_arguments=[],
-                                                                                        ),
-                                                                                        x=Variable(
-                                                                                            name="p0"
-                                                                                        ),
-                                                                                    ),
+                                                                                f=Variable(
+                                                                                    name="g"
                                                                                 ),
-                                                                                x=Apply(
-                                                                                    f=BuiltIn(
-                                                                                        builtin=BuiltInFun.UnIData,
-                                                                                        applied_forces=0,
-                                                                                        bound_arguments=[],
-                                                                                    ),
-                                                                                    x=Variable(
-                                                                                        name="p1"
-                                                                                    ),
+                                                                                x=Variable(
+                                                                                    name="g"
                                                                                 ),
+                                                                            ),
+                                                                            x=Apply(
+                                                                                f=BuiltIn(
+                                                                                    builtin=BuiltInFun.UnIData,
+                                                                                    applied_forces=0,
+                                                                                    bound_arguments=[],
+                                                                                ),
+                                                                                x=Variable(
+                                                                                    name="p0"
+                                                                                ),
+                                                                            ),
+                                                                        ),
+                                                                        x=Apply(
+                                                                            f=BuiltIn(
+                                                                                builtin=BuiltInFun.UnIData,
+                                                                                applied_forces=0,
+                                                                                bound_arguments=[],
                                                                             ),
                                                                             x=Variable(
-                                                                                name="p2"
+                                                                                name="p1"
                                                                             ),
                                                                         ),
-                                                                        x=Variable(
-                                                                            name="s"
-                                                                        ),
                                                                     ),
-                                                                    state=frozendict.frozendict(
-                                                                        {}
+                                                                    x=Variable(
+                                                                        name="p2"
                                                                     ),
                                                                 ),
-                                                                x=Force(
-                                                                    term=Apply(
-                                                                        f=Apply(
-                                                                            f=Apply(
+                                                                x=Variable(name="s"),
+                                                            ),
+                                                            state=frozendict.frozendict(
+                                                                {}
+                                                            ),
+                                                        ),
+                                                        x=Force(
+                                                            term=Apply(
+                                                                f=Apply(
+                                                                    f=Apply(
+                                                                        f=Lambda(
+                                                                            var_name="s",
+                                                                            term=Apply(
                                                                                 f=Lambda(
                                                                                     var_name="s",
-                                                                                    term=Apply(
-                                                                                        f=Lambda(
-                                                                                            var_name="s",
-                                                                                            term=Lambda(
-                                                                                                var_name="x",
-                                                                                                term=Lambda(
-                                                                                                    var_name="def",
-                                                                                                    term=Force(
-                                                                                                        term=Apply(
-                                                                                                            f=Apply(
+                                                                                    term=Lambda(
+                                                                                        var_name="x",
+                                                                                        term=Lambda(
+                                                                                            var_name="def",
+                                                                                            term=Force(
+                                                                                                term=Apply(
+                                                                                                    f=Apply(
+                                                                                                        f=Apply(
+                                                                                                            f=Force(
+                                                                                                                term=BuiltIn(
+                                                                                                                    builtin=BuiltInFun.IfThenElse,
+                                                                                                                    applied_forces=0,
+                                                                                                                    bound_arguments=[],
+                                                                                                                )
+                                                                                                            ),
+                                                                                                            x=Apply(
                                                                                                                 f=Apply(
-                                                                                                                    f=Force(
-                                                                                                                        term=BuiltIn(
-                                                                                                                            builtin=BuiltInFun.IfThenElse,
-                                                                                                                            applied_forces=0,
-                                                                                                                            bound_arguments=[],
-                                                                                                                        )
+                                                                                                                    f=BuiltIn(
+                                                                                                                        builtin=BuiltInFun.EqualsByteString,
+                                                                                                                        applied_forces=0,
+                                                                                                                        bound_arguments=[],
                                                                                                                     ),
-                                                                                                                    x=Apply(
-                                                                                                                        f=Apply(
-                                                                                                                            f=BuiltIn(
-                                                                                                                                builtin=BuiltInFun.EqualsByteString,
-                                                                                                                                applied_forces=0,
-                                                                                                                                bound_arguments=[],
-                                                                                                                            ),
-                                                                                                                            x=Variable(
-                                                                                                                                name="x"
-                                                                                                                            ),
-                                                                                                                        ),
-                                                                                                                        x=BuiltinByteString(
-                                                                                                                            value=b"validator"
-                                                                                                                        ),
+                                                                                                                    x=Variable(
+                                                                                                                        name="x"
                                                                                                                     ),
                                                                                                                 ),
-                                                                                                                x=Delay(
-                                                                                                                    term=Delay(
+                                                                                                                x=BuiltinByteString(
+                                                                                                                    value=b"validator"
+                                                                                                                ),
+                                                                                                            ),
+                                                                                                        ),
+                                                                                                        x=Delay(
+                                                                                                            term=Delay(
+                                                                                                                term=Lambda(
+                                                                                                                    var_name="f",
+                                                                                                                    term=Lambda(
+                                                                                                                        var_name="p0",
                                                                                                                         term=Lambda(
-                                                                                                                            var_name="f",
+                                                                                                                            var_name="p1",
                                                                                                                             term=Lambda(
-                                                                                                                                var_name="p0",
+                                                                                                                                var_name="p2",
                                                                                                                                 term=Lambda(
-                                                                                                                                    var_name="p1",
-                                                                                                                                    term=Lambda(
-                                                                                                                                        var_name="p2",
-                                                                                                                                        term=Lambda(
+                                                                                                                                    var_name="s",
+                                                                                                                                    term=Apply(
+                                                                                                                                        f=Lambda(
                                                                                                                                             var_name="s",
                                                                                                                                             term=Apply(
-                                                                                                                                                f=Lambda(
-                                                                                                                                                    var_name="s",
-                                                                                                                                                    term=Apply(
-                                                                                                                                                        f=Apply(
-                                                                                                                                                            f=BuiltIn(
-                                                                                                                                                                builtin=BuiltInFun.EqualsInteger,
-                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                            ),
-                                                                                                                                                            x=Apply(
-                                                                                                                                                                f=Lambda(
-                                                                                                                                                                    var_name="s",
-                                                                                                                                                                    term=Apply(
-                                                                                                                                                                        f=Apply(
-                                                                                                                                                                            f=BuiltIn(
-                                                                                                                                                                                builtin=BuiltInFun.AddInteger,
-                                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                                            ),
-                                                                                                                                                                            x=Apply(
-                                                                                                                                                                                f=Lambda(
-                                                                                                                                                                                    var_name="s",
-                                                                                                                                                                                    term=Force(
+                                                                                                                                                f=Apply(
+                                                                                                                                                    f=BuiltIn(
+                                                                                                                                                        builtin=BuiltInFun.EqualsInteger,
+                                                                                                                                                        applied_forces=0,
+                                                                                                                                                        bound_arguments=[],
+                                                                                                                                                    ),
+                                                                                                                                                    x=Apply(
+                                                                                                                                                        f=Lambda(
+                                                                                                                                                            var_name="s",
+                                                                                                                                                            term=Apply(
+                                                                                                                                                                f=Apply(
+                                                                                                                                                                    f=BuiltIn(
+                                                                                                                                                                        builtin=BuiltInFun.AddInteger,
+                                                                                                                                                                        applied_forces=0,
+                                                                                                                                                                        bound_arguments=[],
+                                                                                                                                                                    ),
+                                                                                                                                                                    x=Apply(
+                                                                                                                                                                        f=Lambda(
+                                                                                                                                                                            var_name="s",
+                                                                                                                                                                            term=Force(
+                                                                                                                                                                                term=Apply(
+                                                                                                                                                                                    f=Apply(
+                                                                                                                                                                                        f=Variable(
+                                                                                                                                                                                            name="s"
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        x=BuiltinByteString(
+                                                                                                                                                                                            value=b"datum"
+                                                                                                                                                                                        ),
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    x=Delay(
                                                                                                                                                                                         term=Apply(
-                                                                                                                                                                                            f=Apply(
-                                                                                                                                                                                                f=Variable(
-                                                                                                                                                                                                    name="s"
-                                                                                                                                                                                                ),
-                                                                                                                                                                                                x=BuiltinByteString(
-                                                                                                                                                                                                    value=b"datum"
-                                                                                                                                                                                                ),
-                                                                                                                                                                                            ),
-                                                                                                                                                                                            x=Delay(
-                                                                                                                                                                                                term=Apply(
-                                                                                                                                                                                                    f=Lambda(
-                                                                                                                                                                                                        var_name="_",
-                                                                                                                                                                                                        term=Error(),
-                                                                                                                                                                                                        state=frozendict.frozendict(
-                                                                                                                                                                                                            {}
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                    x=Apply(
-                                                                                                                                                                                                        f=Apply(
-                                                                                                                                                                                                            f=Force(
-                                                                                                                                                                                                                term=BuiltIn(
-                                                                                                                                                                                                                    builtin=BuiltInFun.Trace,
-                                                                                                                                                                                                                    applied_forces=0,
-                                                                                                                                                                                                                    bound_arguments=[],
-                                                                                                                                                                                                                )
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                            x=BuiltinString(
-                                                                                                                                                                                                                value="NameError"
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                        x=BuiltinUnit(),
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                ),
+                                                                                                                                                                                            f=Lambda(
+                                                                                                                                                                                                var_name="_",
+                                                                                                                                                                                                term=Error(),
                                                                                                                                                                                                 state=frozendict.frozendict(
                                                                                                                                                                                                     {}
                                                                                                                                                                                                 ),
                                                                                                                                                                                             ),
-                                                                                                                                                                                        )
-                                                                                                                                                                                    ),
-                                                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                                                        {}
-                                                                                                                                                                                    ),
-                                                                                                                                                                                ),
-                                                                                                                                                                                x=Variable(
-                                                                                                                                                                                    name="s"
-                                                                                                                                                                                ),
-                                                                                                                                                                            ),
-                                                                                                                                                                        ),
-                                                                                                                                                                        x=Apply(
-                                                                                                                                                                            f=Lambda(
-                                                                                                                                                                                var_name="s",
-                                                                                                                                                                                term=Force(
-                                                                                                                                                                                    term=Apply(
-                                                                                                                                                                                        f=Apply(
-                                                                                                                                                                                            f=Variable(
-                                                                                                                                                                                                name="s"
-                                                                                                                                                                                            ),
-                                                                                                                                                                                            x=BuiltinByteString(
-                                                                                                                                                                                                value=b"redeemer"
-                                                                                                                                                                                            ),
-                                                                                                                                                                                        ),
-                                                                                                                                                                                        x=Delay(
-                                                                                                                                                                                            term=Apply(
-                                                                                                                                                                                                f=Lambda(
-                                                                                                                                                                                                    var_name="_",
-                                                                                                                                                                                                    term=Error(),
-                                                                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                                                                        {}
+                                                                                                                                                                                            x=Apply(
+                                                                                                                                                                                                f=Apply(
+                                                                                                                                                                                                    f=Force(
+                                                                                                                                                                                                        term=BuiltIn(
+                                                                                                                                                                                                            builtin=BuiltInFun.Trace,
+                                                                                                                                                                                                            applied_forces=0,
+                                                                                                                                                                                                            bound_arguments=[],
+                                                                                                                                                                                                        )
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                    x=BuiltinString(
+                                                                                                                                                                                                        value="NameError"
                                                                                                                                                                                                     ),
                                                                                                                                                                                                 ),
-                                                                                                                                                                                                x=Apply(
-                                                                                                                                                                                                    f=Apply(
-                                                                                                                                                                                                        f=Force(
-                                                                                                                                                                                                            term=BuiltIn(
-                                                                                                                                                                                                                builtin=BuiltInFun.Trace,
-                                                                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                                                                            )
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                        x=BuiltinString(
-                                                                                                                                                                                                            value="NameError"
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                    x=BuiltinUnit(),
-                                                                                                                                                                                                ),
-                                                                                                                                                                                            ),
-                                                                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                                                                {}
-                                                                                                                                                                                            ),
-                                                                                                                                                                                        ),
-                                                                                                                                                                                    )
-                                                                                                                                                                                ),
-                                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                                    {}
-                                                                                                                                                                                ),
-                                                                                                                                                                            ),
-                                                                                                                                                                            x=Variable(
-                                                                                                                                                                                name="s"
-                                                                                                                                                                            ),
-                                                                                                                                                                        ),
-                                                                                                                                                                    ),
-                                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                                        {}
-                                                                                                                                                                    ),
-                                                                                                                                                                ),
-                                                                                                                                                                x=Variable(
-                                                                                                                                                                    name="s"
-                                                                                                                                                                ),
-                                                                                                                                                            ),
-                                                                                                                                                        ),
-                                                                                                                                                        x=Apply(
-                                                                                                                                                            f=Lambda(
-                                                                                                                                                                var_name="s",
-                                                                                                                                                                term=BuiltinInteger(
-                                                                                                                                                                    value=42
-                                                                                                                                                                ),
-                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                    {}
-                                                                                                                                                                ),
-                                                                                                                                                            ),
-                                                                                                                                                            x=Variable(
-                                                                                                                                                                name="s"
-                                                                                                                                                            ),
-                                                                                                                                                        ),
-                                                                                                                                                    ),
-                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                        {}
-                                                                                                                                                    ),
-                                                                                                                                                ),
-                                                                                                                                                x=Apply(
-                                                                                                                                                    f=Lambda(
-                                                                                                                                                        var_name="s",
-                                                                                                                                                        term=Variable(
-                                                                                                                                                            name="s"
-                                                                                                                                                        ),
-                                                                                                                                                        state=frozendict.frozendict(
-                                                                                                                                                            {}
-                                                                                                                                                        ),
-                                                                                                                                                    ),
-                                                                                                                                                    x=Lambda(
-                                                                                                                                                        var_name="x",
-                                                                                                                                                        term=Lambda(
-                                                                                                                                                            var_name="def",
-                                                                                                                                                            term=Force(
-                                                                                                                                                                term=Apply(
-                                                                                                                                                                    f=Apply(
-                                                                                                                                                                        f=Apply(
-                                                                                                                                                                            f=Force(
-                                                                                                                                                                                term=BuiltIn(
-                                                                                                                                                                                    builtin=BuiltInFun.IfThenElse,
-                                                                                                                                                                                    applied_forces=0,
-                                                                                                                                                                                    bound_arguments=[],
-                                                                                                                                                                                )
-                                                                                                                                                                            ),
-                                                                                                                                                                            x=Apply(
-                                                                                                                                                                                f=Apply(
-                                                                                                                                                                                    f=BuiltIn(
-                                                                                                                                                                                        builtin=BuiltInFun.EqualsByteString,
-                                                                                                                                                                                        applied_forces=0,
-                                                                                                                                                                                        bound_arguments=[],
-                                                                                                                                                                                    ),
-                                                                                                                                                                                    x=Variable(
-                                                                                                                                                                                        name="x"
-                                                                                                                                                                                    ),
-                                                                                                                                                                                ),
-                                                                                                                                                                                x=BuiltinByteString(
-                                                                                                                                                                                    value=b"context"
-                                                                                                                                                                                ),
-                                                                                                                                                                            ),
-                                                                                                                                                                        ),
-                                                                                                                                                                        x=Delay(
-                                                                                                                                                                            term=Delay(
-                                                                                                                                                                                term=Variable(
-                                                                                                                                                                                    name="p2"
-                                                                                                                                                                                ),
-                                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                                    {}
-                                                                                                                                                                                ),
-                                                                                                                                                                            ),
-                                                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                                                {}
-                                                                                                                                                                            ),
-                                                                                                                                                                        ),
-                                                                                                                                                                    ),
-                                                                                                                                                                    x=Delay(
-                                                                                                                                                                        term=Force(
-                                                                                                                                                                            term=Apply(
-                                                                                                                                                                                f=Apply(
-                                                                                                                                                                                    f=Apply(
-                                                                                                                                                                                        f=Force(
-                                                                                                                                                                                            term=BuiltIn(
-                                                                                                                                                                                                builtin=BuiltInFun.IfThenElse,
-                                                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                                                            )
-                                                                                                                                                                                        ),
-                                                                                                                                                                                        x=Apply(
-                                                                                                                                                                                            f=Apply(
-                                                                                                                                                                                                f=BuiltIn(
-                                                                                                                                                                                                    builtin=BuiltInFun.EqualsByteString,
-                                                                                                                                                                                                    applied_forces=0,
-                                                                                                                                                                                                    bound_arguments=[],
-                                                                                                                                                                                                ),
-                                                                                                                                                                                                x=Variable(
-                                                                                                                                                                                                    name="x"
-                                                                                                                                                                                                ),
-                                                                                                                                                                                            ),
-                                                                                                                                                                                            x=BuiltinByteString(
-                                                                                                                                                                                                value=b"redeemer"
-                                                                                                                                                                                            ),
-                                                                                                                                                                                        ),
-                                                                                                                                                                                    ),
-                                                                                                                                                                                    x=Delay(
-                                                                                                                                                                                        term=Delay(
-                                                                                                                                                                                            term=Variable(
-                                                                                                                                                                                                name="p1"
-                                                                                                                                                                                            ),
-                                                                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                                                                {}
+                                                                                                                                                                                                x=BuiltinUnit(),
                                                                                                                                                                                             ),
                                                                                                                                                                                         ),
                                                                                                                                                                                         state=frozendict.frozendict(
                                                                                                                                                                                             {}
                                                                                                                                                                                         ),
                                                                                                                                                                                     ),
+                                                                                                                                                                                )
+                                                                                                                                                                            ),
+                                                                                                                                                                            state=frozendict.frozendict(
+                                                                                                                                                                                {}
+                                                                                                                                                                            ),
+                                                                                                                                                                        ),
+                                                                                                                                                                        x=Variable(
+                                                                                                                                                                            name="s"
+                                                                                                                                                                        ),
+                                                                                                                                                                    ),
+                                                                                                                                                                ),
+                                                                                                                                                                x=Apply(
+                                                                                                                                                                    f=Lambda(
+                                                                                                                                                                        var_name="s",
+                                                                                                                                                                        term=Force(
+                                                                                                                                                                            term=Apply(
+                                                                                                                                                                                f=Apply(
+                                                                                                                                                                                    f=Variable(
+                                                                                                                                                                                        name="s"
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    x=BuiltinByteString(
+                                                                                                                                                                                        value=b"redeemer"
+                                                                                                                                                                                    ),
                                                                                                                                                                                 ),
                                                                                                                                                                                 x=Delay(
-                                                                                                                                                                                    term=Force(
-                                                                                                                                                                                        term=Apply(
-                                                                                                                                                                                            f=Apply(
-                                                                                                                                                                                                f=Apply(
-                                                                                                                                                                                                    f=Force(
-                                                                                                                                                                                                        term=BuiltIn(
-                                                                                                                                                                                                            builtin=BuiltInFun.IfThenElse,
-                                                                                                                                                                                                            applied_forces=0,
-                                                                                                                                                                                                            bound_arguments=[],
-                                                                                                                                                                                                        )
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                    x=Apply(
-                                                                                                                                                                                                        f=Apply(
-                                                                                                                                                                                                            f=BuiltIn(
-                                                                                                                                                                                                                builtin=BuiltInFun.EqualsByteString,
-                                                                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                            x=Variable(
-                                                                                                                                                                                                                name="x"
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                        x=BuiltinByteString(
-                                                                                                                                                                                                            value=b"datum"
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                ),
-                                                                                                                                                                                                x=Delay(
-                                                                                                                                                                                                    term=Delay(
-                                                                                                                                                                                                        term=Variable(
-                                                                                                                                                                                                            name="p0"
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                        state=frozendict.frozendict(
-                                                                                                                                                                                                            {}
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                                                                        {}
-                                                                                                                                                                                                    ),
-                                                                                                                                                                                                ),
+                                                                                                                                                                                    term=Apply(
+                                                                                                                                                                                        f=Lambda(
+                                                                                                                                                                                            var_name="_",
+                                                                                                                                                                                            term=Error(),
+                                                                                                                                                                                            state=frozendict.frozendict(
+                                                                                                                                                                                                {}
                                                                                                                                                                                             ),
-                                                                                                                                                                                            x=Delay(
-                                                                                                                                                                                                term=Force(
-                                                                                                                                                                                                    term=Apply(
-                                                                                                                                                                                                        f=Apply(
-                                                                                                                                                                                                            f=Apply(
-                                                                                                                                                                                                                f=Force(
-                                                                                                                                                                                                                    term=BuiltIn(
-                                                                                                                                                                                                                        builtin=BuiltInFun.IfThenElse,
-                                                                                                                                                                                                                        applied_forces=0,
-                                                                                                                                                                                                                        bound_arguments=[],
-                                                                                                                                                                                                                    )
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                x=Apply(
-                                                                                                                                                                                                                    f=Apply(
-                                                                                                                                                                                                                        f=BuiltIn(
-                                                                                                                                                                                                                            builtin=BuiltInFun.EqualsByteString,
-                                                                                                                                                                                                                            applied_forces=0,
-                                                                                                                                                                                                                            bound_arguments=[],
-                                                                                                                                                                                                                        ),
-                                                                                                                                                                                                                        x=Variable(
-                                                                                                                                                                                                                            name="x"
-                                                                                                                                                                                                                        ),
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                    x=BuiltinByteString(
-                                                                                                                                                                                                                        value=b"validator"
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                            x=Delay(
-                                                                                                                                                                                                                term=Delay(
-                                                                                                                                                                                                                    term=Variable(
-                                                                                                                                                                                                                        name="f"
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                    state=frozendict.frozendict(
-                                                                                                                                                                                                                        {}
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                                                                    {}
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                        ),
-                                                                                                                                                                                                        x=Delay(
-                                                                                                                                                                                                            term=Apply(
-                                                                                                                                                                                                                f=Apply(
-                                                                                                                                                                                                                    f=Variable(
-                                                                                                                                                                                                                        name="s"
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                    x=Variable(
-                                                                                                                                                                                                                        name="x"
-                                                                                                                                                                                                                    ),
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                x=Variable(
-                                                                                                                                                                                                                    name="def"
-                                                                                                                                                                                                                ),
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                                                                                {}
-                                                                                                                                                                                                            ),
-                                                                                                                                                                                                        ),
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        x=Apply(
+                                                                                                                                                                                            f=Apply(
+                                                                                                                                                                                                f=Force(
+                                                                                                                                                                                                    term=BuiltIn(
+                                                                                                                                                                                                        builtin=BuiltInFun.Trace,
+                                                                                                                                                                                                        applied_forces=0,
+                                                                                                                                                                                                        bound_arguments=[],
                                                                                                                                                                                                     )
                                                                                                                                                                                                 ),
-                                                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                                                    {}
+                                                                                                                                                                                                x=BuiltinString(
+                                                                                                                                                                                                    value="NameError"
                                                                                                                                                                                                 ),
                                                                                                                                                                                             ),
-                                                                                                                                                                                        )
+                                                                                                                                                                                            x=BuiltinUnit(),
+                                                                                                                                                                                        ),
                                                                                                                                                                                     ),
                                                                                                                                                                                     state=frozendict.frozendict(
                                                                                                                                                                                         {}
@@ -502,15 +248,32 @@ class MiscTest(unittest.TestCase):
                                                                                                                                                                             {}
                                                                                                                                                                         ),
                                                                                                                                                                     ),
-                                                                                                                                                                )
+                                                                                                                                                                    x=Variable(
+                                                                                                                                                                        name="s"
+                                                                                                                                                                    ),
+                                                                                                                                                                ),
                                                                                                                                                             ),
                                                                                                                                                             state=frozendict.frozendict(
                                                                                                                                                                 {}
                                                                                                                                                             ),
                                                                                                                                                         ),
+                                                                                                                                                        x=Variable(
+                                                                                                                                                            name="s"
+                                                                                                                                                        ),
+                                                                                                                                                    ),
+                                                                                                                                                ),
+                                                                                                                                                x=Apply(
+                                                                                                                                                    f=Lambda(
+                                                                                                                                                        var_name="s",
+                                                                                                                                                        term=BuiltinInteger(
+                                                                                                                                                            value=42
+                                                                                                                                                        ),
                                                                                                                                                         state=frozendict.frozendict(
                                                                                                                                                             {}
                                                                                                                                                         ),
+                                                                                                                                                    ),
+                                                                                                                                                    x=Variable(
+                                                                                                                                                        name="s"
                                                                                                                                                     ),
                                                                                                                                                 ),
                                                                                                                                             ),
@@ -518,8 +281,233 @@ class MiscTest(unittest.TestCase):
                                                                                                                                                 {}
                                                                                                                                             ),
                                                                                                                                         ),
-                                                                                                                                        state=frozendict.frozendict(
-                                                                                                                                            {}
+                                                                                                                                        x=Apply(
+                                                                                                                                            f=Lambda(
+                                                                                                                                                var_name="s",
+                                                                                                                                                term=Variable(
+                                                                                                                                                    name="s"
+                                                                                                                                                ),
+                                                                                                                                                state=frozendict.frozendict(
+                                                                                                                                                    {}
+                                                                                                                                                ),
+                                                                                                                                            ),
+                                                                                                                                            x=Lambda(
+                                                                                                                                                var_name="x",
+                                                                                                                                                term=Lambda(
+                                                                                                                                                    var_name="def",
+                                                                                                                                                    term=Force(
+                                                                                                                                                        term=Apply(
+                                                                                                                                                            f=Apply(
+                                                                                                                                                                f=Apply(
+                                                                                                                                                                    f=Force(
+                                                                                                                                                                        term=BuiltIn(
+                                                                                                                                                                            builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                                            applied_forces=0,
+                                                                                                                                                                            bound_arguments=[],
+                                                                                                                                                                        )
+                                                                                                                                                                    ),
+                                                                                                                                                                    x=Apply(
+                                                                                                                                                                        f=Apply(
+                                                                                                                                                                            f=BuiltIn(
+                                                                                                                                                                                builtin=BuiltInFun.EqualsByteString,
+                                                                                                                                                                                applied_forces=0,
+                                                                                                                                                                                bound_arguments=[],
+                                                                                                                                                                            ),
+                                                                                                                                                                            x=Variable(
+                                                                                                                                                                                name="x"
+                                                                                                                                                                            ),
+                                                                                                                                                                        ),
+                                                                                                                                                                        x=BuiltinByteString(
+                                                                                                                                                                            value=b"context"
+                                                                                                                                                                        ),
+                                                                                                                                                                    ),
+                                                                                                                                                                ),
+                                                                                                                                                                x=Delay(
+                                                                                                                                                                    term=Delay(
+                                                                                                                                                                        term=Variable(
+                                                                                                                                                                            name="p2"
+                                                                                                                                                                        ),
+                                                                                                                                                                        state=frozendict.frozendict(
+                                                                                                                                                                            {}
+                                                                                                                                                                        ),
+                                                                                                                                                                    ),
+                                                                                                                                                                    state=frozendict.frozendict(
+                                                                                                                                                                        {}
+                                                                                                                                                                    ),
+                                                                                                                                                                ),
+                                                                                                                                                            ),
+                                                                                                                                                            x=Delay(
+                                                                                                                                                                term=Force(
+                                                                                                                                                                    term=Apply(
+                                                                                                                                                                        f=Apply(
+                                                                                                                                                                            f=Apply(
+                                                                                                                                                                                f=Force(
+                                                                                                                                                                                    term=BuiltIn(
+                                                                                                                                                                                        builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                                                        applied_forces=0,
+                                                                                                                                                                                        bound_arguments=[],
+                                                                                                                                                                                    )
+                                                                                                                                                                                ),
+                                                                                                                                                                                x=Apply(
+                                                                                                                                                                                    f=Apply(
+                                                                                                                                                                                        f=BuiltIn(
+                                                                                                                                                                                            builtin=BuiltInFun.EqualsByteString,
+                                                                                                                                                                                            applied_forces=0,
+                                                                                                                                                                                            bound_arguments=[],
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        x=Variable(
+                                                                                                                                                                                            name="x"
+                                                                                                                                                                                        ),
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    x=BuiltinByteString(
+                                                                                                                                                                                        value=b"redeemer"
+                                                                                                                                                                                    ),
+                                                                                                                                                                                ),
+                                                                                                                                                                            ),
+                                                                                                                                                                            x=Delay(
+                                                                                                                                                                                term=Delay(
+                                                                                                                                                                                    term=Variable(
+                                                                                                                                                                                        name="p1"
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    state=frozendict.frozendict(
+                                                                                                                                                                                        {}
+                                                                                                                                                                                    ),
+                                                                                                                                                                                ),
+                                                                                                                                                                                state=frozendict.frozendict(
+                                                                                                                                                                                    {}
+                                                                                                                                                                                ),
+                                                                                                                                                                            ),
+                                                                                                                                                                        ),
+                                                                                                                                                                        x=Delay(
+                                                                                                                                                                            term=Force(
+                                                                                                                                                                                term=Apply(
+                                                                                                                                                                                    f=Apply(
+                                                                                                                                                                                        f=Apply(
+                                                                                                                                                                                            f=Force(
+                                                                                                                                                                                                term=BuiltIn(
+                                                                                                                                                                                                    builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                                                                    applied_forces=0,
+                                                                                                                                                                                                    bound_arguments=[],
+                                                                                                                                                                                                )
+                                                                                                                                                                                            ),
+                                                                                                                                                                                            x=Apply(
+                                                                                                                                                                                                f=Apply(
+                                                                                                                                                                                                    f=BuiltIn(
+                                                                                                                                                                                                        builtin=BuiltInFun.EqualsByteString,
+                                                                                                                                                                                                        applied_forces=0,
+                                                                                                                                                                                                        bound_arguments=[],
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                    x=Variable(
+                                                                                                                                                                                                        name="x"
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                ),
+                                                                                                                                                                                                x=BuiltinByteString(
+                                                                                                                                                                                                    value=b"datum"
+                                                                                                                                                                                                ),
+                                                                                                                                                                                            ),
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        x=Delay(
+                                                                                                                                                                                            term=Delay(
+                                                                                                                                                                                                term=Variable(
+                                                                                                                                                                                                    name="p0"
+                                                                                                                                                                                                ),
+                                                                                                                                                                                                state=frozendict.frozendict(
+                                                                                                                                                                                                    {}
+                                                                                                                                                                                                ),
+                                                                                                                                                                                            ),
+                                                                                                                                                                                            state=frozendict.frozendict(
+                                                                                                                                                                                                {}
+                                                                                                                                                                                            ),
+                                                                                                                                                                                        ),
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    x=Delay(
+                                                                                                                                                                                        term=Force(
+                                                                                                                                                                                            term=Apply(
+                                                                                                                                                                                                f=Apply(
+                                                                                                                                                                                                    f=Apply(
+                                                                                                                                                                                                        f=Force(
+                                                                                                                                                                                                            term=BuiltIn(
+                                                                                                                                                                                                                builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                                                                                applied_forces=0,
+                                                                                                                                                                                                                bound_arguments=[],
+                                                                                                                                                                                                            )
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                        x=Apply(
+                                                                                                                                                                                                            f=Apply(
+                                                                                                                                                                                                                f=BuiltIn(
+                                                                                                                                                                                                                    builtin=BuiltInFun.EqualsByteString,
+                                                                                                                                                                                                                    applied_forces=0,
+                                                                                                                                                                                                                    bound_arguments=[],
+                                                                                                                                                                                                                ),
+                                                                                                                                                                                                                x=Variable(
+                                                                                                                                                                                                                    name="x"
+                                                                                                                                                                                                                ),
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                            x=BuiltinByteString(
+                                                                                                                                                                                                                value=b"validator"
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                    x=Delay(
+                                                                                                                                                                                                        term=Delay(
+                                                                                                                                                                                                            term=Variable(
+                                                                                                                                                                                                                name="f"
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                            state=frozendict.frozendict(
+                                                                                                                                                                                                                {}
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                        state=frozendict.frozendict(
+                                                                                                                                                                                                            {}
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                ),
+                                                                                                                                                                                                x=Delay(
+                                                                                                                                                                                                    term=Apply(
+                                                                                                                                                                                                        f=Apply(
+                                                                                                                                                                                                            f=Variable(
+                                                                                                                                                                                                                name="s"
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                            x=Variable(
+                                                                                                                                                                                                                name="x"
+                                                                                                                                                                                                            ),
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                        x=Variable(
+                                                                                                                                                                                                            name="def"
+                                                                                                                                                                                                        ),
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                    state=frozendict.frozendict(
+                                                                                                                                                                                                        {}
+                                                                                                                                                                                                    ),
+                                                                                                                                                                                                ),
+                                                                                                                                                                                            )
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        state=frozendict.frozendict(
+                                                                                                                                                                                            {}
+                                                                                                                                                                                        ),
+                                                                                                                                                                                    ),
+                                                                                                                                                                                )
+                                                                                                                                                                            ),
+                                                                                                                                                                            state=frozendict.frozendict(
+                                                                                                                                                                                {}
+                                                                                                                                                                            ),
+                                                                                                                                                                        ),
+                                                                                                                                                                    )
+                                                                                                                                                                ),
+                                                                                                                                                                state=frozendict.frozendict(
+                                                                                                                                                                    {}
+                                                                                                                                                                ),
+                                                                                                                                                            ),
+                                                                                                                                                        )
+                                                                                                                                                    ),
+                                                                                                                                                    state=frozendict.frozendict(
+                                                                                                                                                        {}
+                                                                                                                                                    ),
+                                                                                                                                                ),
+                                                                                                                                                state=frozendict.frozendict(
+                                                                                                                                                    {}
+                                                                                                                                                ),
+                                                                                                                                            ),
                                                                                                                                         ),
                                                                                                                                     ),
                                                                                                                                     state=frozendict.frozendict(
@@ -542,34 +530,62 @@ class MiscTest(unittest.TestCase):
                                                                                                                         {}
                                                                                                                     ),
                                                                                                                 ),
-                                                                                                            ),
-                                                                                                            x=Delay(
-                                                                                                                term=Apply(
-                                                                                                                    f=Apply(
-                                                                                                                        f=Variable(
-                                                                                                                            name="s"
-                                                                                                                        ),
-                                                                                                                        x=Variable(
-                                                                                                                            name="x"
-                                                                                                                        ),
-                                                                                                                    ),
-                                                                                                                    x=Variable(
-                                                                                                                        name="def"
-                                                                                                                    ),
-                                                                                                                ),
                                                                                                                 state=frozendict.frozendict(
                                                                                                                     {}
                                                                                                                 ),
                                                                                                             ),
-                                                                                                        )
+                                                                                                            state=frozendict.frozendict(
+                                                                                                                {}
+                                                                                                            ),
+                                                                                                        ),
                                                                                                     ),
-                                                                                                    state=frozendict.frozendict(
-                                                                                                        {}
+                                                                                                    x=Delay(
+                                                                                                        term=Apply(
+                                                                                                            f=Apply(
+                                                                                                                f=Variable(
+                                                                                                                    name="s"
+                                                                                                                ),
+                                                                                                                x=Variable(
+                                                                                                                    name="x"
+                                                                                                                ),
+                                                                                                            ),
+                                                                                                            x=Variable(
+                                                                                                                name="def"
+                                                                                                            ),
+                                                                                                        ),
+                                                                                                        state=frozendict.frozendict(
+                                                                                                            {}
+                                                                                                        ),
                                                                                                     ),
-                                                                                                ),
-                                                                                                state=frozendict.frozendict(
-                                                                                                    {}
-                                                                                                ),
+                                                                                                )
+                                                                                            ),
+                                                                                            state=frozendict.frozendict(
+                                                                                                {}
+                                                                                            ),
+                                                                                        ),
+                                                                                        state=frozendict.frozendict(
+                                                                                            {}
+                                                                                        ),
+                                                                                    ),
+                                                                                    state=frozendict.frozendict(
+                                                                                        {}
+                                                                                    ),
+                                                                                ),
+                                                                                x=Apply(
+                                                                                    f=Lambda(
+                                                                                        var_name="s",
+                                                                                        term=Variable(
+                                                                                            name="s"
+                                                                                        ),
+                                                                                        state=frozendict.frozendict(
+                                                                                            {}
+                                                                                        ),
+                                                                                    ),
+                                                                                    x=Apply(
+                                                                                        f=Lambda(
+                                                                                            var_name="s",
+                                                                                            term=Variable(
+                                                                                                name="s"
                                                                                             ),
                                                                                             state=frozendict.frozendict(
                                                                                                 {}
@@ -925,30 +941,8 @@ class MiscTest(unittest.TestCase):
                                                                                                                                                                                                                                             {}
                                                                                                                                                                                                                                         ),
                                                                                                                                                                                                                                     ),
-                                                                                                                                                                                                                                    x=Apply(
-                                                                                                                                                                                                                                        f=Lambda(
-                                                                                                                                                                                                                                            var_name="s",
-                                                                                                                                                                                                                                            term=Variable(
-                                                                                                                                                                                                                                                name="s"
-                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                                                                                                                {}
-                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                        ),
-                                                                                                                                                                                                                                        x=Apply(
-                                                                                                                                                                                                                                            f=Lambda(
-                                                                                                                                                                                                                                                var_name="s",
-                                                                                                                                                                                                                                                term=Variable(
-                                                                                                                                                                                                                                                    name="s"
-                                                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                                                                                                                    {}
-                                                                                                                                                                                                                                                ),
-                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                            x=Variable(
-                                                                                                                                                                                                                                                name="s"
-                                                                                                                                                                                                                                            ),
-                                                                                                                                                                                                                                        ),
+                                                                                                                                                                                                                                    x=Variable(
+                                                                                                                                                                                                                                        name="s"
                                                                                                                                                                                                                                     ),
                                                                                                                                                                                                                                 ),
                                                                                                                                                                                                                             ),
@@ -986,134 +980,173 @@ class MiscTest(unittest.TestCase):
                                                                                             ),
                                                                                         ),
                                                                                     ),
-                                                                                    state=frozendict.frozendict(
-                                                                                        {}
-                                                                                    ),
-                                                                                ),
-                                                                                x=Variable(
-                                                                                    name="s"
-                                                                                ),
-                                                                            ),
-                                                                            x=BuiltinByteString(
-                                                                                value=b"validator"
-                                                                            ),
-                                                                        ),
-                                                                        x=Delay(
-                                                                            term=Apply(
-                                                                                f=Lambda(
-                                                                                    var_name="_",
-                                                                                    term=Error(),
-                                                                                    state=frozendict.frozendict(
-                                                                                        {}
-                                                                                    ),
-                                                                                ),
-                                                                                x=Apply(
-                                                                                    f=Apply(
-                                                                                        f=Force(
-                                                                                            term=BuiltIn(
-                                                                                                builtin=BuiltInFun.Trace,
-                                                                                                applied_forces=0,
-                                                                                                bound_arguments=[],
-                                                                                            )
-                                                                                        ),
-                                                                                        x=BuiltinString(
-                                                                                            value="NameError"
-                                                                                        ),
-                                                                                    ),
-                                                                                    x=BuiltinUnit(),
                                                                                 ),
                                                                             ),
                                                                             state=frozendict.frozendict(
                                                                                 {}
                                                                             ),
                                                                         ),
-                                                                    )
+                                                                        x=Variable(
+                                                                            name="s"
+                                                                        ),
+                                                                    ),
+                                                                    x=BuiltinByteString(
+                                                                        value=b"validator"
+                                                                    ),
                                                                 ),
-                                                            ),
-                                                            state=frozendict.frozendict(
-                                                                {}
-                                                            ),
-                                                        ),
-                                                        x=Lambda(
-                                                            var_name="x",
-                                                            term=Lambda(
-                                                                var_name="def",
-                                                                term=Force(
+                                                                x=Delay(
                                                                     term=Apply(
-                                                                        f=Apply(
+                                                                        f=Lambda(
+                                                                            var_name="_",
+                                                                            term=Error(),
+                                                                            state=frozendict.frozendict(
+                                                                                {}
+                                                                            ),
+                                                                        ),
+                                                                        x=Apply(
                                                                             f=Apply(
                                                                                 f=Force(
                                                                                     term=BuiltIn(
-                                                                                        builtin=BuiltInFun.IfThenElse,
+                                                                                        builtin=BuiltInFun.Trace,
                                                                                         applied_forces=0,
                                                                                         bound_arguments=[],
                                                                                     )
                                                                                 ),
-                                                                                x=Apply(
-                                                                                    f=Apply(
-                                                                                        f=BuiltIn(
-                                                                                            builtin=BuiltInFun.EqualsByteString,
-                                                                                            applied_forces=0,
-                                                                                            bound_arguments=[],
-                                                                                        ),
-                                                                                        x=Variable(
-                                                                                            name="x"
-                                                                                        ),
-                                                                                    ),
-                                                                                    x=BuiltinByteString(
-                                                                                        value=b"range"
-                                                                                    ),
+                                                                                x=BuiltinString(
+                                                                                    value="NameError"
                                                                                 ),
                                                                             ),
-                                                                            x=Delay(
-                                                                                term=Delay(
+                                                                            x=BuiltinUnit(),
+                                                                        ),
+                                                                    ),
+                                                                    state=frozendict.frozendict(
+                                                                        {}
+                                                                    ),
+                                                                ),
+                                                            )
+                                                        ),
+                                                    ),
+                                                    state=frozendict.frozendict({}),
+                                                ),
+                                                x=Lambda(
+                                                    var_name="x",
+                                                    term=Lambda(
+                                                        var_name="def",
+                                                        term=Force(
+                                                            term=Apply(
+                                                                f=Apply(
+                                                                    f=Apply(
+                                                                        f=Force(
+                                                                            term=BuiltIn(
+                                                                                builtin=BuiltInFun.IfThenElse,
+                                                                                applied_forces=0,
+                                                                                bound_arguments=[],
+                                                                            )
+                                                                        ),
+                                                                        x=Apply(
+                                                                            f=Apply(
+                                                                                f=BuiltIn(
+                                                                                    builtin=BuiltInFun.EqualsByteString,
+                                                                                    applied_forces=0,
+                                                                                    bound_arguments=[],
+                                                                                ),
+                                                                                x=Variable(
+                                                                                    name="x"
+                                                                                ),
+                                                                            ),
+                                                                            x=BuiltinByteString(
+                                                                                value=b"range"
+                                                                            ),
+                                                                        ),
+                                                                    ),
+                                                                    x=Delay(
+                                                                        term=Delay(
+                                                                            term=Lambda(
+                                                                                var_name="f",
+                                                                                term=Lambda(
+                                                                                    var_name="limit",
                                                                                     term=Lambda(
-                                                                                        var_name="f",
-                                                                                        term=Lambda(
-                                                                                            var_name="limit",
-                                                                                            term=Lambda(
-                                                                                                var_name="s",
-                                                                                                term=Apply(
-                                                                                                    f=Apply(
-                                                                                                        f=Apply(
-                                                                                                            f=Lambda(
-                                                                                                                var_name="limit",
-                                                                                                                term=Lambda(
-                                                                                                                    var_name="step",
+                                                                                        var_name="s",
+                                                                                        term=Apply(
+                                                                                            f=Apply(
+                                                                                                f=Apply(
+                                                                                                    f=Lambda(
+                                                                                                        var_name="limit",
+                                                                                                        term=Lambda(
+                                                                                                            var_name="step",
+                                                                                                            term=Apply(
+                                                                                                                f=Lambda(
+                                                                                                                    var_name="g",
                                                                                                                     term=Apply(
-                                                                                                                        f=Lambda(
-                                                                                                                            var_name="g",
-                                                                                                                            term=Apply(
-                                                                                                                                f=Variable(
-                                                                                                                                    name="g"
-                                                                                                                                ),
-                                                                                                                                x=Variable(
-                                                                                                                                    name="g"
-                                                                                                                                ),
-                                                                                                                            ),
-                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                {}
-                                                                                                                            ),
+                                                                                                                        f=Variable(
+                                                                                                                            name="g"
                                                                                                                         ),
-                                                                                                                        x=Lambda(
-                                                                                                                            var_name="f",
-                                                                                                                            term=Lambda(
-                                                                                                                                var_name="cur",
-                                                                                                                                term=Force(
-                                                                                                                                    term=Apply(
-                                                                                                                                        f=Apply(
+                                                                                                                        x=Variable(
+                                                                                                                            name="g"
+                                                                                                                        ),
+                                                                                                                    ),
+                                                                                                                    state=frozendict.frozendict(
+                                                                                                                        {}
+                                                                                                                    ),
+                                                                                                                ),
+                                                                                                                x=Lambda(
+                                                                                                                    var_name="f",
+                                                                                                                    term=Lambda(
+                                                                                                                        var_name="cur",
+                                                                                                                        term=Force(
+                                                                                                                            term=Apply(
+                                                                                                                                f=Apply(
+                                                                                                                                    f=Apply(
+                                                                                                                                        f=Force(
+                                                                                                                                            term=BuiltIn(
+                                                                                                                                                builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                applied_forces=0,
+                                                                                                                                                bound_arguments=[],
+                                                                                                                                            )
+                                                                                                                                        ),
+                                                                                                                                        x=Apply(
+                                                                                                                                            f=Apply(
+                                                                                                                                                f=BuiltIn(
+                                                                                                                                                    builtin=BuiltInFun.LessThanInteger,
+                                                                                                                                                    applied_forces=0,
+                                                                                                                                                    bound_arguments=[],
+                                                                                                                                                ),
+                                                                                                                                                x=Variable(
+                                                                                                                                                    name="cur"
+                                                                                                                                                ),
+                                                                                                                                            ),
+                                                                                                                                            x=Variable(
+                                                                                                                                                name="limit"
+                                                                                                                                            ),
+                                                                                                                                        ),
+                                                                                                                                    ),
+                                                                                                                                    x=Delay(
+                                                                                                                                        term=Apply(
                                                                                                                                             f=Apply(
                                                                                                                                                 f=Force(
                                                                                                                                                     term=BuiltIn(
-                                                                                                                                                        builtin=BuiltInFun.IfThenElse,
+                                                                                                                                                        builtin=BuiltInFun.MkCons,
                                                                                                                                                         applied_forces=0,
                                                                                                                                                         bound_arguments=[],
                                                                                                                                                     )
                                                                                                                                                 ),
+                                                                                                                                                x=Variable(
+                                                                                                                                                    name="cur"
+                                                                                                                                                ),
+                                                                                                                                            ),
+                                                                                                                                            x=Apply(
+                                                                                                                                                f=Apply(
+                                                                                                                                                    f=Variable(
+                                                                                                                                                        name="f"
+                                                                                                                                                    ),
+                                                                                                                                                    x=Variable(
+                                                                                                                                                        name="f"
+                                                                                                                                                    ),
+                                                                                                                                                ),
                                                                                                                                                 x=Apply(
                                                                                                                                                     f=Apply(
                                                                                                                                                         f=BuiltIn(
-                                                                                                                                                            builtin=BuiltInFun.LessThanInteger,
+                                                                                                                                                            builtin=BuiltInFun.AddInteger,
                                                                                                                                                             applied_forces=0,
                                                                                                                                                             bound_arguments=[],
                                                                                                                                                         ),
@@ -1122,105 +1155,58 @@ class MiscTest(unittest.TestCase):
                                                                                                                                                         ),
                                                                                                                                                     ),
                                                                                                                                                     x=Variable(
-                                                                                                                                                        name="limit"
+                                                                                                                                                        name="step"
                                                                                                                                                     ),
-                                                                                                                                                ),
-                                                                                                                                            ),
-                                                                                                                                            x=Delay(
-                                                                                                                                                term=Apply(
-                                                                                                                                                    f=Apply(
-                                                                                                                                                        f=Force(
-                                                                                                                                                            term=BuiltIn(
-                                                                                                                                                                builtin=BuiltInFun.MkCons,
-                                                                                                                                                                applied_forces=0,
-                                                                                                                                                                bound_arguments=[],
-                                                                                                                                                            )
-                                                                                                                                                        ),
-                                                                                                                                                        x=Variable(
-                                                                                                                                                            name="cur"
-                                                                                                                                                        ),
-                                                                                                                                                    ),
-                                                                                                                                                    x=Apply(
-                                                                                                                                                        f=Apply(
-                                                                                                                                                            f=Variable(
-                                                                                                                                                                name="f"
-                                                                                                                                                            ),
-                                                                                                                                                            x=Variable(
-                                                                                                                                                                name="f"
-                                                                                                                                                            ),
-                                                                                                                                                        ),
-                                                                                                                                                        x=Apply(
-                                                                                                                                                            f=Apply(
-                                                                                                                                                                f=BuiltIn(
-                                                                                                                                                                    builtin=BuiltInFun.AddInteger,
-                                                                                                                                                                    applied_forces=0,
-                                                                                                                                                                    bound_arguments=[],
-                                                                                                                                                                ),
-                                                                                                                                                                x=Variable(
-                                                                                                                                                                    name="cur"
-                                                                                                                                                                ),
-                                                                                                                                                            ),
-                                                                                                                                                            x=Variable(
-                                                                                                                                                                name="step"
-                                                                                                                                                            ),
-                                                                                                                                                        ),
-                                                                                                                                                    ),
-                                                                                                                                                ),
-                                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                                    {}
                                                                                                                                                 ),
                                                                                                                                             ),
                                                                                                                                         ),
-                                                                                                                                        x=Delay(
-                                                                                                                                            term=Apply(
-                                                                                                                                                f=BuiltIn(
-                                                                                                                                                    builtin=BuiltInFun.MkNilData,
-                                                                                                                                                    applied_forces=0,
-                                                                                                                                                    bound_arguments=[],
-                                                                                                                                                ),
-                                                                                                                                                x=BuiltinUnit(),
-                                                                                                                                            ),
-                                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                                {}
-                                                                                                                                            ),
+                                                                                                                                        state=frozendict.frozendict(
+                                                                                                                                            {}
                                                                                                                                         ),
-                                                                                                                                    )
+                                                                                                                                    ),
                                                                                                                                 ),
-                                                                                                                                state=frozendict.frozendict(
-                                                                                                                                    {}
+                                                                                                                                x=Delay(
+                                                                                                                                    term=Apply(
+                                                                                                                                        f=BuiltIn(
+                                                                                                                                            builtin=BuiltInFun.MkNilData,
+                                                                                                                                            applied_forces=0,
+                                                                                                                                            bound_arguments=[],
+                                                                                                                                        ),
+                                                                                                                                        x=BuiltinUnit(),
+                                                                                                                                    ),
+                                                                                                                                    state=frozendict.frozendict(
+                                                                                                                                        {}
+                                                                                                                                    ),
                                                                                                                                 ),
-                                                                                                                            ),
-                                                                                                                            state=frozendict.frozendict(
-                                                                                                                                {}
-                                                                                                                            ),
+                                                                                                                            )
+                                                                                                                        ),
+                                                                                                                        state=frozendict.frozendict(
+                                                                                                                            {}
                                                                                                                         ),
                                                                                                                     ),
                                                                                                                     state=frozendict.frozendict(
                                                                                                                         {}
                                                                                                                     ),
                                                                                                                 ),
-                                                                                                                state=frozendict.frozendict(
-                                                                                                                    {}
-                                                                                                                ),
                                                                                                             ),
-                                                                                                            x=Variable(
-                                                                                                                name="limit"
+                                                                                                            state=frozendict.frozendict(
+                                                                                                                {}
                                                                                                             ),
                                                                                                         ),
-                                                                                                        x=BuiltinInteger(
-                                                                                                            value=1
+                                                                                                        state=frozendict.frozendict(
+                                                                                                            {}
                                                                                                         ),
                                                                                                     ),
-                                                                                                    x=BuiltinInteger(
-                                                                                                        value=0
+                                                                                                    x=Variable(
+                                                                                                        name="limit"
                                                                                                     ),
                                                                                                 ),
-                                                                                                state=frozendict.frozendict(
-                                                                                                    {}
+                                                                                                x=BuiltinInteger(
+                                                                                                    value=1
                                                                                                 ),
                                                                                             ),
-                                                                                            state=frozendict.frozendict(
-                                                                                                {}
+                                                                                            x=BuiltinInteger(
+                                                                                                value=0
                                                                                             ),
                                                                                         ),
                                                                                         state=frozendict.frozendict(
@@ -1235,83 +1221,83 @@ class MiscTest(unittest.TestCase):
                                                                                     {}
                                                                                 ),
                                                                             ),
+                                                                            state=frozendict.frozendict(
+                                                                                {}
+                                                                            ),
                                                                         ),
-                                                                        x=Delay(
-                                                                            term=Force(
-                                                                                term=Apply(
-                                                                                    f=Apply(
+                                                                        state=frozendict.frozendict(
+                                                                            {}
+                                                                        ),
+                                                                    ),
+                                                                ),
+                                                                x=Delay(
+                                                                    term=Force(
+                                                                        term=Apply(
+                                                                            f=Apply(
+                                                                                f=Apply(
+                                                                                    f=Force(
+                                                                                        term=BuiltIn(
+                                                                                            builtin=BuiltInFun.IfThenElse,
+                                                                                            applied_forces=0,
+                                                                                            bound_arguments=[],
+                                                                                        )
+                                                                                    ),
+                                                                                    x=Apply(
                                                                                         f=Apply(
-                                                                                            f=Force(
-                                                                                                term=BuiltIn(
-                                                                                                    builtin=BuiltInFun.IfThenElse,
-                                                                                                    applied_forces=0,
-                                                                                                    bound_arguments=[],
-                                                                                                )
+                                                                                            f=BuiltIn(
+                                                                                                builtin=BuiltInFun.EqualsByteString,
+                                                                                                applied_forces=0,
+                                                                                                bound_arguments=[],
                                                                                             ),
-                                                                                            x=Apply(
-                                                                                                f=Apply(
-                                                                                                    f=BuiltIn(
-                                                                                                        builtin=BuiltInFun.EqualsByteString,
-                                                                                                        applied_forces=0,
-                                                                                                        bound_arguments=[],
-                                                                                                    ),
-                                                                                                    x=Variable(
-                                                                                                        name="x"
-                                                                                                    ),
-                                                                                                ),
-                                                                                                x=BuiltinByteString(
-                                                                                                    value=b"print"
-                                                                                                ),
+                                                                                            x=Variable(
+                                                                                                name="x"
                                                                                             ),
                                                                                         ),
-                                                                                        x=Delay(
-                                                                                            term=Delay(
+                                                                                        x=BuiltinByteString(
+                                                                                            value=b"print"
+                                                                                        ),
+                                                                                    ),
+                                                                                ),
+                                                                                x=Delay(
+                                                                                    term=Delay(
+                                                                                        term=Lambda(
+                                                                                            var_name="f",
+                                                                                            term=Lambda(
+                                                                                                var_name="x",
                                                                                                 term=Lambda(
-                                                                                                    var_name="f",
-                                                                                                    term=Lambda(
-                                                                                                        var_name="x",
-                                                                                                        term=Lambda(
-                                                                                                            var_name="s",
-                                                                                                            term=Apply(
-                                                                                                                f=Apply(
-                                                                                                                    f=Force(
-                                                                                                                        term=BuiltIn(
-                                                                                                                            builtin=BuiltInFun.Trace,
-                                                                                                                            applied_forces=0,
-                                                                                                                            bound_arguments=[],
-                                                                                                                        )
-                                                                                                                    ),
-                                                                                                                    x=Variable(
-                                                                                                                        name="x"
-                                                                                                                    ),
-                                                                                                                ),
-                                                                                                                x=Apply(
-                                                                                                                    f=Apply(
-                                                                                                                        f=BuiltIn(
-                                                                                                                            builtin=BuiltInFun.ConstrData,
-                                                                                                                            applied_forces=0,
-                                                                                                                            bound_arguments=[],
-                                                                                                                        ),
-                                                                                                                        x=BuiltinInteger(
-                                                                                                                            value=0
-                                                                                                                        ),
-                                                                                                                    ),
-                                                                                                                    x=Apply(
-                                                                                                                        f=BuiltIn(
-                                                                                                                            builtin=BuiltInFun.MkNilData,
-                                                                                                                            applied_forces=0,
-                                                                                                                            bound_arguments=[],
-                                                                                                                        ),
-                                                                                                                        x=BuiltinUnit(),
-                                                                                                                    ),
-                                                                                                                ),
+                                                                                                    var_name="s",
+                                                                                                    term=Apply(
+                                                                                                        f=Apply(
+                                                                                                            f=Force(
+                                                                                                                term=BuiltIn(
+                                                                                                                    builtin=BuiltInFun.Trace,
+                                                                                                                    applied_forces=0,
+                                                                                                                    bound_arguments=[],
+                                                                                                                )
                                                                                                             ),
-                                                                                                            state=frozendict.frozendict(
-                                                                                                                {}
+                                                                                                            x=Variable(
+                                                                                                                name="x"
                                                                                                             ),
                                                                                                         ),
-                                                                                                        state=frozendict.frozendict(
-                                                                                                            {}
+                                                                                                        x=Apply(
+                                                                                                            f=Apply(
+                                                                                                                f=BuiltIn(
+                                                                                                                    builtin=BuiltInFun.ConstrData,
+                                                                                                                    applied_forces=0,
+                                                                                                                    bound_arguments=[],
+                                                                                                                ),
+                                                                                                                x=BuiltinInteger(
+                                                                                                                    value=0
+                                                                                                                ),
+                                                                                                            ),
+                                                                                                            x=Apply(
+                                                                                                                f=BuiltIn(
+                                                                                                                    builtin=BuiltInFun.MkNilData,
+                                                                                                                    applied_forces=0,
+                                                                                                                    bound_arguments=[],
+                                                                                                                ),
+                                                                                                                x=BuiltinUnit(),
+                                                                                                            ),
                                                                                                         ),
                                                                                                     ),
                                                                                                     state=frozendict.frozendict(
@@ -1326,100 +1312,109 @@ class MiscTest(unittest.TestCase):
                                                                                                 {}
                                                                                             ),
                                                                                         ),
-                                                                                    ),
-                                                                                    x=Delay(
-                                                                                        term=Apply(
-                                                                                            f=Apply(
-                                                                                                f=Lambda(
-                                                                                                    var_name="x",
-                                                                                                    term=Lambda(
-                                                                                                        var_name="def",
-                                                                                                        term=Variable(
-                                                                                                            name="def"
-                                                                                                        ),
-                                                                                                        state=frozendict.frozendict(
-                                                                                                            {}
-                                                                                                        ),
-                                                                                                    ),
-                                                                                                    state=frozendict.frozendict(
-                                                                                                        {}
-                                                                                                    ),
-                                                                                                ),
-                                                                                                x=Variable(
-                                                                                                    name="x"
-                                                                                                ),
-                                                                                            ),
-                                                                                            x=Variable(
-                                                                                                name="def"
-                                                                                            ),
-                                                                                        ),
                                                                                         state=frozendict.frozendict(
                                                                                             {}
                                                                                         ),
                                                                                     ),
-                                                                                )
+                                                                                    state=frozendict.frozendict(
+                                                                                        {}
+                                                                                    ),
+                                                                                ),
                                                                             ),
-                                                                            state=frozendict.frozendict(
-                                                                                {}
+                                                                            x=Delay(
+                                                                                term=Apply(
+                                                                                    f=Apply(
+                                                                                        f=Lambda(
+                                                                                            var_name="x",
+                                                                                            term=Lambda(
+                                                                                                var_name="def",
+                                                                                                term=Variable(
+                                                                                                    name="def"
+                                                                                                ),
+                                                                                                state=frozendict.frozendict(
+                                                                                                    {}
+                                                                                                ),
+                                                                                            ),
+                                                                                            state=frozendict.frozendict(
+                                                                                                {}
+                                                                                            ),
+                                                                                        ),
+                                                                                        x=Variable(
+                                                                                            name="x"
+                                                                                        ),
+                                                                                    ),
+                                                                                    x=Variable(
+                                                                                        name="def"
+                                                                                    ),
+                                                                                ),
+                                                                                state=frozendict.frozendict(
+                                                                                    {}
+                                                                                ),
                                                                             ),
-                                                                        ),
-                                                                    )
+                                                                        )
+                                                                    ),
+                                                                    state=frozendict.frozendict(
+                                                                        {}
+                                                                    ),
                                                                 ),
-                                                                state=frozendict.frozendict(
-                                                                    {}
-                                                                ),
-                                                            ),
-                                                            state=frozendict.frozendict(
-                                                                {}
-                                                            ),
+                                                            )
                                                         ),
+                                                        state=frozendict.frozendict({}),
                                                     ),
-                                                ),
-                                                x=Delay(
-                                                    term=BuiltinUnit(),
                                                     state=frozendict.frozendict({}),
                                                 ),
                                             ),
-                                            x=Delay(
-                                                term=Apply(
-                                                    f=Lambda(
-                                                        var_name="_",
-                                                        term=Error(),
-                                                        state=frozendict.frozendict({}),
-                                                    ),
-                                                    x=Apply(
-                                                        f=Apply(
-                                                            f=Force(
-                                                                term=BuiltIn(
-                                                                    builtin=BuiltInFun.Trace,
-                                                                    applied_forces=0,
-                                                                    bound_arguments=[],
-                                                                )
-                                                            ),
-                                                            x=BuiltinString(
-                                                                value="ValidationError"
-                                                            ),
-                                                        ),
-                                                        x=BuiltinUnit(),
-                                                    ),
-                                                ),
+                                        ),
+                                        x=Delay(
+                                            term=BuiltinUnit(),
+                                            state=frozendict.frozendict({}),
+                                        ),
+                                    ),
+                                    x=Delay(
+                                        term=Apply(
+                                            f=Lambda(
+                                                var_name="_",
+                                                term=Error(),
                                                 state=frozendict.frozendict({}),
                                             ),
-                                        )
+                                            x=Apply(
+                                                f=Apply(
+                                                    f=Force(
+                                                        term=BuiltIn(
+                                                            builtin=BuiltInFun.Trace,
+                                                            applied_forces=0,
+                                                            bound_arguments=[],
+                                                        )
+                                                    ),
+                                                    x=BuiltinString(
+                                                        value="ValidationError"
+                                                    ),
+                                                ),
+                                                x=BuiltinUnit(),
+                                            ),
+                                        ),
+                                        state=frozendict.frozendict({}),
                                     ),
-                                    state=frozendict.frozendict({}),
-                                ),
-                                state=frozendict.frozendict({}),
+                                )
                             ),
                             state=frozendict.frozendict({}),
                         ),
-                        PlutusInteger(20),
+                        state=frozendict.frozendict({}),
                     ),
-                    PlutusInteger(22),
+                    state=frozendict.frozendict({}),
                 ),
-                BuiltinUnit(),
+                PlutusInteger(20),
             ),
-        )
+            PlutusInteger(22),
+        ),
+        BuiltinUnit(),
+    ),
+)
+
+
+class MiscTest(unittest.TestCase):
+    def test_simple_contract(self):
+        p = SAMPLE_CONTRACT
         # should not raise
         p.dumps()
         r = Machine(p).eval()
@@ -1539,3 +1534,8 @@ class MiscTest(unittest.TestCase):
             """(program 1.0.0 (con (pair (list integer) bytestring) ([1], #01)))"""
         )
         print(dumps(p, dialect=UPLCDialect.Plutus))
+
+    def test_simple_contract_rewrite(self):
+        p = SAMPLE_CONTRACT
+        # should not raise
+        res = unique_variables.UniqueVariableTransformer().visit(p)

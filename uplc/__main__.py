@@ -11,6 +11,7 @@ import pyaiken
 import pycardano
 
 from . import *
+from .transformer import unique_variables
 
 
 class Command(enum.Enum):
@@ -49,6 +50,11 @@ def main():
         choices=[d.value for d in UPLCDialect],
     )
     a.add_argument(
+        "--unique-varnames",
+        action="store_true",
+        help="Assign variables a unique name.",
+    )
+    a.add_argument(
         "args",
         nargs="*",
         default=[],
@@ -66,6 +72,9 @@ def main():
         print("Parsed successfully.")
         return
 
+    if args.unique_varnames:
+        code = unique_variables.UniqueVariableTransformer(code)
+
     if command == Command.dump:
         print(dumps(code, UPLCDialect(args.dialect)))
         return
@@ -81,7 +90,7 @@ def main():
         else:
             target_dir = pathlib.Path(args.output_directory)
         target_dir.mkdir(exist_ok=True)
-        uplc_dump = code.dumps()
+        uplc_dump = code.dumps(dialect=UPLCDialect.Aiken)
         cbor_hex = pyaiken.uplc.flat(uplc_dump)
         # create cbor file for use with pycardano/lucid
         with (target_dir / "script.cbor").open("w") as fp:

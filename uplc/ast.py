@@ -70,6 +70,8 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AST:
+    _fields = []
+
     def eval(self, context: Context, state: frozendict.frozendict):
         raise NotImplementedError()
 
@@ -595,6 +597,7 @@ BuiltInFunForceMap.update(
 class Program(AST):
     version: str
     term: AST
+    _fields = ["term"]
 
     def eval(self, context, state):
         return self.term.eval(context, state)
@@ -625,6 +628,7 @@ class BoundStateLambda(AST):
     var_name: str
     term: AST
     state: frozendict.frozendict
+    _fields = ["term"]
 
     def eval(self, context, state):
         return Return(
@@ -652,6 +656,7 @@ class Lambda(BoundStateLambda):
 class BoundStateDelay(AST):
     term: AST
     state: frozendict.frozendict
+    _fields = ["term"]
 
     def eval(self, context, state):
         return Return(context, BoundStateDelay(self.term, self.state | state))
@@ -671,6 +676,7 @@ class Delay(BoundStateDelay):
 @dataclass
 class Force(AST):
     term: AST
+    _fields = ["term"]
 
     def eval(self, context, state):
         return Compute(
@@ -731,6 +737,7 @@ class Error(AST):
 class Apply(AST):
     f: AST
     x: AST
+    _fields = ["f", "x"]
 
     def eval(self, context, state):
         return Compute(

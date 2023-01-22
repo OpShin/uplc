@@ -20,7 +20,7 @@ script:
 - coverage run --source=uplc setup.py test
 - uplc parse examples/fibonacci.uplc
 - uplc dump examples/fibonacci.uplc --dialect aiken
-- uplc dump examples/fibonacci.uplc --dialect plutus
+- uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
 - uplc eval examples/fibonacci.uplc "(con integer 5)"
 - uplc build examples/fibonacci.uplc
 after_success:
