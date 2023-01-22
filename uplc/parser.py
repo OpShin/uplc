@@ -3,11 +3,6 @@ import copy
 from rply import ParserGenerator
 from . import lexer, ast
 
-PRECEDENCE = [
-    ("left", ["PLUS", "MINUS"]),
-    ("left", ["MUL"]),
-]
-
 
 class Parser:
     def __init__(self):
@@ -20,7 +15,7 @@ class Parser:
             return ast.Program(p[2], p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
-        def program(p):
+        def version(p):
             return f"{int(p[0].value)}.{int(p[2].value)}.{int(p[4].value)}"
 
         @self.pg.production(

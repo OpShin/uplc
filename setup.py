@@ -28,8 +28,12 @@ setup(
         "frozendict==2.3.4",
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
-        "rply",
-        "hypothesis",
+        "rply==0.7.8",
+        "pyaiken==0.2.1",
+        "pycardano==0.7.2",
+    ],
+    tests_require=[
+        "hypothesis==6.62.0",
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -50,4 +54,7 @@ setup(
     keywords="python cardano smart contract blockchain verification haskell",
     python_requires=">=3",
     test_suite="uplc.tests",
+    entry_points={
+        "console_scripts": ["uplc=uplc.__main__:main"],
+    },
 )

@@ -13,8 +13,8 @@ import frozenlist
 
 
 class UPLCDialect(enum.Enum):
-    Aiken = auto()
-    Plutus = auto()
+    Aiken = "aiken"
+    Plutus = "plutus"
 
 
 class Context:
