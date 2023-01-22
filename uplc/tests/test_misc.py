@@ -1533,3 +1533,9 @@ class MiscTest(unittest.TestCase):
         """
         )
         print(dumps(p))
+
+    def test_parse_plutus(self):
+        p = parse(
+            """(program 1.0.0 (con (pair (list integer) bytestring) ([1], #01)))"""
+        )
+        print(dumps(p, dialect=UPLCDialect.Plutus))

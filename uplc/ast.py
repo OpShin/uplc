@@ -83,7 +83,7 @@ class Constant(AST):
         return Return(context, self)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
-        return f"(con {self.typestring()} {self.valuestring()})"
+        return f"(con {self.typestring(dialect=dialect)} {self.valuestring(dialect=dialect)})"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         raise NotImplementedError()
@@ -256,15 +256,15 @@ class BuiltinPair(Constant):
 
     def typestring(self, dialect=UPLCDialect.Aiken):
         if dialect == UPLCDialect.Aiken:
-            return f"pair<{self.l_value.typestring()}, {self.r_value.typestring()}>"
+            return f"pair<{self.l_value.typestring(dialect=dialect)}, {self.r_value.typestring(dialect=dialect)}>"
         elif dialect == UPLCDialect.Plutus:
-            return f"(pair {self.l_value.typestring()} {self.r_value.typestring()})"
+            return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         if dialect == UPLCDialect.Aiken:
-            return f"[{self.l_value.valuestring()}, {self.r_value.valuestring()}]"
+            return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
         elif dialect == UPLCDialect.Plutus:
-            return f"({self.l_value.valuestring()}, {self.r_value.valuestring()})"
+            return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -293,12 +293,12 @@ class BuiltinList(Constant):
 
     def typestring(self, dialect=UPLCDialect.Aiken):
         if dialect == UPLCDialect.Aiken:
-            return f"list<{self.sample_value.typestring()}>"
+            return f"list<{self.sample_value.typestring(dialect=dialect)}>"
         elif dialect == UPLCDialect.Plutus:
-            return f"(list {self.sample_value.typestring()})"
+            return f"(list {self.sample_value.typestring(dialect=dialect)})"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"[{', '.join(v.valuestring() for v in self.values)}]"
+        return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
 
     def __add__(self, other):
         assert isinstance(other, BuiltinList)

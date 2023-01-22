@@ -110,7 +110,7 @@ class Parser:
             # the Plutus dialect
             name = p[1].value
             if name == "pair":
-                return ast.BuiltinPair(p[2], p[4])
+                return ast.BuiltinPair(p[2], p[3])
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
