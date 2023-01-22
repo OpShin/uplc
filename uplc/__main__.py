@@ -73,7 +73,7 @@ def main():
         return
 
     if args.unique_varnames:
-        code = unique_variables.UniqueVariableTransformer(code)
+        code = unique_variables.UniqueVariableTransformer().visit(code)
 
     if command == Command.dump:
         print(dumps(code, UPLCDialect(args.dialect)))

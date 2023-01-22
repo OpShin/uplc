@@ -27,7 +27,7 @@ uplc parse examples/fibonacci.uplc
 
 # Dump a source file in either the aiken or the plutus dialect
 uplc dump examples/fibonacci.uplc --dialect aiken
-uplc dump examples/fibonacci.uplc --dialect plutus
+uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
 
 # Evaluate a UPLC program on UPLC input
 uplc eval examples/fibonacci.uplc "(con integer 5)"

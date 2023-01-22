@@ -1538,4 +1538,8 @@ class MiscTest(unittest.TestCase):
     def test_simple_contract_rewrite(self):
         p = SAMPLE_CONTRACT
         # should not raise
-        res = unique_variables.UniqueVariableTransformer().visit(p)
+        p = unique_variables.UniqueVariableTransformer().visit(p)
+        # should not raise
+        p.dumps()
+        r = Machine(p).eval()
+        self.assertEqual(r, BuiltinUnit())
