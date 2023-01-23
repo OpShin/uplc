@@ -122,18 +122,29 @@ class MiscTest(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    def test_dumps_parse_roundtrip(self, p):
-        try:
-            res = Machine(p).eval()
-        except Exception as e:
-            res = e.__class__
+    def test_rewrite_no_semantic_change(self, p):
         try:
             rewrite_p = unique_variables.UniqueVariableTransformer().visit(p)
         except unique_variables.FreeVariableError:
             return
         try:
+            res = Machine(p).eval()
+            res = unique_variables.UniqueVariableTransformer().visit(res)
+        except unique_variables.FreeVariableError:
+            self.fail("Free variable error occurred after evaluation")
+        except Exception as e:
+            res = e.__class__
+        try:
             rewrite_res = Machine(rewrite_p).eval()
+            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                rewrite_res
+            )
+        except unique_variables.FreeVariableError:
+            self.fail("Free variable error occurred after evaluation")
         except Exception as e:
             rewrite_res = e.__class__
-        print(res)
-        self.assertEqual(res, rewrite_res)
+        self.assertEqual(
+            res,
+            rewrite_res,
+            "Two programs evaluate to different results even though only renamed",
+        )
