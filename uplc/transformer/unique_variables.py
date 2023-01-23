@@ -28,13 +28,20 @@ class UniqueVariableTransformer(NodeTransformer):
     def pop_map(self):
         self.scopes.pop(-1)
 
-    def visit_Lambda(self, node: Lambda):
+    def visit_BoundStateLambda(self, node: BoundStateLambda):
+        for k in node.state.keys():
+            self.push_map(k)
         n = self.push_map(node.var_name)
         nc = copy(node)
         nc.var_name = n
         nc.term = self.visit(node.term)
         self.pop_map()
+        for _ in node.state.keys():
+            self.pop_map()
         return nc
+
+    def visit_Lambda(self, node: Lambda):
+        return self.visit_BoundStateLambda(node)
 
     def visit_Variable(self, node: Variable):
         nc = copy(node)

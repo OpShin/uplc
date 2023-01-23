@@ -122,7 +122,11 @@ class MiscTest(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
+    @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
     def test_rewrite_no_semantic_change(self, p):
+        code = dumps(p)
         try:
             rewrite_p = unique_variables.UniqueVariableTransformer().visit(p)
         except unique_variables.FreeVariableError:
@@ -131,7 +135,7 @@ class MiscTest(unittest.TestCase):
             res = Machine(p).eval()
             res = unique_variables.UniqueVariableTransformer().visit(res)
         except unique_variables.FreeVariableError:
-            self.fail("Free variable error occurred after evaluation")
+            self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             res = e.__class__
         try:
@@ -140,11 +144,11 @@ class MiscTest(unittest.TestCase):
                 rewrite_res
             )
         except unique_variables.FreeVariableError:
-            self.fail("Free variable error occurred after evaluation")
+            self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             rewrite_res = e.__class__
         self.assertEqual(
             res,
             rewrite_res,
-            "Two programs evaluate to different results even though only renamed",
+            f"Two programs evaluate to different results even though only renamed in {code}",
         )
