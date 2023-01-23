@@ -1,4 +1,5 @@
 import unittest
+from parameterized import parameterized
 
 from .. import *
 from ..transformer import unique_variables
@@ -1543,3 +1544,15 @@ class MiscTest(unittest.TestCase):
         p.dumps()
         r = Machine(p).eval()
         self.assertEqual(r, BuiltinUnit())
+
+    @parameterized.expand(
+        [
+            (
+                "-- here is a comment \n and here is normal text",
+                "\n and here is normal text",
+            ),
+            ("-- here is a comment ", ""),
+        ]
+    )
+    def test_strip_comments(self, input, expected):
+        self.assertEqual(strip_comments(input), expected)

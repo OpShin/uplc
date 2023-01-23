@@ -51,9 +51,22 @@ class Parser:
                 raise SyntaxError(f"Unknown builtin function {bfn}")
             return ast.BuiltIn(correct_bfn)
 
-        @self.pg.production("expression : BRACK_OPEN expression expression BRACK_CLOSE")
+        @self.pg.production(
+            "expression : BRACK_OPEN expression expression_list BRACK_CLOSE"
+        )
         def delay(p):
-            return ast.Apply(p[1], p[2])
+            res = p[1]
+            for e in p[2]:
+                res = ast.Apply(res, e)
+            return res
+
+        @self.pg.production("expression_list : expression")
+        def delay(p):
+            return [p[0]]
+
+        @self.pg.production("expression_list : expression expression_list")
+        def delay(p):
+            return [p[0]] + p[1]
 
         @self.pg.production("builtintype : NAME")
         def builtintype(p):

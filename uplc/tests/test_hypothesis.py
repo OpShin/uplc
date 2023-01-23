@@ -80,7 +80,7 @@ uplc_constant = hst.recursive(
     max_leaves=4,
 )
 uplc_error = hst.just(Error())
-uplc_name = hst.from_regex(r"[a-z_~][\w~!#]*", fullmatch=True)
+uplc_name = hst.from_regex(r"[a-z_~'][\w~!'#]*", fullmatch=True)
 uplc_builtin_fun = hst.builds(BuiltIn, hst.sampled_from(BuiltInFun))
 uplc_variable = hst.builds(Variable, uplc_name)
 

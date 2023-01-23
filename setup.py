@@ -34,6 +34,7 @@ setup(
     ],
     tests_require=[
         "hypothesis==6.62.0",
+        "parameterized==0.8.1",
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
