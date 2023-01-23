@@ -43,6 +43,15 @@ class UniqueVariableTransformer(NodeTransformer):
     def visit_Lambda(self, node: Lambda):
         return self.visit_BoundStateLambda(node)
 
+    def visit_BoundStateDelay(self, node: BoundStateDelay):
+        for k in node.state.keys():
+            self.push_map(k)
+        nc = copy(node)
+        nc.term = self.visit(node.term)
+        for _ in node.state.keys():
+            self.pop_map()
+        return nc
+
     def visit_Variable(self, node: Variable):
         nc = copy(node)
         nc.name = self.get_map(node.name)
