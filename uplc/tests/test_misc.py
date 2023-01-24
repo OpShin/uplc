@@ -5,6 +5,8 @@ from parameterized import parameterized
 
 from .. import *
 from ..transformer import unique_variables
+from ..lexer import strip_comments
+from ..ast import *
 
 SAMPLE_CONTRACT = p = Program(
     version="0.0.1",
@@ -1543,9 +1545,11 @@ class MiscTest(unittest.TestCase):
         # should not raise
         p = unique_variables.UniqueVariableTransformer().visit(p)
         # should not raise
-        p.dumps()
-        r = Machine(p).eval()
+        dumps(p)
+        r = eval(p)
         self.assertEqual(r, BuiltinUnit())
+        # should not raise
+        parse(p)
 
     @parameterized.expand(
         [
