@@ -1,4 +1,6 @@
 import unittest
+
+import rply.parser
 from parameterized import parameterized
 
 from .. import *
@@ -1556,3 +1558,16 @@ class MiscTest(unittest.TestCase):
     )
     def test_strip_comments(self, input, expected):
         self.assertEqual(strip_comments(input), expected)
+
+    @parameterized.expand(
+        [
+            ("""(program 1.0.0 (con data 123)""",),
+            ("""(program 1.0.0 (con data { ByteString #00})""",),
+        ]
+    )
+    def test_parse_fail(self, i):
+        try:
+            parse(i)
+            self.fail("Unexpextedly passed")
+        except SyntaxError:
+            pass

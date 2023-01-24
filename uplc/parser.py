@@ -1,6 +1,7 @@
 import copy
 
 from rply import ParserGenerator
+import rply
 from . import lexer, ast
 
 
@@ -176,7 +177,93 @@ class Parser:
             return (p[1], p[3])
 
     def get_parser(self):
-        return self.pg.build()
+        lrparser = self.pg.build()
+        lrparser_imp = LRParserImproved(lrparser.lr_table, lrparser.error_handler)
+        return lrparser_imp
+
+
+class LRParserImproved(rply.parser.LRParser):
+    def parse(self, tokenizer, state=None):
+        from rply.token import Token
+
+        lookahead = None
+        lookaheadstack = []
+        processing = None
+
+        statestack = [0]
+        symstack = [Token("$end", "$end")]
+
+        current_state = 0
+        try:
+            while True:
+                if self.lr_table.default_reductions[current_state]:
+                    t = self.lr_table.default_reductions[current_state]
+                    current_state = self._reduce_production(
+                        t, symstack, statestack, state
+                    )
+                    continue
+
+                if lookahead is None:
+                    if lookaheadstack:
+                        lookahead = lookaheadstack.pop()
+                    else:
+                        try:
+                            lookahead = next(tokenizer)
+                        except StopIteration:
+                            lookahead = None
+
+                    if lookahead is None:
+                        lookahead = Token(
+                            "$end",
+                            "$end",
+                            source_pos=rply.token.SourcePosition(
+                                idx=None, lineno=1, colno=1
+                            ),
+                        )
+                    processing = lookahead
+
+                ltype = lookahead.gettokentype()
+                if ltype in self.lr_table.lr_action[current_state]:
+                    t = self.lr_table.lr_action[current_state][ltype]
+                    if t > 0:
+                        statestack.append(t)
+                        current_state = t
+                        symstack.append(lookahead)
+                        processing = lookahead
+                        lookahead = None
+                        continue
+                    elif t < 0:
+                        processing = statestack[-1]
+                        current_state = self._reduce_production(
+                            t, symstack, statestack, state
+                        )
+                        continue
+                    else:
+                        n = symstack[-1]
+                        return n
+                else:
+                    # TODO: actual error handling here
+                    if self.error_handler is not None:
+                        if state is None:
+                            self.error_handler(lookahead)
+                        else:
+                            self.error_handler(state, lookahead)
+                        raise AssertionError("For now, error_handler must raise.")
+                    else:
+                        # erase trace
+                        raise rply.errors.ParsingError(
+                            None, lookahead.getsourcepos()
+                        ) from None
+        except Exception as e:
+            if isinstance(e, rply.errors.ParsingError) or isinstance(
+                e, rply.errors.LexingError
+            ):
+                raise e
+            else:
+                # annotate error with position in code where it occurred
+                raise rply.errors.ParsingError(
+                    str(e), processing.getsourcepos()
+                ) from None
 
 
 def wrap_builtin_type(typ: ast.Constant, val):

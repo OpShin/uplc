@@ -152,3 +152,13 @@ class MiscTest(unittest.TestCase):
             rewrite_res,
             f"Two programs evaluate to different results even though only renamed in {code}",
         )
+
+    @hypothesis.given(hst.text())
+    @hypothesis.settings(max_examples=1000)
+    def test_raises_syntaxerror(self, p):
+        try:
+            parse(p)
+        except SyntaxError:
+            pass
+        except Exception as e:
+            self.fail(f"Failed with non-syntaxerror {e}")

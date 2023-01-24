@@ -26,7 +26,7 @@ try:
                 (filename, e.source_pos.lineno, e.source_pos.colno, source),
             ) from None
         except rply.errors.ParsingError as e:
-            source = s.splitlines()[e.source_pos.lineno - 1]
+            source = s.splitlines()[e.source_pos.lineno - 1] if s else ""
             raise SyntaxError(
                 "Parsing failed, invalid production",
                 (filename, e.source_pos.lineno, e.source_pos.colno, source),
