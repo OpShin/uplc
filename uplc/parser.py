@@ -141,7 +141,10 @@ class Parser:
         @self.pg.production("builtinvalue : TEXT")
         def expression(p):
             return (
-                p[0].value[1:-1].encode("raw_unicode_escape").decode("unicode_escape")
+                p[0]
+                .value[1:-1]
+                .encode("raw_unicode_escape", errors="backslashreplace")
+                .decode("unicode_escape", errors="backslashreplace")
             )
 
         @self.pg.production("builtinvalue : PAREN_OPEN PAREN_CLOSE")
