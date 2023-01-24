@@ -119,7 +119,7 @@ uplc_token_concat = hst.recursive(
 )
 
 
-class MiscTest(unittest.TestCase):
+class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000)
     @hypothesis.example(
@@ -140,6 +140,8 @@ class MiscTest(unittest.TestCase):
     @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
     @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
     @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
+    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
     def test_rewrite_no_semantic_change(self, p):
         code = dumps(p)
         try:

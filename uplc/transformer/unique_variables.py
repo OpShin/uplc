@@ -9,9 +9,9 @@ class FreeVariableError(ValueError):
 
 
 class UniqueVariableTransformer(NodeTransformer):
-
-    scopes = []
-    count = 0
+    def __init__(self):
+        self.scopes = []
+        self.count = 0
 
     def get_map(self, name: str):
         for orig, remap in reversed(self.scopes):
