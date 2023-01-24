@@ -24,13 +24,13 @@ try:
             raise SyntaxError(
                 "Lexing failed, invalid token",
                 (filename, e.source_pos.lineno, e.source_pos.colno, source),
-            )
+            ) from None
         except rply.errors.ParsingError as e:
             source = s.splitlines()[e.source_pos.lineno - 1]
             raise SyntaxError(
-                "Parsing failed, invalid token",
+                "Parsing failed, invalid production",
                 (filename, e.source_pos.lineno, e.source_pos.colno, source),
-            )
+            ) from None
         return program
 
     def eval(u: AST):

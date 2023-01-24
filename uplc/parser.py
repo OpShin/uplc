@@ -175,10 +175,6 @@ class Parser:
             # and the Plutus dialect for pairs
             return (p[1], p[3])
 
-        @self.pg.error
-        def error_handle(token):
-            raise ValueError(token)
-
     def get_parser(self):
         return self.pg.build()
 
