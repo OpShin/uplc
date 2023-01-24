@@ -1421,8 +1421,11 @@ class MiscTest(unittest.TestCase):
     def test_simple_contract(self):
         p = SAMPLE_CONTRACT
         # should not raise
-        p.dumps()
-        r = Machine(p).eval()
+        d = dumps(p)
+        # should not raise
+        parse(d)
+        # should not raise
+        r = eval(p)
         self.assertEqual(r, BuiltinUnit())
 
     def test_unpack_plutus_data(self):
@@ -1438,8 +1441,10 @@ class MiscTest(unittest.TestCase):
             ),
         )
         # should not raise anything
-        p.dumps()
-        r = Machine(p).eval()
+        d = dumps(p)
+        # should not raise anything
+        parse(d)
+        r = eval(p)
         # should not raise anything
         r.dumps()
         self.assertEqual(
@@ -1545,11 +1550,11 @@ class MiscTest(unittest.TestCase):
         # should not raise
         p = unique_variables.UniqueVariableTransformer().visit(p)
         # should not raise
-        dumps(p)
+        d = dumps(p)
+        # should not raise
+        parse(d)
         r = eval(p)
         self.assertEqual(r, BuiltinUnit())
-        # should not raise
-        parse(p)
 
     @parameterized.expand(
         [
