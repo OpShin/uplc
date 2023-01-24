@@ -3,7 +3,7 @@ import rply.errors
 from .lexer import strip_comments, Lexer
 from .parser import Parser
 from .machine import Machine
-from .ast import AST
+from .ast import AST, UPLCDialect
 
 
 def parse(s: str, filename=None):

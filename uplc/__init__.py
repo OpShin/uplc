@@ -6,10 +6,7 @@ import logging
 
 
 try:
-    from .ast import *
-    from .machine import *
-    from .lexer import *
-    from .parser import *
+    from .util import parse, eval, dumps, UPLCDialect
 
 except ImportError as e:
     logging.error(

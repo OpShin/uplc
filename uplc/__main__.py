@@ -10,7 +10,8 @@ import cbor2
 import pyaiken
 import pycardano
 
-from . import *
+from .util import *
+from .ast import Program, Apply
 from .transformer import unique_variables
 
 
