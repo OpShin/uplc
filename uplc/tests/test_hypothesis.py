@@ -6,6 +6,8 @@ import frozenlist as fl
 
 from .. import *
 from ..transformer import unique_variables
+from ..ast import *
+from .. import lexer
 
 
 def frozenlist(l):
@@ -145,14 +147,14 @@ class MiscTest(unittest.TestCase):
         except unique_variables.FreeVariableError:
             return
         try:
-            res = Machine(p).eval()
+            res = eval(p)
             res = unique_variables.UniqueVariableTransformer().visit(res)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             res = e.__class__
         try:
-            rewrite_res = Machine(rewrite_p).eval()
+            rewrite_res = eval(rewrite_p)
             rewrite_res = unique_variables.UniqueVariableTransformer().visit(
                 rewrite_res
             )
