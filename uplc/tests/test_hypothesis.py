@@ -80,7 +80,7 @@ uplc_constant = hst.recursive(
     max_leaves=4,
 )
 uplc_error = hst.just(Error())
-uplc_name = hst.from_regex(r"[a-z_~][\w~!#]*", fullmatch=True)
+uplc_name = hst.from_regex(r"[a-z_~'][\w~!'#]*", fullmatch=True)
 uplc_builtin_fun = hst.builds(BuiltIn, hst.sampled_from(BuiltInFun))
 uplc_variable = hst.builds(Variable, uplc_name)
 
@@ -102,6 +102,19 @@ uplc_expr = hst.recursive(
 
 uplc_version = hst.builds(lambda x, y, z: f"{x}.{y}.{z}", pos_int, pos_int, pos_int)
 uplc_program = hst.builds(Program, uplc_version, uplc_expr)
+
+
+uplc_token = hst.one_of(
+    *(hst.from_regex(t, fullmatch=True) for t in lexer.TOKENS.values())
+)
+uplc_token_concat = hst.recursive(
+    uplc_token,
+    lambda uplc_token_concat: hst.builds(
+        lambda x, y: x.join(y),
+        hst.from_regex(r"[\n\r\s]+", fullmatch=True),
+        hst.lists(uplc_token_concat, min_size=5),
+    ),
+)
 
 
 class MiscTest(unittest.TestCase):
@@ -152,3 +165,14 @@ class MiscTest(unittest.TestCase):
             rewrite_res,
             f"Two programs evaluate to different results even though only renamed in {code}",
         )
+
+    @hypothesis.given(hst.one_of(hst.text(), uplc_token_concat))
+    @hypothesis.settings(max_examples=1000)
+    def test_raises_syntaxerror(self, p):
+        # TODO can improve test by generating code that is comprised of valid tokens
+        try:
+            parse(p)
+        except SyntaxError:
+            pass
+        except Exception as e:
+            self.fail(f"Failed with non-syntaxerror {e}")

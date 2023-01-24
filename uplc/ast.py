@@ -454,6 +454,9 @@ class BuiltInFun(Enum):
     Sha3_256 = auto()
     Blake2b_256 = auto()
     VerifySignature = auto()
+    VerifyEd25519Signature = auto()
+    VerifyEcdsaSecp256k1Signature = auto()
+    VerifySchnorrSecp256k1Signature = auto()
     AppendString = auto()
     EqualsString = auto()
     EncodeUtf8 = auto()
@@ -535,6 +538,9 @@ BuiltInFunEvalMap = {
     ),
     # TODO how to emulate this?
     BuiltInFun.VerifySignature: lambda pk, m, s: BuiltinBool(True),
+    BuiltInFun.VerifyEd25519Signature: lambda pk, m, s: BuiltinBool(True),
+    BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
+    BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.AppendString: lambda x, y: x + y,
     BuiltInFun.EqualsString: lambda x, y: x == y,
     BuiltInFun.EncodeUtf8: lambda x: x.encode("utf8"),
@@ -701,18 +707,18 @@ class ForcedBuiltIn(AST):
         return Return(context, self)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
-        if self.applied_forces > 0:
-            return Force(
-                ForcedBuiltIn(
-                    self.builtin, self.applied_forces - 1, self.bound_arguments
-                )
-            ).dumps(dialect=dialect)
         if len(self.bound_arguments):
             return Apply(
                 ForcedBuiltIn(
                     self.builtin, self.applied_forces, self.bound_arguments[:-1]
                 ),
                 self.bound_arguments[-1],
+            ).dumps(dialect=dialect)
+        if self.applied_forces > 0:
+            return Force(
+                ForcedBuiltIn(
+                    self.builtin, self.applied_forces - 1, self.bound_arguments
+                )
             ).dumps(dialect=dialect)
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 

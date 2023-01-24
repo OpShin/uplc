@@ -4,17 +4,33 @@
 
 import logging
 
+import rply.errors
+
 try:
     from .ast import *
     from .machine import *
     from .lexer import *
     from .parser import *
 
-    def parse(s: str):
+    def parse(s: str, filename=None):
+        s = strip_comments(s)
         l = Lexer().get_lexer()
         p = Parser().get_parser()
-        tks = l.lex(s)
-        program = p.parse(tks)
+        try:
+            tks = l.lex(s)
+            program = p.parse(tks)
+        except rply.errors.LexingError as e:
+            source = s.splitlines()[e.source_pos.lineno - 1]
+            raise SyntaxError(
+                "Lexing failed, invalid token",
+                (filename, e.source_pos.lineno, e.source_pos.colno, source),
+            ) from None
+        except rply.errors.ParsingError as e:
+            source = s.splitlines()[e.source_pos.lineno - 1] if s else ""
+            raise SyntaxError(
+                "Parsing failed, invalid production",
+                (filename, e.source_pos.lineno, e.source_pos.colno, source),
+            ) from None
         return program
 
     def eval(u: AST):

@@ -2,6 +2,11 @@ from rply import LexerGenerator
 import re
 
 
+def strip_comments(s: str):
+    ssub = re.sub(r"--.*$", "", s, flags=re.RegexFlag.MULTILINE)
+    return ssub
+
+
 TOKENS = {
     "PROGRAM": r"\bprogram\b",
     "LAMBDA": r"\blam\b",
@@ -20,7 +25,7 @@ TOKENS = {
     "COMMA": r",",
     "DOT": r"\.",
     "NUMBER": r"\-?\d+",
-    "NAME": r"[\w_~][\w\d_~!#]*",
+    "NAME": r"[\w_~'][\w\d_~'!#]*",
     "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*",
 }
 
