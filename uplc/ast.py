@@ -202,7 +202,12 @@ class BuiltinByteString(Constant):
                 item.stop, BuiltinInteger
             ), "Trying to access a slice (stop) with a non-builtin-integer"
             assert item.step is None, "Trying to access a slice with non-none step"
-            return BuiltinByteString(self.value[item.start.value : item.stop.value])
+            start = max(item.start.value, 0)
+            stop = max(item.stop.value, 0)
+            if start <= stop:
+                return BuiltinByteString(self.value[start:stop])
+            else:
+                return BuiltinByteString(bytes(reversed(self.value[stop:start])))
         elif isinstance(item, BuiltinInteger):
             return BuiltinInteger(self.value[item.value])
         raise ValueError(f"Invalid slice {item}")
@@ -645,7 +650,7 @@ class BoundStateLambda(AST):
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
-            s = f"[(lam {k} {s}) {v}]"
+            s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
 
 

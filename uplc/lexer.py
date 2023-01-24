@@ -24,7 +24,7 @@ TOKENS = {
     "TEXT": r'"[^\r\n"]*"',
     "COMMA": r",",
     "DOT": r"\.",
-    "NUMBER": r"[-+]?\d+",
+    "NUMBER": r"[-\+]?\d+",
     "NAME": r"[\w_~'][\w\d_~'!#]*",
     "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*",
 }
