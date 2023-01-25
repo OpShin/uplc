@@ -1,6 +1,6 @@
 from copy import copy
 
-from .util import NodeTransformer
+from ..util import NodeTransformer
 from ..ast import *
 
 

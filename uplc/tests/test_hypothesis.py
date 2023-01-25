@@ -180,3 +180,33 @@ class HypothesisTests(unittest.TestCase):
             pass
         except Exception as e:
             self.fail(f"Failed with non-syntaxerror {e}")
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    def test_preeval_no_semantic_change(self, p):
+        code = dumps(p)
+        try:
+            rewrite_p = unique_variables.UniqueVariableTransformer().visit(p)
+        except unique_variables.FreeVariableError:
+            return
+        try:
+            res = eval(p)
+            res = unique_variables.UniqueVariableTransformer().visit(res)
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        except Exception as e:
+            res = e.__class__
+        try:
+            rewrite_res = eval(rewrite_p)
+            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                rewrite_res
+            )
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        except Exception as e:
+            rewrite_res = e.__class__
+        self.assertEqual(
+            res,
+            rewrite_res,
+            f"Two programs evaluate to different results even though only renamed in {code}",
+        )
