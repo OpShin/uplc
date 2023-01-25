@@ -1,16 +1,30 @@
 from pathlib import Path
 import os
 
+from parameterized import parameterized
 import unittest
 
-from .. import *
+from .. import parse, dumps, UPLCDialect, eval
+from ..util import NodeTransformer
 from ..transformer import unique_variables
+from ..optimizer import pre_evaluation
 
 acceptance_test_path = Path("examples/acceptance_tests")
 
 
 class AcceptanceTests(unittest.TestCase):
-    def test_acceptance_tests(self):
+    # check that none of these transformers change semantics
+    @parameterized.expand(
+        [
+            # No transformation -> Checks conformance of implementation of the CEK machine
+            (NodeTransformer,),
+            # Rewriting variable names for unique names
+            (unique_variables.UniqueVariableTransformer,),
+            # Pre-evaluating subterms - here it will always evaluate the whole expression as there are no missing variables
+            (pre_evaluation.PreEvaluationOptimizer,),
+        ]
+    )
+    def test_acceptance_tests(self, rewriter):
         for dirpath, dirs, files in os.walk(acceptance_test_path, topdown=True):
             if dirs:
                 # not a leaf directory
@@ -28,6 +42,8 @@ class AcceptanceTests(unittest.TestCase):
                     self.assertEqual(
                         "parse error", output, "Parsing program failed unexpectedly"
                     )
+                input_parsed = rewriter().visit(input_parsed)
+                print(dumps(input_parsed))
                 try:
                     res = eval(input_parsed)
                 except Exception:

@@ -12,8 +12,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class Machine:
-    def __init__(self, program: AST):
+    def __init__(self, program: AST, max_steps=1000000):
         self.program = program
+        self.rem_steps = max_steps
 
     def eval(self):
         stack = [
@@ -25,6 +26,9 @@ class Machine:
         ]
 
         while stack:
+            self.rem_steps -= 1
+            if self.rem_steps < 0:
+                raise RuntimeError("Maximum steps exceeded")
             step = stack.pop()
             if isinstance(step, Compute):
                 stack.append(step.term.eval(step.ctx, step.env))
