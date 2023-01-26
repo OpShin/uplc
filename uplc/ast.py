@@ -486,11 +486,10 @@ def _ChooseData(d, v, w, x, y, z):
 
 def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
     try:
-        return BIP32ED25519PublicKey(pk.value[:32], pk.value[32:]).verify(
-            s.value, m.value
-        )
+        BIP32ED25519PublicKey(pk.value[:32], pk.value[32:]).verify(s.value, m.value)
+        return BuiltinBool(True)
     except nacl.exceptions.BadSignatureError:
-        return False
+        return BuiltinBool(False)
 
 
 def _quot(a, b):

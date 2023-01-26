@@ -22,7 +22,7 @@ TOKENS = {
     "CARET_OPEN": r"\<",
     "CARET_CLOSE": r"\>",
     # there may be escaped " inside the string, but not at the end, but there might be an escaped escape at the end
-    "TEXT": r'"([^\n\r"]|\\")*([^\\]|\\\\)"',
+    "TEXT": r'"(([^\n\r"]|\\")*([^\\]|\\\\)|)"',
     "COMMA": r",",
     "DOT": r"\.",
     "NUMBER": r"[-\+]?\d+",
