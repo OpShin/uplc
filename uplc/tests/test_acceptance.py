@@ -42,6 +42,7 @@ class AcceptanceTests(unittest.TestCase):
                     self.assertEqual(
                         "parse error", output, "Parsing program failed unexpectedly"
                     )
+                    continue
                 input_parsed = rewriter().visit(input_parsed)
                 print(dumps(input_parsed))
                 try:
@@ -52,6 +53,7 @@ class AcceptanceTests(unittest.TestCase):
                         output,
                         "Evaluating program failed unexpectedly",
                     )
+                    continue
                 if output in ("parse error", "evaluation failure"):
                     # self.fail(
                     #     "Program parsed and evaluated but should have thrown error"
