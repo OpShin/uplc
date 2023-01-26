@@ -11,6 +11,8 @@ import cbor2
 import frozendict
 import frozenlist
 
+from .transformer import bind_variable
+
 
 class UPLCDialect(enum.Enum):
     Aiken = "aiken"
@@ -621,46 +623,29 @@ class Program(AST):
 class Variable(AST):
     name: str
 
-    def eval(self, context, state):
-        try:
-            return Return(context, state[self.name])
-        except KeyError as e:
-            _LOGGER.error(
-                f"Access to uninitialized variable {self.name} in {self.dumps()}"
-            )
-            raise e
+    def eval(self, context):
+        raise RuntimeError(
+            f"Access to uninitialized variable {self.name} in {self.dumps()}"
+        )
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return self.name
 
 
 @dataclass
-class BoundStateLambda(AST):
+class Lambda(AST):
     var_name: str
     term: AST
-    state: frozendict.frozendict
     _fields = ["term"]
 
     def eval(self, context, state):
-        return Return(
-            context,
-            BoundStateLambda(self.var_name, self.term, self.state | state),
-        )
+        return Return(context, bind_variable.BindVariableTransformer())
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
-
-
-@dataclass
-class Lambda(BoundStateLambda):
-    var_name: str
-    term: AST
-    state: frozendict.frozendict = dataclasses.field(
-        default_factory=frozendict.frozendict
-    )
 
 
 @dataclass

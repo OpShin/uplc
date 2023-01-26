@@ -55,7 +55,7 @@ class Machine:
             return Done(term)
 
     def apply_evaluate(self, context, function, argument):
-        if isinstance(function, BoundStateLambda):
+        if isinstance(function, Lambda):
             return Compute(
                 context,
                 function.state | {function.var_name: argument},

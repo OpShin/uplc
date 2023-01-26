@@ -1,4 +1,3 @@
-from ..ast import AST
 from ast import iter_fields
 
 
