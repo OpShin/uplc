@@ -156,6 +156,9 @@ class BuiltinInteger(Constant):
         ), "Trying to mod two non-builtin-integers"
         return BuiltinInteger(self.value % other.value)
 
+    def __neg__(self):
+        return BuiltinInteger(-self.value)
+
     def __eq__(self, other):
         assert isinstance(
             other, BuiltinInteger
@@ -504,15 +507,21 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
         return False
 
 
+def _quot(a, b):
+    return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
+
+
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger: lambda x, y: x + y,
     BuiltInFun.SubtractInteger: lambda x, y: x - y,
     BuiltInFun.MultiplyInteger: lambda x, y: x * y,
-    # TODO difference with negative values?
+    # round towards -inf
     BuiltInFun.DivideInteger: lambda x, y: x // y,
-    BuiltInFun.QuotientInteger: lambda x, y: x // y,
-    # TODO difference with negative values?
-    BuiltInFun.RemainderInteger: lambda x, y: x % y,
+    # round towards 0
+    BuiltInFun.QuotientInteger: _quot,
+    # (x `quot` y)*y + (x `rem` y) == x
+    BuiltInFun.RemainderInteger: lambda x, y: x - _quot(x, y) * y,
+    # (x `div` y)*y + (x `mod` y) == x
     BuiltInFun.ModInteger: lambda x, y: x % y,
     BuiltInFun.EqualsInteger: lambda x, y: x == y,
     BuiltInFun.LessThanInteger: lambda x, y: x < y,
@@ -520,10 +529,10 @@ BuiltInFunEvalMap = {
     BuiltInFun.AppendByteString: lambda x, y: x + y,
     BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
     BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
-        x.value[max(y.value, 0) :][: max(x.value + 1, 0)]
+        z.value[max(x.value, 0) :][: max(y.value, 0)]
     ),
     BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: x[y],
+    BuiltInFun.IndexByteString: lambda x, y: BuiltinInteger(x.value[y.value]),
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
     BuiltInFun.LessThanByteString: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,

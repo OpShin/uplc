@@ -28,6 +28,7 @@ class AcceptanceTests(unittest.TestCase):
                     self.assertEqual(
                         "parse error", output, "Parsing program failed unexpectedly"
                     )
+                    continue
                 try:
                     res = eval(input_parsed)
                 except Exception:
@@ -36,6 +37,7 @@ class AcceptanceTests(unittest.TestCase):
                         output,
                         "Evaluating program failed unexpectedly",
                     )
+                    continue
                 if output in ("parse error", "evaluation failure"):
                     # self.fail(
                     #     "Program parsed and evaluated but should have thrown error"
