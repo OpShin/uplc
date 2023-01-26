@@ -400,20 +400,6 @@ def data_from_cbortag(cbor) -> PlutusData:
         )
 
 
-def data_from_json(j: Dict) -> PlutusData:
-    if "bytes" in j:
-        return PlutusByteString(bytes.fromhex(j["bytes"]))
-    if "int" in j:
-        return PlutusInteger(int(j["int"]))
-    if "list" in j:
-        return PlutusList(list(map(data_from_json, j["list"])))
-    if "map" in j:
-        return PlutusMap({d["k"]: d["v"] for d in j["map"]})
-    if "constructor" in j and "fields" in j:
-        return PlutusConstr(j["constructor"], j["fields"])
-    raise NotImplementedError(f"Unknown datum representation {j}")
-
-
 def data_from_cbor(cbor: bytes) -> PlutusData:
     raw_datum = cbor2.loads(cbor)
     return data_from_cbortag(raw_datum)
