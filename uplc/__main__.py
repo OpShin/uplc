@@ -1,10 +1,8 @@
 import argparse
 import enum
-import importlib
 import json
 import pathlib
 import sys
-import typing
 
 import cbor2
 import pyaiken
@@ -24,7 +22,7 @@ class Command(enum.Enum):
 
 def main():
     a = argparse.ArgumentParser(
-        description="An evaluator and compiler from python into UPLC. Translate imperative programs into functional quasi-assembly."
+        description="An evaluator and compiler for UPLC written in python."
     )
     a.add_argument(
         "command",

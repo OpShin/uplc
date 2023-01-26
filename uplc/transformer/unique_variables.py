@@ -1,6 +1,6 @@
 from copy import copy
 
-from .util import NodeTransformer
+from ..util import NodeTransformer
 from ..ast import *
 
 
@@ -29,10 +29,13 @@ class UniqueVariableTransformer(NodeTransformer):
         self.scopes.pop(-1)
 
     def visit_BoundStateLambda(self, node: BoundStateLambda):
-        for k in node.state.keys():
-            self.push_map(k)
+        new_map = {}
+        for k, v in node.state.items():
+            nk = self.push_map(k)
+            new_map[nk] = v
         n = self.push_map(node.var_name)
         nc = copy(node)
+        nc.state = frozendict.frozendict(new_map)
         nc.var_name = n
         nc.term = self.visit(node.term)
         self.pop_map()

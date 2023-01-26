@@ -5,6 +5,7 @@ from hypothesis import strategies as hst
 import frozenlist as fl
 
 from .. import *
+from ..optimizer import pre_evaluation
 from ..transformer import unique_variables
 from ..ast import *
 from .. import lexer
@@ -54,7 +55,7 @@ uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
 uplc_builtin_string = hst.builds(
-    BuiltinString, hst.from_regex(r'[^\r\n"]*', fullmatch=True)
+    BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
 )
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
@@ -180,3 +181,47 @@ class HypothesisTests(unittest.TestCase):
             pass
         except Exception as e:
             self.fail(f"Failed with non-syntaxerror {e}")
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
+    def test_preeval_no_semantic_change(self, p):
+        code = dumps(p)
+        orig_p = parse(code).term
+        rewrite_p = pre_evaluation.PreEvaluationOptimizer().visit(p).term
+        params = []
+        try:
+            orig_res = orig_p
+            for _ in range(100):
+                if isinstance(orig_res, BoundStateLambda):
+                    p = BuiltinUnit()
+                    params.append(p)
+                    orig_res = Apply(orig_res, p)
+                if isinstance(orig_res, BoundStateDelay):
+                    orig_res = Force(orig_res)
+                orig_res = eval(orig_res)
+            orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        except Exception as e:
+            orig_res = e.__class__
+        try:
+            rewrite_res = rewrite_p
+            for _ in range(100):
+                if isinstance(rewrite_res, BoundStateLambda):
+                    p = params.pop(0)
+                    rewrite_res = Apply(rewrite_res, p)
+                if isinstance(rewrite_res, BoundStateDelay):
+                    rewrite_res = Force(rewrite_res)
+                rewrite_res = eval(rewrite_res)
+            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                rewrite_res
+            )
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        except Exception as e:
+            rewrite_res = e.__class__
+        self.assertEqual(
+            orig_res,
+            rewrite_res,
+            f"Two programs evaluate to different results after optimization in {code}",
+        )

@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -10,6 +11,8 @@ from typing import List, Any, Dict, Union
 import cbor2
 import frozendict
 import frozenlist
+import nacl.exceptions
+from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 
 
 class UPLCDialect(enum.Enum):
@@ -154,6 +157,9 @@ class BuiltinInteger(Constant):
         ), "Trying to mod two non-builtin-integers"
         return BuiltinInteger(self.value % other.value)
 
+    def __neg__(self):
+        return BuiltinInteger(-self.value)
+
     def __eq__(self, other):
         assert isinstance(
             other, BuiltinInteger
@@ -192,21 +198,6 @@ class BuiltinByteString(Constant):
     def __len__(self):
         return BuiltinInteger(len(self.value))
 
-    def __getitem__(self, item):
-        # To implement slicing of bytestrings
-        if isinstance(item, slice):
-            assert isinstance(
-                item.start, BuiltinInteger
-            ), "Trying to access a slice (start) with a non-builtin-integer"
-            assert isinstance(
-                item.stop, BuiltinInteger
-            ), "Trying to access a slice (stop) with a non-builtin-integer"
-            assert item.step is None, "Trying to access a slice with non-none step"
-            return BuiltinByteString(self.value[item.start.value : item.stop.value])
-        elif isinstance(item, BuiltinInteger):
-            return BuiltinInteger(self.value[item.value])
-        raise ValueError(f"Invalid slice {item}")
-
     def __eq__(self, other):
         assert isinstance(
             other, BuiltinByteString
@@ -237,7 +228,7 @@ class BuiltinString(Constant):
         return "string"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f'"{self.value}"'
+        return json.dumps(self.value)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinString)
@@ -400,20 +391,6 @@ def data_from_cbortag(cbor) -> PlutusData:
         )
 
 
-def data_from_json(j: Dict) -> PlutusData:
-    if "bytes" in j:
-        return PlutusByteString(bytes.fromhex(j["bytes"]))
-    if "int" in j:
-        return PlutusInteger(int(j["int"]))
-    if "list" in j:
-        return PlutusList(list(map(data_from_json, j["list"])))
-    if "map" in j:
-        return PlutusMap({d["k"]: d["v"] for d in j["map"]})
-    if "constructor" in j and "fields" in j:
-        return PlutusConstr(j["constructor"], j["fields"])
-    raise NotImplementedError(f"Unknown datum representation {j}")
-
-
 def data_from_cbor(cbor: bytes) -> PlutusData:
     raw_datum = cbor2.loads(cbor)
     return data_from_cbortag(raw_datum)
@@ -508,24 +485,40 @@ def _ChooseData(d, v, w, x, y, z):
         return z
 
 
+def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
+    try:
+        BIP32ED25519PublicKey(pk.value[:32], pk.value[32:]).verify(s.value, m.value)
+        return BuiltinBool(True)
+    except nacl.exceptions.BadSignatureError:
+        return BuiltinBool(False)
+
+
+def _quot(a, b):
+    return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
+
+
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger: lambda x, y: x + y,
     BuiltInFun.SubtractInteger: lambda x, y: x - y,
     BuiltInFun.MultiplyInteger: lambda x, y: x * y,
-    # TODO difference with negative values?
+    # round towards -inf
     BuiltInFun.DivideInteger: lambda x, y: x // y,
-    BuiltInFun.QuotientInteger: lambda x, y: x // y,
-    # TODO difference with negative values?
-    BuiltInFun.RemainderInteger: lambda x, y: x % y,
+    # round towards 0
+    BuiltInFun.QuotientInteger: _quot,
+    # (x `quot` y)*y + (x `rem` y) == x
+    BuiltInFun.RemainderInteger: lambda x, y: x - _quot(x, y) * y,
+    # (x `div` y)*y + (x `mod` y) == x
     BuiltInFun.ModInteger: lambda x, y: x % y,
     BuiltInFun.EqualsInteger: lambda x, y: x == y,
     BuiltInFun.LessThanInteger: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
     BuiltInFun.AppendByteString: lambda x, y: x + y,
     BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
-    BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + BuiltinInteger(1)],
+    BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
+        z.value[max(x.value, 0) :][: max(y.value, 0)]
+    ),
     BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: x[y],
+    BuiltInFun.IndexByteString: lambda x, y: BuiltinInteger(x.value[y.value]),
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
     BuiltInFun.LessThanByteString: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
@@ -534,11 +527,11 @@ BuiltInFunEvalMap = {
         hashlib.sha3_256(x.value).digest()
     ),
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
-        hashlib.blake2b(x.value).digest()
+        hashlib.blake2b(x.value, digest_size=32).digest()
     ),
+    BuiltInFun.VerifySignature: verify_ed25519,
+    BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     # TODO how to emulate this?
-    BuiltInFun.VerifySignature: lambda pk, m, s: BuiltinBool(True),
-    BuiltInFun.VerifyEd25519Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.AppendString: lambda x, y: x + y,
@@ -645,7 +638,7 @@ class BoundStateLambda(AST):
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
-            s = f"[(lam {k} {s}) {v}]"
+            s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
 
 

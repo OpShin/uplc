@@ -5,6 +5,7 @@ from parameterized import parameterized
 
 from .. import *
 from ..transformer import unique_variables
+from ..optimizer import pre_evaluation
 from ..lexer import strip_comments
 from ..ast import *
 
@@ -1580,3 +1581,14 @@ class MiscTest(unittest.TestCase):
             self.fail("Unexpextedly passed")
         except SyntaxError:
             pass
+
+    def test_simple_contract_optimize(self):
+        p = SAMPLE_CONTRACT
+        # should not raise
+        p = pre_evaluation.PreEvaluationOptimizer().visit(p)
+        # should not raise
+        d = dumps(p)
+        # should not raise
+        parse(d)
+        r = eval(p)
+        self.assertEqual(r, BuiltinUnit())
