@@ -30,7 +30,7 @@ def rec_data_strategies(uplc_data):
     )
     uplc_data_constr = hst.builds(
         lambda x, y: PlutusConstr(x, frozenlist(y)),
-        hst.integers(min_value=0, max_value=255 - 121),
+        hst.integers(),
         hst.lists(uplc_data),
     )
     uplc_data_map = hst.builds(

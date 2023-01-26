@@ -366,13 +366,33 @@ class PlutusConstr(PlutusData):
     fields: Union[List[PlutusData], frozenlist.FrozenList]
 
     def to_cbor(self):
-        return cbor2.CBORTag(self.constructor + 121, [f.to_cbor() for f in self.fields])
+        if 0 <= self.constructor < 7:
+            return cbor2.CBORTag(
+                self.constructor + 121, [f.to_cbor() for f in self.fields]
+            )
+        elif 7 <= self.constructor < 128:
+            return cbor2.CBORTag(
+                (self.constructor - 7) + 1280, [f.to_cbor() for f in self.fields]
+            )
+        else:
+            return cbor2.CBORTag(
+                102, [self.constructor, [f.to_cbor() for f in self.fields]]
+            )
 
 
 def data_from_cbortag(cbor) -> PlutusData:
     if isinstance(cbor, cbor2.CBORTag):
-        constructor = cbor.tag - 121
-        fields = frozenlist.FrozenList(list(map(data_from_cbortag, cbor.value)))
+        if 121 <= cbor.tag <= 121 + 6:
+            constructor = cbor.tag - 121
+            fields = cbor.value
+        elif 1280 <= cbor.tag <= 1280 + (127 - 7):
+            constructor = cbor.tag - 1280 + 7
+            fields = cbor.value
+        elif cbor.tag == 102:
+            constructor, fields = cbor.value
+        else:
+            raise ValueError(f"Invalid cbor with tag {cbor.tag}")
+        fields = frozenlist.FrozenList(list(map(data_from_cbortag, fields)))
         fields.freeze()
         return PlutusConstr(constructor, fields)
     if isinstance(cbor, int):
