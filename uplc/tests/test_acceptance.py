@@ -43,8 +43,11 @@ class AcceptanceTests(unittest.TestCase):
                         "parse error", output, "Parsing program failed unexpectedly"
                     )
                     continue
-                input_parsed = rewriter().visit(input_parsed)
-                print(dumps(input_parsed))
+                try:
+                    input_parsed = rewriter().visit(input_parsed)
+                except unique_variables.FreeVariableError:
+                    # will raise an evaluation error anyways
+                    pass
                 try:
                     res = eval(input_parsed)
                 except Exception:

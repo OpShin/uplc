@@ -35,7 +35,7 @@ class UniqueVariableTransformer(NodeTransformer):
             new_map[nk] = v
         n = self.push_map(node.var_name)
         nc = copy(node)
-        nc.state = new_map
+        nc.state = frozendict.frozendict(new_map)
         nc.var_name = n
         nc.term = self.visit(node.term)
         self.pop_map()
