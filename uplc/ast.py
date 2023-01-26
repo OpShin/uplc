@@ -10,6 +10,8 @@ from typing import List, Any, Dict, Union
 import cbor2
 import frozendict
 import frozenlist
+import nacl.exceptions
+from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 
 
 class UPLCDialect(enum.Enum):
@@ -513,6 +515,15 @@ def _ChooseData(d, v, w, x, y, z):
         return z
 
 
+def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
+    try:
+        return BIP32ED25519PublicKey(pk.value[:32], pk.value[32:]).verify(
+            s.value, m.value
+        )
+    except nacl.exceptions.BadSignatureError:
+        return False
+
+
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger: lambda x, y: x + y,
     BuiltInFun.SubtractInteger: lambda x, y: x - y,
@@ -541,9 +552,9 @@ BuiltInFunEvalMap = {
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
         hashlib.blake2b(x.value).digest()
     ),
+    BuiltInFun.VerifySignature: verify_ed25519,
+    BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     # TODO how to emulate this?
-    BuiltInFun.VerifySignature: lambda pk, m, s: BuiltinBool(True),
-    BuiltInFun.VerifyEd25519Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.AppendString: lambda x, y: x + y,
