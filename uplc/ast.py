@@ -194,26 +194,6 @@ class BuiltinByteString(Constant):
     def __len__(self):
         return BuiltinInteger(len(self.value))
 
-    def __getitem__(self, item):
-        # To implement slicing of bytestrings
-        if isinstance(item, slice):
-            assert isinstance(
-                item.start, BuiltinInteger
-            ), "Trying to access a slice (start) with a non-builtin-integer"
-            assert isinstance(
-                item.stop, BuiltinInteger
-            ), "Trying to access a slice (stop) with a non-builtin-integer"
-            assert item.step is None, "Trying to access a slice with non-none step"
-            start = max(item.start.value, 0)
-            stop = max(item.stop.value, 0)
-            if start <= stop:
-                return BuiltinByteString(self.value[start:stop])
-            else:
-                return BuiltinByteString(bytes(reversed(self.value[stop:start])))
-        elif isinstance(item, BuiltinInteger):
-            return BuiltinInteger(self.value[item.value])
-        raise ValueError(f"Invalid slice {item}")
-
     def __eq__(self, other):
         assert isinstance(
             other, BuiltinByteString
@@ -539,7 +519,9 @@ BuiltInFunEvalMap = {
     BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
     BuiltInFun.AppendByteString: lambda x, y: x + y,
     BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
-    BuiltInFun.SliceByteString: lambda x, y, z: z[x : y + BuiltinInteger(1)],
+    BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
+        x.value[max(y.value, 0) :][: max(x.value + 1, 0)]
+    ),
     BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
     BuiltInFun.IndexByteString: lambda x, y: x[y],
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
