@@ -526,7 +526,7 @@ BuiltInFunEvalMap = {
         hashlib.sha3_256(x.value).digest()
     ),
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
-        hashlib.blake2b(x.value).digest()
+        hashlib.blake2b(x.value, digest_size=32).digest()
     ),
     BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
