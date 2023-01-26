@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -227,7 +228,7 @@ class BuiltinString(Constant):
         return "string"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f'"{self.value}"'
+        return json.dumps(self.value)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinString)
@@ -526,7 +527,7 @@ BuiltInFunEvalMap = {
         hashlib.sha3_256(x.value).digest()
     ),
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
-        hashlib.blake2b(x.value).digest()
+        hashlib.blake2b(x.value, digest_size=32).digest()
     ),
     BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
