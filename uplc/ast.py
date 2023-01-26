@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import json
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
@@ -227,7 +228,7 @@ class BuiltinString(Constant):
         return "string"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f'"{self.value}"'
+        return json.dumps(self.value)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinString)
