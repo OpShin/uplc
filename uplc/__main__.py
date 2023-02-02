@@ -66,14 +66,16 @@ def main():
     )
     args = a.parse_args()
     command = Command(args.command)
-    input_file = args.input_file if args.input_file != "-" else sys.stdin
+    input_file = pathlib.Path(args.input_file) if args.input_file != "-" else sys.stdin
     with open(input_file, "r") as f:
         source_code = f.read()
 
     if args.from_cbor:
         source_code = pyaiken.uplc.unflat(source_code)
-
-    code = parse(source_code)
+    code = parse(
+        source_code,
+        input_file.absolute() if isinstance(input_file, pathlib.Path) else None,
+    )
 
     if command == Command.parse:
         print("Parsed successfully.")
