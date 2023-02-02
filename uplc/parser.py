@@ -234,7 +234,6 @@ class LRParserImproved(rply.parser.LRParser):
                         lookahead = None
                         continue
                     elif t < 0:
-                        processing = statestack[-1]
                         current_state = self._reduce_production(
                             t, symstack, statestack, state
                         )
