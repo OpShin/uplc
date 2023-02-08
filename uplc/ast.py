@@ -216,6 +216,12 @@ class BuiltinByteString(Constant):
         ), "Trying to lt two non-builtin-bytestrings"
         return BuiltinBool(self.value < other.value)
 
+    def __getitem__(self, item):
+        if isinstance(item, BuiltinInteger):
+            assert 0 <= item.value <= len(self.value), "Out of bounds"
+            return self.value[item.value]
+        raise NotImplementedError()
+
     def decode(self, *args):
         return BuiltinString(self.value.decode("utf8"))
 
@@ -538,7 +544,7 @@ BuiltInFunEvalMap = {
         z.value[max(x.value, 0) :][: max(y.value, 0)]
     ),
     BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: BuiltinInteger(x.value[y.value]),
+    BuiltInFun.IndexByteString: lambda x, y: x[y],
     BuiltInFun.EqualsByteString: lambda x, y: x == y,
     BuiltInFun.LessThanByteString: lambda x, y: x < y,
     BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
