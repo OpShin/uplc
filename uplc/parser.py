@@ -269,16 +269,30 @@ class LRParserImproved(rply.parser.LRParser):
 def wrap_builtin_type(typ: ast.Constant, val):
     """Hmmmmmmm wraps ...."""
     if isinstance(typ, ast.PlutusData):
+        assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
         return ast.data_from_cbor(val)
     if isinstance(typ, ast.BuiltinList):
+        assert isinstance(val, list), f"Expected list but found {type(val)}"
         return ast.BuiltinList(
             [wrap_builtin_type(typ.sample_value, v) for v in val], typ.sample_value
         )
     if isinstance(typ, ast.BuiltinPair):
+        assert isinstance(val, tuple) or isinstance(
+            val, list
+        ), f"Expected tuple but found {type(val)}"
         return ast.BuiltinPair(
             wrap_builtin_type(typ.l_value, val[0]),
             wrap_builtin_type(typ.r_value, val[1]),
         )
     if isinstance(typ, ast.BuiltinUnit):
+        assert val is None, f"Expected () but found {type(val)}"
         return ast.BuiltinUnit()
+    if isinstance(typ, ast.BuiltinByteString):
+        assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
+    if isinstance(typ, ast.BuiltinString):
+        assert isinstance(val, str), f"Expected str but found {type(val)}"
+    if isinstance(typ, ast.BuiltinInteger):
+        assert isinstance(val, int), f"Expected int but found {type(val)}"
+    if isinstance(typ, ast.BuiltinBool):
+        assert isinstance(val, bool), f"Expected bool but found {type(val)}"
     return typ.__class__(val)

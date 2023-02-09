@@ -174,7 +174,6 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(hst.one_of(hst.text(), uplc_token_concat))
     @hypothesis.settings(max_examples=1000)
     def test_raises_syntaxerror(self, p):
-        # TODO can improve test by generating code that is comprised of valid tokens
         try:
             parse(p)
         except SyntaxError:
@@ -184,6 +183,25 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
+    @hypothesis.example(
+        Program(
+            version="0.0.0",
+            term=Lambda(
+                var_name="_",
+                term=Apply(
+                    f=BuiltIn(
+                        builtin=BuiltInFun.AddInteger,
+                        applied_forces=0,
+                        bound_arguments=[],
+                    ),
+                    x=Lambda(
+                        var_name="_", term=Error(), state=frozendict.frozendict({})
+                    ),
+                ),
+                state=frozendict.frozendict({}),
+            ),
+        )
+    )
     def test_preeval_no_semantic_change(self, p):
         code = dumps(p)
         orig_p = parse(code).term
@@ -192,7 +210,9 @@ class HypothesisTests(unittest.TestCase):
         try:
             orig_res = orig_p
             for _ in range(100):
-                if isinstance(orig_res, BoundStateLambda):
+                if isinstance(orig_res, BoundStateLambda) or isinstance(
+                    orig_res, ForcedBuiltIn
+                ):
                     p = BuiltinUnit()
                     params.append(p)
                     orig_res = Apply(orig_res, p)
@@ -207,7 +227,9 @@ class HypothesisTests(unittest.TestCase):
         try:
             rewrite_res = rewrite_p
             for _ in range(100):
-                if isinstance(rewrite_res, BoundStateLambda):
+                if isinstance(rewrite_res, BoundStateLambda) or isinstance(
+                    rewrite_res, ForcedBuiltIn
+                ):
                     p = params.pop(0)
                     rewrite_res = Apply(rewrite_res, p)
                 if isinstance(rewrite_res, BoundStateDelay):

@@ -25,19 +25,21 @@ class AcceptanceTests(unittest.TestCase):
         ]
     )
     def test_acceptance_tests(self, rewriter):
-        for dirpath, dirs, files in os.walk(acceptance_test_path, topdown=True):
+        for dirpath, dirs, files in sorted(os.walk(acceptance_test_path, topdown=True)):
             if dirs:
                 # not a leaf directory
                 continue
             with self.subTest("Acceptance test", path=dirpath):
                 input_file = next(f for f in files if f.endswith("uplc"))
-                with open(os.path.join(dirpath, input_file), "r") as fp:
+                input_file_path = os.path.join(dirpath, input_file)
+                with open(input_file_path, "r") as fp:
                     input = fp.read()
                 output_file = next(f for f in files if f.endswith("uplc.expected"))
-                with open(os.path.join(dirpath, output_file), "r") as fp:
+                output_file_path = os.path.join(dirpath, output_file)
+                with open(output_file_path, "r") as fp:
                     output = fp.read().strip()
                 try:
-                    input_parsed = parse(input)
+                    input_parsed = parse(input, filename=input_file_path)
                 except Exception:
                     self.assertEqual(
                         "parse error", output, "Parsing program failed unexpectedly"
@@ -57,12 +59,11 @@ class AcceptanceTests(unittest.TestCase):
                         "Evaluating program failed unexpectedly",
                     )
                     continue
-                if output in ("parse error", "evaluation failure"):
-                    # self.fail(
-                    #     "Program parsed and evaluated but should have thrown error"
-                    # )
-                    continue
-                output_parsed = parse(output).term
+                self.assertTrue(
+                    output not in ("parse error", "evaluation failure"),
+                    "Program parsed and evaluated but should have thrown error",
+                )
+                output_parsed = parse(output, filename=output_file_path).term
                 res_parsed_unique = unique_variables.UniqueVariableTransformer().visit(
                     res
                 )

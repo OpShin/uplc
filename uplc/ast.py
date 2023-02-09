@@ -13,6 +13,7 @@ import frozendict
 import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
+from nacl import bindings
 
 
 class UPLCDialect(enum.Enum):
@@ -219,7 +220,7 @@ class BuiltinByteString(Constant):
     def __getitem__(self, item):
         if isinstance(item, BuiltinInteger):
             assert 0 <= item.value <= len(self.value), "Out of bounds"
-            return self.value[item.value]
+            return BuiltinInteger(self.value[item.value])
         raise NotImplementedError()
 
     def decode(self, *args):
@@ -237,11 +238,13 @@ class BuiltinString(Constant):
         return json.dumps(self.value)
 
     def __add__(self, other):
-        assert isinstance(other, BuiltinString)
+        assert isinstance(other, BuiltinString), "Can only add two bytestrings"
         return BuiltinString(self.value + other.value)
 
     def __eq__(self, other):
-        assert isinstance(other, BuiltinString)
+        assert isinstance(
+            other, BuiltinString
+        ), "Can only compare two bytestrings for equality"
         return BuiltinBool(self.value == other.value)
 
     def encode(self, *args):
@@ -300,14 +303,14 @@ class BuiltinList(Constant):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
 
     def __add__(self, other):
-        assert isinstance(other, BuiltinList)
+        assert isinstance(other, BuiltinList), "Can only append two lists"
         assert (
             other.typestring() == self.typestring()
         ), f"Expected {self.typestring()} but got {other.typestring()}"
         return BuiltinList(self.values + other.values)
 
     def __eq__(self, other):
-        assert isinstance(other, BuiltinList)
+        assert isinstance(other, BuiltinList), "Can only compare two lists"
         return self.values == other.values
 
     def __getitem__(self, item):
@@ -512,6 +515,8 @@ def _ChooseData(d, v, w, x, y, z):
 
 
 def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
+    assert len(pk.value) == 32, "Ed25519S PublicKey should be 32 bytes"
+    assert len(s.value) == 64, "Ed25519S Signature should be 64 bytes"
     try:
         BIP32ED25519PublicKey(pk.value[:32], pk.value[32:]).verify(s.value, m.value)
         return BuiltinBool(True)
@@ -519,8 +524,26 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
         return BuiltinBool(False)
 
 
+def verify_ecdsa_secp256k1(
+    pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
+):
+    raise NotImplementedError("EcdsaSecp256k1 not implemented yet")
+
+
+def verify_schnorr_secp256k1(
+    pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
+):
+    raise NotImplementedError("SchnorrSecp256k1 not implemented yet")
+
+
 def _quot(a, b):
     return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
+
+
+def _TailList(xs: List):
+    if xs == []:
+        raise RuntimeError("Can not tailList on an empty list")
+    return xs[1:]
 
 
 BuiltInFunEvalMap = {
@@ -574,7 +597,7 @@ BuiltInFunEvalMap = {
     else y,
     BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
     BuiltInFun.HeadList: lambda l: l[0],
-    BuiltInFun.TailList: lambda l: l[1:],
+    BuiltInFun.TailList: _TailList,
     BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([], l.sample_value)),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
