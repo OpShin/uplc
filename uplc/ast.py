@@ -13,7 +13,7 @@ import frozendict
 import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
-from nacl import bindings
+from secp256k1 import PublicKey as Secp256k1PublicKey
 
 
 class UPLCDialect(enum.Enum):
@@ -527,13 +527,23 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    raise NotImplementedError("EcdsaSecp256k1 not implemented yet")
+    try:
+        Secp256k1PublicKey(pk.value[:32], pk.value[32:]).ecdsa_verify(m.value, s.value)
+        return BuiltinBool(True)
+    except nacl.exceptions.BadSignatureError:
+        return BuiltinBool(False)
 
 
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    raise NotImplementedError("SchnorrSecp256k1 not implemented yet")
+    try:
+        Secp256k1PublicKey(pk.value[:32], pk.value[32:]).schnorr_verify(
+            m.value, s.value
+        )
+        return BuiltinBool(True)
+    except nacl.exceptions.BadSignatureError:
+        return BuiltinBool(False)
 
 
 def _quot(a, b):
@@ -580,9 +590,8 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
-    # TODO how to emulate this?
-    BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
-    BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
+    BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
+    BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
     BuiltInFun.AppendString: lambda x, y: BuiltinString(x.value) + y,
     BuiltInFun.EqualsString: lambda x, y: BuiltinString(x.value) == y,
     BuiltInFun.EncodeUtf8: lambda x: BuiltinByteString(x.value.encode("utf8")),
