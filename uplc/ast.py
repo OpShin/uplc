@@ -527,23 +527,19 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    try:
-        Secp256k1PublicKey(pk.value[:32], pk.value[32:]).ecdsa_verify(m.value, s.value)
-        return BuiltinBool(True)
-    except nacl.exceptions.BadSignatureError:
-        return BuiltinBool(False)
+    pubkey = Secp256k1PublicKey(pk.value, True)
+    sig = pubkey.ecdsa_deserialize_compact(s.value)
+    res = pubkey.ecdsa_verify(msg=m.value, raw_sig=sig, raw=True)
+    return BuiltinBool(res)
 
 
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    try:
-        Secp256k1PublicKey(pk.value[:32], pk.value[32:]).schnorr_verify(
-            m.value, s.value
-        )
-        return BuiltinBool(True)
-    except nacl.exceptions.BadSignatureError:
-        return BuiltinBool(False)
+    pubkey = Secp256k1PublicKey(pk.value, True)
+    sig = pubkey.ecdsa_deserialize_compact(s.value)
+    res = pubkey.schnorr_verify(m.value, sig, b"", raw=True)
+    return BuiltinBool(res)
 
 
 def _quot(a, b):
