@@ -186,6 +186,18 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.example(
         Program(
             version="0.0.0",
+            term=Apply(
+                f=Apply(
+                    f=BuiltIn(builtin=BuiltInFun.EqualsString),
+                    x=BuiltIn(builtin=BuiltInFun.AddInteger),
+                ),
+                x=Delay(term=Error()),
+            ),
+        )
+    )
+    @hypothesis.example(
+        Program(
+            version="0.0.0",
             term=Lambda(
                 var_name="_",
                 term=Apply(

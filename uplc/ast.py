@@ -547,30 +547,30 @@ def _TailList(xs: BuiltinList):
 
 
 BuiltInFunEvalMap = {
-    BuiltInFun.AddInteger: lambda x, y: x + y,
-    BuiltInFun.SubtractInteger: lambda x, y: x - y,
-    BuiltInFun.MultiplyInteger: lambda x, y: x * y,
+    BuiltInFun.AddInteger: lambda x, y: BuiltinInteger(x.value) + y,
+    BuiltInFun.SubtractInteger: lambda x, y: BuiltinInteger(x.value) - y,
+    BuiltInFun.MultiplyInteger: lambda x, y: BuiltinInteger(x.value) * y,
     # round towards -inf
-    BuiltInFun.DivideInteger: lambda x, y: x // y,
+    BuiltInFun.DivideInteger: lambda x, y: BuiltinInteger(x.value) // y,
     # round towards 0
     BuiltInFun.QuotientInteger: _quot,
     # (x `quot` y)*y + (x `rem` y) == x
-    BuiltInFun.RemainderInteger: lambda x, y: x - _quot(x, y) * y,
+    BuiltInFun.RemainderInteger: lambda x, y: BuiltinInteger(x.value) - _quot(x, y) * y,
     # (x `div` y)*y + (x `mod` y) == x
-    BuiltInFun.ModInteger: lambda x, y: x % y,
-    BuiltInFun.EqualsInteger: lambda x, y: x == y,
-    BuiltInFun.LessThanInteger: lambda x, y: x < y,
-    BuiltInFun.LessThanEqualsInteger: lambda x, y: x <= y,
-    BuiltInFun.AppendByteString: lambda x, y: x + y,
+    BuiltInFun.ModInteger: lambda x, y: BuiltinInteger(x.value) % y,
+    BuiltInFun.EqualsInteger: lambda x, y: BuiltinInteger(x.value) == y,
+    BuiltInFun.LessThanInteger: lambda x, y: BuiltinInteger(x.value) < y,
+    BuiltInFun.LessThanEqualsInteger: lambda x, y: BuiltinInteger(x.value) <= y,
+    BuiltInFun.AppendByteString: lambda x, y: BuiltinByteString(x.value) + y,
     BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
     BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
         z.value[max(x.value, 0) :][: max(y.value, 0)]
     ),
     BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: x[y],
-    BuiltInFun.EqualsByteString: lambda x, y: x == y,
-    BuiltInFun.LessThanByteString: lambda x, y: x < y,
-    BuiltInFun.LessThanEqualsByteString: lambda x, y: x <= y,
+    BuiltInFun.IndexByteString: lambda x, y: BuiltinByteString(x.value)[y],
+    BuiltInFun.EqualsByteString: lambda x, y: BuiltinByteString(x.value) == y,
+    BuiltInFun.LessThanByteString: lambda x, y: BuiltinByteString(x.value) < y,
+    BuiltInFun.LessThanEqualsByteString: lambda x, y: BuiltinByteString(x.value) <= y,
     BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x.value).digest()),
     BuiltInFun.Sha3_256: lambda x: BuiltinByteString(
         hashlib.sha3_256(x.value).digest()
@@ -583,8 +583,8 @@ BuiltInFunEvalMap = {
     # TODO how to emulate this?
     BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
     BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
-    BuiltInFun.AppendString: lambda x, y: x + y,
-    BuiltInFun.EqualsString: lambda x, y: x == y,
+    BuiltInFun.AppendString: lambda x, y: BuiltinString(x.value) + y,
+    BuiltInFun.EqualsString: lambda x, y: BuiltinString(x.value) == y,
     BuiltInFun.EncodeUtf8: lambda x: BuiltinByteString(x.value.encode("utf8")),
     BuiltInFun.DecodeUtf8: lambda x: BuiltinString(x.value.decode("utf8")),
     BuiltInFun.IfThenElse: _IfThenElse,
@@ -593,7 +593,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.FstPair: lambda x: x[0],
     BuiltInFun.SndPair: lambda x: x[1],
     BuiltInFun.ChooseList: lambda l, x, y: x
-    if l == BuiltinList([], l.sample_value)
+    if BuiltinList([], l.sample_value) == l
     else y,
     BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
     BuiltInFun.HeadList: lambda l: l[0],
