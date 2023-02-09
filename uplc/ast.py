@@ -540,8 +540,8 @@ def _quot(a, b):
     return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
 
 
-def _TailList(xs: List):
-    if xs == []:
+def _TailList(xs: BuiltinList):
+    if xs.values == []:
         raise RuntimeError("Can not tailList on an empty list")
     return xs[1:]
 
