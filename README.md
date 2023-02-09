@@ -17,6 +17,15 @@ Then run
 pip install uplc
 ```
 
+### Secp256k1
+
+If you want to use the builtin functions for verification of ECDSA and Schnorr signatures,
+follow the instructions to install `libsecp256k1` with schnorr support enabled:
+
+https://github.com/input-output-hk/cardano-node/blob/master/doc/getting-started/install.md/#installing-secp256k1
+
+This makes sure that the exact same version is used that is used in the `cardano-node`.
+
 ## Usage
 
 This tool may be used to parse, reformat (/dump), evaluate or build contract artifacts from UPLC code.
