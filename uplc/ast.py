@@ -13,7 +13,9 @@ import frozendict
 import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
-from secp256k1 import PublicKey as Secp256k1PublicKey
+import pysecp256k1
+
+# import pysecp256k1.schnorrsig as schnorrsig
 
 
 class UPLCDialect(enum.Enum):
@@ -527,9 +529,9 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    pubkey = Secp256k1PublicKey(pk.value, True)
-    sig = pubkey.ecdsa_deserialize_compact(s.value)
-    res = pubkey.ecdsa_verify(msg=m.value, raw_sig=sig, raw=True)
+    pubkey = pysecp256k1.ec_pubkey_parse(pk.value)
+    sig = pysecp256k1.ecdsa_signature_parse_compact(s.value)
+    res = pysecp256k1.ecdsa_verify(sig, pubkey, m.value)
     return BuiltinBool(res)
 
 
