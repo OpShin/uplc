@@ -14,9 +14,11 @@ import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 import pysecp256k1
-import pysecp256k1.ecdh
-import pysecp256k1.extrakeys
-import pysecp256k1.recovery
+
+try:
+    import pysecp256k1.extrakeys
+except RuntimeError:
+    pysecp256k1.extrakeys = None
 
 try:
     import pysecp256k1.schnorrsig as schnorrsig
