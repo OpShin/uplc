@@ -15,7 +15,10 @@ import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 import pysecp256k1
 
-# import pysecp256k1.schnorrsig as schnorrsig
+try:
+    import pysecp256k1.schnorrsig as schnorrsig
+except RuntimeError:
+    schnorrsig = None
 
 
 class UPLCDialect(enum.Enum):
@@ -538,9 +541,14 @@ def verify_ecdsa_secp256k1(
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    pubkey = Secp256k1PublicKey(pk.value, True)
-    sig = pubkey.ecdsa_deserialize_compact(s.value)
-    res = pubkey.schnorr_verify(m.value, sig, b"", raw=True)
+    if schnorrsig is None:
+        _LOGGER.error(
+            "libsecp256k1 is installed without schnorr support. Schnorr verification will not work"
+        )
+        raise RuntimeError("Schnorr not supported")
+    pubkey = pysecp256k1.ec_pubkey_parse(pk.value)
+    sig = pysecp256k1.ecdsa_signature_parse_compact(s.value)
+    res = schnorrsig.schnorrsig_verify(sig, pubkey, m.value)
     return BuiltinBool(res)
 
 

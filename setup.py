@@ -31,7 +31,7 @@ setup(
         "rply==0.7.8",
         "pyaiken==0.3.0",
         "pycardano==0.7.2",
-        "python-secp256k1==0.2.0",
+        "git+https://github.com/ImperatorLang/python-secp256k1@ac83be33",
     ],
     tests_require=[
         "hypothesis==6.62.0",
