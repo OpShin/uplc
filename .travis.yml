@@ -9,12 +9,13 @@ arch:
   - arm64
 jobs:
   fast_finish: true
+before_install:
+  - bash install_secp256k1.sh
 install:
 - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
   fi
 - pip install coverage coveralls
 - pip install black
-- bash install_secp256k1.sh
 - pip install -e .
 script:
 - black --check .
