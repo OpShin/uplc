@@ -14,6 +14,7 @@ install:
   fi
 - pip install coverage coveralls
 - pip install black
+- bash install_secp256k1.sh
 - pip install -e .
 script:
 - black --check .
