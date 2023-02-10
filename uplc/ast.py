@@ -13,14 +13,14 @@ import frozendict
 import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
-import pysecp256k1
+
+try:
+    import pysecp256k1
+except ImportError:
+    pysecp256k1 = None
 
 try:
     import pysecp256k1.extrakeys
-except RuntimeError:
-    pysecp256k1.extrakeys = None
-
-try:
     import pysecp256k1.schnorrsig as schnorrsig
 except RuntimeError:
     schnorrsig = None
@@ -537,6 +537,9 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    if pysecp256k1 is None:
+        _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
+        raise RuntimeError("ECDSA not supported")
     pubkey = pysecp256k1.ec_pubkey_parse(pk.value)
     sig = pysecp256k1.ecdsa_signature_parse_compact(s.value)
     res = pysecp256k1.ecdsa_verify(sig, pubkey, m.value)
@@ -546,6 +549,9 @@ def verify_ecdsa_secp256k1(
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    if pysecp256k1 is None:
+        _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
+        raise RuntimeError("ECDSA not supported")
     if schnorrsig is None:
         _LOGGER.error(
             "libsecp256k1 is installed without schnorr support. Schnorr verification will not work"
