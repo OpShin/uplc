@@ -14,6 +14,9 @@ import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 import pysecp256k1
+import pysecp256k1.ecdh
+import pysecp256k1.extrakeys
+import pysecp256k1.recovery
 
 try:
     import pysecp256k1.schnorrsig as schnorrsig
@@ -546,9 +549,8 @@ def verify_schnorr_secp256k1(
             "libsecp256k1 is installed without schnorr support. Schnorr verification will not work"
         )
         raise RuntimeError("Schnorr not supported")
-    pubkey = pysecp256k1.ec_pubkey_parse(pk.value)
-    sig = pysecp256k1.ecdsa_signature_parse_compact(s.value)
-    res = schnorrsig.schnorrsig_verify(sig, pubkey, m.value)
+    pubkey = pysecp256k1.extrakeys.xonly_pubkey_parse(pk.value)
+    res = schnorrsig.schnorrsig_verify(s.value, m.value, pubkey)
     return BuiltinBool(res)
 
 
