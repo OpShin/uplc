@@ -21,7 +21,8 @@ TOKENS = {
     "BRACK_CLOSE": r"\]",
     "CARET_OPEN": r"\<",
     "CARET_CLOSE": r"\>",
-    # there may be escaped " inside the string, but not at the end, but there might be an escaped escape at the end
+    # there may be an escaped " inside the string (marked by an uneven number of \ before it)
+    # the " at the end must be preceded by an even number of \ -- it is not escaped
     "TEXT": r'"(([^\n\r"]|(?<!\\)(\\\\)*\\")*(?<!\\)(\\\\)*)"',
     "COMMA": r",",
     "DOT": r"\.",
