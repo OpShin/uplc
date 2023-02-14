@@ -141,7 +141,7 @@ class Parser:
 
         @self.pg.production("builtinvalue : TEXT")
         def expression(p):
-            return python_ast.literal_eval(p[0].value)
+            return res
 
         @self.pg.production("builtinvalue : PAREN_OPEN PAREN_CLOSE")
         def expression(p):

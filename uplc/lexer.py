@@ -43,3 +43,66 @@ class Lexer:
     def get_lexer(self):
         self._add_tokens()
         return self.lexer.build()
+
+
+STRING_TOKENS = {
+    "BACKSLASH": "\\",
+    "CHARESC": r"|".join({"a", "b", "f", "n", "r", "t", "v", '"', "'", "&"}),
+    "ASCII": r"|".join(
+        {
+            "NUL",
+            "SOH",
+            "STX",
+            "ETX",
+            "EOT",
+            "ENQ",
+            "ACK",
+            "BEL",
+            "BS",
+            "HT",
+            "LF",
+            "VT",
+            "FF",
+            "CR",
+            "SO",
+            "SI",
+            "DLE",
+            "DC1",
+            "DC2",
+            "DC3",
+            "DC4",
+            "NAK",
+            "SYN",
+            "ETB",
+            "CAN",
+            "EM",
+            "SUB",
+            "ESC",
+            "FS",
+            "GS",
+            "RS",
+            "US",
+            "SP",
+            "DEL",
+        }
+    ),
+    "CNTRL": r"|".join(set("ABCDEFGHIJKHLMNOPQRSTUVWXYZ") | {"@", "[", "]", "^", "_"}),
+    "SPACE": r" ",
+    "OTHER_SPACE": r"[\r\n\t \v]",
+    "WS": r"\s",
+    "GRAPHIC": r"[\d\w]",
+}
+
+
+class StringLexer:
+    def __init__(self):
+        self.lexer = LexerGenerator()
+
+    def _add_tokens(self):
+        for k, v in STRING_TOKENS.items():
+            self.lexer.add(k, v)
+        self.lexer.ignore("\s+")
+
+    def get_lexer(self):
+        self._add_tokens()
+        return self.lexer.build()
