@@ -1,0 +1,4 @@
+(program 0.0.0 [[[(builtin verifySchnorrSecp256k1Signature)
+ (con bytestring #b33cc9edc096d0a83416964bd3c6247b8fecd256e4efa7870d2c854bdeb33390)]
+ (con bytestring #e48441762fb75010b2aa31a512b62b4148aa3fb08eb0765d76b252559064a614)]
+ (con bytestring #6470fd1303dda4fda717b9837153c24a6eab377183fc438f939e0ed2b620e9ee5077c4a8b8dca28963d772a94f5f0ddf598e1c47c137f91933274c7c3edadce8)])

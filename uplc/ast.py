@@ -13,7 +13,17 @@ import frozendict
 import frozenlist
 import nacl.exceptions
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
-from nacl import bindings
+
+try:
+    import pysecp256k1
+except ImportError:
+    pysecp256k1 = None
+
+try:
+    import pysecp256k1.extrakeys
+    import pysecp256k1.schnorrsig as schnorrsig
+except RuntimeError:
+    schnorrsig = None
 
 
 class UPLCDialect(enum.Enum):
@@ -527,13 +537,29 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    raise NotImplementedError("EcdsaSecp256k1 not implemented yet")
+    if pysecp256k1 is None:
+        _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
+        raise RuntimeError("ECDSA not supported")
+    pubkey = pysecp256k1.ec_pubkey_parse(pk.value)
+    sig = pysecp256k1.ecdsa_signature_parse_compact(s.value)
+    res = pysecp256k1.ecdsa_verify(sig, pubkey, m.value)
+    return BuiltinBool(res)
 
 
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    raise NotImplementedError("SchnorrSecp256k1 not implemented yet")
+    if pysecp256k1 is None:
+        _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
+        raise RuntimeError("ECDSA not supported")
+    if schnorrsig is None:
+        _LOGGER.error(
+            "libsecp256k1 is installed without schnorr support. Schnorr verification will not work"
+        )
+        raise RuntimeError("Schnorr not supported")
+    pubkey = pysecp256k1.extrakeys.xonly_pubkey_parse(pk.value)
+    res = schnorrsig.schnorrsig_verify(s.value, m.value, pubkey)
+    return BuiltinBool(res)
 
 
 def _quot(a, b):
@@ -580,9 +606,8 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
-    # TODO how to emulate this?
-    BuiltInFun.VerifyEcdsaSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
-    BuiltInFun.VerifySchnorrSecp256k1Signature: lambda pk, m, s: BuiltinBool(True),
+    BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
+    BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
     BuiltInFun.AppendString: lambda x, y: BuiltinString(x.value) + y,
     BuiltInFun.EqualsString: lambda x, y: BuiltinString(x.value) == y,
     BuiltInFun.EncodeUtf8: lambda x: BuiltinByteString(x.value.encode("utf8")),

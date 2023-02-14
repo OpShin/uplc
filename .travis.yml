@@ -9,6 +9,10 @@ arch:
   - arm64
 jobs:
   fast_finish: true
+before_install:
+- bash install_secp256k1.sh
+- LD_LIBRARY_PATH=/usr/local/lib:"$LD_LIBRARY_PATH"
+- export LD_LIBRARY_PATH
 install:
 - if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
   fi
