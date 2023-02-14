@@ -133,6 +133,14 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.example(
         Program(version="0.0.0", term=BuiltinInteger(value=0)), UPLCDialect.Aiken
     )
+    @hypothesis.example(
+        Program(version="0.0.0", term=BuiltinString("\\")),
+        UPLCDialect.Aiken,
+    )
+    @hypothesis.example(
+        Program(version="0.0.0", term=BuiltinString('\\"')),
+        UPLCDialect.Aiken,
+    )
     def test_dumps_parse_roundtrip(self, p, dialect):
         self.assertEqual(parse(dumps(p, dialect)), p)
 
