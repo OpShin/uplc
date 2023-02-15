@@ -22,7 +22,7 @@ except ImportError:
 try:
     import pysecp256k1.extrakeys
     import pysecp256k1.schnorrsig as schnorrsig
-except RuntimeError:
+except (RuntimeError, ImportError):
     schnorrsig = None
 
 
