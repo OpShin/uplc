@@ -72,7 +72,7 @@ def main():
 
     if args.from_cbor:
         source_code = pyaiken.uplc.unflat(source_code)
-    code = parse(
+    code: Program = parse(
         source_code,
         input_file.absolute() if isinstance(input_file, pathlib.Path) else None,
     )
@@ -83,6 +83,14 @@ def main():
 
     if args.unique_varnames:
         code = unique_variables.UniqueVariableTransformer().visit(code)
+
+    version = code.version
+    code: AST = code.term
+    # Apply CLI parameters to code (i.e. to parameterize a parameterized contract)
+    # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
+    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, reversed(args.args)):
+        code: AST = Apply(code, d)
+    code = Program(version, code)
 
     if command == Command.dump:
         print(dumps(code, UPLCDialect(args.dialect)))
@@ -137,15 +145,8 @@ def main():
     if command == Command.eval:
         print("Starting execution")
         print("------------------")
-        assert isinstance(
-            code, Program
-        ), "Main function must be wrapped in (program 1.0.0 ...)"
         try:
-            f = code.term
-            # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-            for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args):
-                f = Apply(f, d)
-            ret = eval(f).dumps()
+            ret = eval(code).dumps()
         except Exception as e:
             print("An exception was raised")
             ret = e
