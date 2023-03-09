@@ -1,10 +1,10 @@
 Untyped Plutus Language Core 
 ==================================================
-[![Build Status](https://app.travis-ci.com/ImperatorLang/uplc.svg?branch=master)](https://app.travis-ci.com/ImperatorLang/uplc)
+[![Build Status](https://app.travis-ci.com/OpShin/uplc.svg?branch=master)](https://app.travis-ci.com/OpShin/uplc)
  [![PyPI version](https://badge.fury.io/py/uplc.svg)](https://pypi.org/project/uplc/)
  ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/uplc.svg)
  [![PyPI - Status](https://img.shields.io/pypi/status/uplc.svg)](https://pypi.org/project/uplc/)
-[![Coverage Status](https://coveralls.io/repos/github/ImperatorLang/uplc/badge.svg?branch=master)](https://coveralls.io/github/ImperatorLang/uplc?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/OpShin/uplc/badge.svg?branch=master)](https://coveralls.io/github/OpShin/uplc?branch=master)
 
 This is a basic library to support creating and manipulating programs written in [UPLC](https://blog.hachi.one/post/an-introduction-to-plutus-core/).
 
