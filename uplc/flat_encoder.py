@@ -31,19 +31,27 @@ class BitWriter:
         self._parts.append(bit_chars)
         self._n += len(bit_chars)
 
+    def write_fixed_width_int(self, i: int, width: int):
+        """
+        Write an integer with fixed width (number of bits)
+        :param i: int
+        :param width: int
+        """
+        self.write(self.pad_zeroes(bin(i)[2:], width))
+
     def write_nibble(self, nibble: int):
         """
         Write a nibble to the BitWriter.
         :param nibble: int
         """
-        self.write(self.pad_zeroes(bin(nibble)[2:], 4))
+        self.write_fixed_width_int(nibble, 4)
 
     def write_byte(self, byte: int):
         """
         Write a byte to the BitWriter.
         :param byte: int
         """
-        self.write(self.pad_zeroes(bin(byte)[2:], 8))
+        self.write_fixed_width_int(byte, 8)
 
     def write_bytes(self, bytes: bytes):
         """
