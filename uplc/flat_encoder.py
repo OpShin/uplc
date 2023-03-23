@@ -80,9 +80,51 @@ class BitWriter:
         return bytes_list
 
 
+def zigzag(i: int, signed: bool):
+    """Zigzag-encode an integer"""
+    if not signed:
+        return i
+    else:
+        if i < 0:
+            return 2 * (-i) - 1
+        else:
+            return 2 * i
+
+
+def chunkstring(string, length):
+    """Chunk a string into parts of fixed length"""
+    return (string[0 + i : length + i] for i in range(0, len(string), length))
+
+
+def pad_zeroes(bits, n):
+    """Prepends zeroes to a bit-string so that 'len(result) == n'."""
+    if len(bits) % n != 0:
+        n_pad = n - (len(bits) % n)
+        bits = n_pad * "0" + bits
+    return bits
+
+
+def flatten_int(i: int, signed: bool, bw: BitWriter):
+    assert signed or i > 0, f"Tried to encode unsigned int {i} but is negative"
+    zigzagged = zigzag(i, signed)
+    bitstring = pad_zeroes(bin(zigzagged)[2:], 7)
+
+    # split every 7th
+    parts = list(chunkstring(bitstring, 7))
+    parts.reverse()
+
+    # write all but the last
+    for chunk in parts[:-1]:
+        bw.write("0" + chunk)
+    # write the last
+    bw.write("1" + parts[-1])
+
+
 class FlatEncodingVisitor(NodeVisitor):
     def __init__(self):
         self.bit_writer = BitWriter()
 
-    def visit_BuiltinInteger(self, n: BuiltinInteger):
-        pass
+    def visit_Program(self, n: Program):
+        for i in n.version:
+            flatten_int(i, False, self.bit_writer)
+        self.visit(n.term)

@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import json
 import logging
+import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -668,7 +669,7 @@ BuiltInFunForceMap.update(
 
 @dataclass
 class Program(AST):
-    version: str
+    version: typing.Tuple[int, int, int]
     term: AST
     _fields = ["term"]
 
@@ -676,7 +677,7 @@ class Program(AST):
         return self.term.eval(context, state)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
-        return f"(program {self.version} {self.term.dumps(dialect=dialect)})"
+        return f"(program {'.'.join(str(x) for x in self.version)} {self.term.dumps(dialect=dialect)})"
 
 
 @dataclass
