@@ -1,3 +1,4 @@
+import typing
 from ast import NodeVisitor
 from .ast import *
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
@@ -30,12 +31,35 @@ class BitWriter:
         self._parts.append(bit_chars)
         self._n += len(bit_chars)
 
-    def write_byte(self, byte):
+    def write_nibble(self, nibble: int):
+        """
+        Write a nibble to the BitWriter.
+        :param nibble: int
+        """
+        self.write(self.pad_zeroes(bin(nibble)[2:], 4))
+
+    def write_byte(self, byte: int):
         """
         Write a byte to the BitWriter.
         :param byte: int
         """
-        self.write(self.pad_zeroes(int(byte, 2)[2:], 8))
+        self.write(self.pad_zeroes(bin(byte)[2:], 8))
+
+    def write_bytes(self, bytes: bytes):
+        """
+        Write a bytestring to the BitWriter.
+        :param bytes: bytearray
+        """
+        self.pad_to_byte_boundary(True)
+        n = len(bytes)
+        pos = 0
+        while pos < n:
+            n_chunk = min(n - pos, 255)
+            self.write_byte(n_chunk)
+            for byte in bytes[pos : pos + n_chunk]:
+                self.write_byte(byte)
+            pos += n_chunk
+        self.write_byte(0)
 
     @staticmethod
     def pad_zeroes(s, n):
@@ -128,8 +152,8 @@ def flatten(x: Program):
 
 
 class FlatEncodingVisitor(NodeVisitor):
-    def __init__(self):
-        self.bit_writer = BitWriter()
+    def __init__(self, bw: typing.Optional[BitWriter] = None):
+        self.bit_writer = BitWriter() if bw is None else bw
 
     def visit_Program(self, n: Program):
         for i in n.version:
@@ -157,6 +181,10 @@ class FlatEncodingVisitor(NodeVisitor):
     def visit_Constant(self, n: Constant):
         self.bit_writer.write("0100")
         # TODO calls toFlatValue
+        self.bit_writer.write("1")
+        ConstantTypeFlatEncodingVisitor(self.bit_writer).visit(n)
+        self.bit_writer.write("0")
+        ConstantValueFlatEncodingVisitor(self.bit_writer).visit(n)
 
     def visit_Force(self, n: Force):
         self.bit_writer.write("0101")
@@ -168,3 +196,148 @@ class FlatEncodingVisitor(NodeVisitor):
     def visit_BuiltIn(self, n: BuiltIn):
         self.bit_writer.write("0111")
         # TODO write index of uplc builtin
+        index = 0
+        self.bit_writer.write_int(index, signed=False)
+
+    def visit_BuiltinUnit(self, n: BuiltinUnit):
+        self.visit_Constant(n)
+
+    def visit_BuiltinBool(self, n: BuiltinBool):
+        self.visit_Constant(n)
+
+    def visit_BuiltinInteger(self, n: BuiltinInteger):
+        self.visit_Constant(n)
+
+    def visit_BuiltinByteString(self, n: BuiltinByteString):
+        self.visit_Constant(n)
+
+    def visit_BuiltinString(self, n: BuiltinString):
+        self.visit_Constant(n)
+
+    def visit_BuiltinPair(self, n: BuiltinPair):
+        self.visit_Constant(n)
+
+    def visit_BuiltinList(self, n: BuiltinList):
+        self.visit_Constant(n)
+
+    def visit_PlutusData(self, n: PlutusData):
+        self.visit_Constant(n)
+
+    def visit_PlutusInteger(self, n: PlutusInteger):
+        self.visit_Constant(n)
+
+    def visit_PlutusByteString(self, n: PlutusByteString):
+        self.visit_Constant(n)
+
+    def visit_PlutusList(self, n: PlutusList):
+        self.visit_Constant(n)
+
+    def visit_PlutusMap(self, n: PlutusMap):
+        self.visit_Constant(n)
+
+    def visit_PlutusConstr(self, n: PlutusConstr):
+        self.visit_Constant(n)
+
+
+class ConstantValueFlatEncodingVisitor(NodeVisitor):
+    def __init__(self, bw: typing.Optional[BitWriter] = None):
+        self.bit_writer = BitWriter() if bw is None else bw
+
+    def visit_BuiltinUnit(self, n: BuiltinUnit):
+        pass
+
+    def visit_BuiltinBool(self, n: BuiltinBool):
+        self.bit_writer.write(str(int(n.value)))
+
+    def visit_BuiltinInteger(self, n: BuiltinInteger):
+        self.bit_writer.write_int(n.value, signed=True)
+
+    def visit_BuiltinByteString(self, n: BuiltinByteString):
+        self.bit_writer.write_bytes(n.value)
+
+    def visit_BuiltinString(self, n: BuiltinString):
+        self.bit_writer.write_bytes(n.value.encode("utf8"))
+
+    def visit_BuiltinPair(self, n: BuiltinPair):
+        self.visit(n.l_value)
+        self.visit(n.r_value)
+
+    def visit_BuiltinList(self, n: BuiltinList):
+        for v in n.values:
+            self.bit_writer.write("1")
+            self.visit(v)
+        self.bit_writer.write("0")
+
+    def visit_PlutusData(self, n: PlutusData):
+        self.bit_writer.write_bytes(n.to_cbor())
+
+    def visit_PlutusInteger(self, n: PlutusInteger):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusByteString(self, n: PlutusByteString):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusList(self, n: PlutusList):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusMap(self, n: PlutusMap):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusConstr(self, n: PlutusConstr):
+        self.visit_PlutusData(n)
+
+
+class ConstantTypeFlatEncodingVisitor(NodeVisitor):
+    def __init__(self, bw: typing.Optional[BitWriter] = None):
+        self.bit_writer = BitWriter() if bw is None else bw
+
+    def visit_BuiltinUnit(self, n: BuiltinUnit):
+        self.bit_writer.write_nibble(3)
+
+    def visit_BuiltinBool(self, n: BuiltinBool):
+        self.bit_writer.write_nibble(4)
+
+    def visit_BuiltinInteger(self, n: BuiltinInteger):
+        self.bit_writer.write_nibble(0)
+
+    def visit_BuiltinByteString(self, n: BuiltinByteString):
+        self.bit_writer.write_nibble(1)
+
+    def visit_BuiltinString(self, n: BuiltinString):
+        self.bit_writer.write_nibble(2)
+
+    def visit_BuiltinPair(self, n: BuiltinPair):
+        self.bit_writer.write_nibble(7)
+        self.bit_writer.write("1")
+        self.bit_writer.write_nibble(7)
+        self.bit_writer.write("1")
+        self.bit_writer.write_nibble(6)
+        self.bit_writer.write("1")
+        self.visit(n.l_value)
+        self.bit_writer.write("1")
+        self.visit(n.r_value)
+
+    def visit_BuiltinList(self, n: BuiltinList):
+        self.bit_writer.write_nibble(7)
+        self.bit_writer.write("1")
+        self.bit_writer.write_nibble(5)
+        self.bit_writer.write("1")
+        self.visit(n.sample_value)
+
+    def visit_PlutusData(self, n: PlutusData):
+        self.bit_writer.write_nibble(8)
+
+    def visit_PlutusInteger(self, n: PlutusInteger):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusByteString(self, n: PlutusByteString):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusList(self, n: PlutusList):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusMap(self, n: PlutusMap):
+        self.visit_PlutusData(n)
+
+    def visit_PlutusConstr(self, n: PlutusConstr):
+        self.visit_PlutusData(n)
