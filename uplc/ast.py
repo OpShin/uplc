@@ -512,7 +512,7 @@ class BuiltInFun(Enum):
     MkPairData = auto()
     MkNilData = auto()
     MkNilPairData = auto()
-    SerializeData = auto()
+    SerialiseData = auto()
     VerifyEcdsaSecp256k1Signature = auto()
     VerifySchnorrSecp256k1Signature = auto()
 
@@ -659,7 +659,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
-    BuiltInFun.SerializeData: lambda x: BuiltinByteString(cbor2.dumps(x.to_cbor())),
+    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(cbor2.dumps(x.to_cbor())),
 }
 
 BuiltInFunForceMap = defaultdict(int)
