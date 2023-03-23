@@ -1,5 +1,6 @@
 from ast import NodeVisitor
 from .ast import *
+from .transformer.debrujin_variables import DeBrujinVariableTransformer
 
 
 class BitWriter:
@@ -34,7 +35,7 @@ class BitWriter:
         Write a byte to the BitWriter.
         :param byte: int
         """
-        self.write(self.pad_zeroes(bin(byte)[2:], 8))
+        self.write(self.pad_zeroes(int(byte, 2)[2:], 8))
 
     @staticmethod
     def pad_zeroes(s, n):
@@ -79,6 +80,21 @@ class BitWriter:
 
         return bytes_list
 
+    def write_int(self, i: int, signed: bool):
+        assert signed or i > 0, f"Tried to encode unsigned int {i} but is negative"
+        zigzagged = zigzag(i, signed)
+        bitstring = pad_zeroes(bin(zigzagged)[2:], 7)
+
+        # split every 7th
+        parts = list(chunkstring(bitstring, 7))
+        parts.reverse()
+
+        # write all but the last
+        for chunk in parts[:-1]:
+            self.write("0" + chunk)
+        # write the last
+        self.write("1" + parts[-1])
+
 
 def zigzag(i: int, signed: bool):
     """Zigzag-encode an integer"""
@@ -104,20 +120,11 @@ def pad_zeroes(bits, n):
     return bits
 
 
-def flatten_int(i: int, signed: bool, bw: BitWriter):
-    assert signed or i > 0, f"Tried to encode unsigned int {i} but is negative"
-    zigzagged = zigzag(i, signed)
-    bitstring = pad_zeroes(bin(zigzagged)[2:], 7)
-
-    # split every 7th
-    parts = list(chunkstring(bitstring, 7))
-    parts.reverse()
-
-    # write all but the last
-    for chunk in parts[:-1]:
-        bw.write("0" + chunk)
-    # write the last
-    bw.write("1" + parts[-1])
+def flatten(x: Program):
+    x_debrujin = DeBrujinVariableTransformer().visit(x)
+    x_flattener = FlatEncodingVisitor()
+    x_flattener.visit(x_debrujin)
+    return x_flattener.bit_writer.finalize()
 
 
 class FlatEncodingVisitor(NodeVisitor):
@@ -126,13 +133,13 @@ class FlatEncodingVisitor(NodeVisitor):
 
     def visit_Program(self, n: Program):
         for i in n.version:
-            flatten_int(i, False, self.bit_writer)
+            self.bit_writer.write_int(i, signed=False)
         self.visit(n.term)
 
     def visit_Variable(self, n: Variable):
         self.bit_writer.write("0000")
-        # TODO this requires the deBrujin encoding rather than the actual variable name
-        flatten_int(n.index)
+        # this requires the deBrujin encoding rather than the actual variable name
+        self.bit_writer.write_int(int(n.name), signed=False)
 
     def visit_Delay(self, n: Delay):
         self.bit_writer.write("0001")
