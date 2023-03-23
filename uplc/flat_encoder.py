@@ -128,3 +128,8 @@ class FlatEncodingVisitor(NodeVisitor):
         for i in n.version:
             flatten_int(i, False, self.bit_writer)
         self.visit(n.term)
+
+    def visit_Variable(self, n: Variable):
+        self.bit_writer.write("0000")
+        # TODO this requires the deBrujin encoding rather than the actual variable name
+        flatten_int(n.index)
