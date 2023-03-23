@@ -133,3 +133,31 @@ class FlatEncodingVisitor(NodeVisitor):
         self.bit_writer.write("0000")
         # TODO this requires the deBrujin encoding rather than the actual variable name
         flatten_int(n.index)
+
+    def visit_Delay(self, n: Delay):
+        self.bit_writer.write("0001")
+        self.visit(n.term)
+
+    def visit_Lambda(self, n: Lambda):
+        self.bit_writer.write("0010")
+        self.visit(n.term)
+
+    def visit_Apply(self, n: Apply):
+        self.bit_writer.write("0011")
+        self.visit(n.f)
+        self.visit(n.x)
+
+    def visit_Constant(self, n: Constant):
+        self.bit_writer.write("0100")
+        # TODO calls toFlatValue
+
+    def visit_Force(self, n: Force):
+        self.bit_writer.write("0101")
+        self.visit(n.term)
+
+    def visit_Error(self, n: Error):
+        self.bit_writer.write("0110")
+
+    def visit_BuiltIn(self, n: BuiltIn):
+        self.bit_writer.write("0111")
+        # TODO write index of uplc builtin
