@@ -10,7 +10,7 @@ from ..lexer import strip_comments
 from ..ast import *
 
 SAMPLE_CONTRACT = p = Program(
-    version="0.0.1",
+    version=(0, 0, 1),
     term=Apply(
         Apply(
             Apply(
@@ -1431,7 +1431,7 @@ class MiscTest(unittest.TestCase):
 
     def test_unpack_plutus_data(self):
         p = Program(
-            "0.0.1",
+            (0, 0, 1),
             Apply(
                 BuiltIn(BuiltInFun.UnConstrData),
                 data_from_cbor(

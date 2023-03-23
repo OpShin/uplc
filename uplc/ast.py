@@ -447,9 +447,16 @@ class ConstantType(Enum):
     data = auto()
 
 
+class callable_staticmethod(staticmethod):
+    """Callable version of staticmethod."""
+
+    def __call__(self, *args, **kwargs):
+        return self.__func__(*args, **kwargs)
+
+
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
 class BuiltInFun(Enum):
-    @staticmethod
+    @callable_staticmethod
     def _generate_next_value_(name, start, count, last_values):
         return count
 

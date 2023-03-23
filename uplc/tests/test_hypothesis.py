@@ -125,26 +125,26 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000)
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
+        Program(version=(0, 0, 0), term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltIn(builtin=BuiltInFun.ConstrData)),
+        Program(version=(0, 0, 0), term=BuiltIn(builtin=BuiltInFun.ConstrData)),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinInteger(value=0)), UPLCDialect.Aiken
+        Program(version=(0, 0, 0), term=BuiltinInteger(value=0)), UPLCDialect.Aiken
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinString("\\")),
+        Program(version=(0, 0, 0), term=BuiltinString("\\")),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinString('\\"')),
+        Program(version=(0, 0, 0), term=BuiltinString('\\"')),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=BuiltinList([BuiltinString("\\"), BuiltinString("\\")]),
         ),
         UPLCDialect.Aiken,
@@ -201,7 +201,7 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=Apply(
                 f=Apply(
                     f=BuiltIn(builtin=BuiltInFun.EqualsString),
@@ -213,7 +213,7 @@ class HypothesisTests(unittest.TestCase):
     )
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=Lambda(
                 var_name="_",
                 term=Apply(
