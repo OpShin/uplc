@@ -49,6 +49,8 @@ class Parser:
             for e in ast.BuiltInFun:
                 if e.name.lower() == bfn:
                     correct_bfn = e
+            if bfn == "verifysignature":
+                correct_bfn = ast.BuiltInFun.VerifyEd25519Signature
             if correct_bfn is None:
                 raise SyntaxError(f"Unknown builtin function {bfn}")
             return ast.BuiltIn(correct_bfn)
