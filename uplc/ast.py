@@ -449,6 +449,10 @@ class ConstantType(Enum):
 
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
 class BuiltInFun(Enum):
+    @staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return count
+
     AddInteger = auto()
     SubtractInteger = auto()
     MultiplyInteger = auto()
@@ -470,10 +474,8 @@ class BuiltInFun(Enum):
     Sha2_256 = auto()
     Sha3_256 = auto()
     Blake2b_256 = auto()
-    VerifySignature = auto()
+    # VerifySignature = auto()
     VerifyEd25519Signature = auto()
-    VerifyEcdsaSecp256k1Signature = auto()
-    VerifySchnorrSecp256k1Signature = auto()
     AppendString = auto()
     EqualsString = auto()
     EncodeUtf8 = auto()
@@ -503,6 +505,9 @@ class BuiltInFun(Enum):
     MkPairData = auto()
     MkNilData = auto()
     MkNilPairData = auto()
+    SerializeData = auto()
+    VerifyEcdsaSecp256k1Signature = auto()
+    VerifySchnorrSecp256k1Signature = auto()
 
 
 def _IfThenElse(i, t, e):
@@ -605,7 +610,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
         hashlib.blake2b(x.value, digest_size=32).digest()
     ),
-    BuiltInFun.VerifySignature: verify_ed25519,
+    # BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
     BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
@@ -647,6 +652,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
+    BuiltInFun.SerializeData: lambda x: BuiltinByteString(cbor2.dumps(x.to_cbor())),
 }
 
 BuiltInFunForceMap = defaultdict(int)

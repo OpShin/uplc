@@ -3,12 +3,13 @@ import unittest
 import hypothesis
 from hypothesis import strategies as hst
 import frozenlist as fl
+import pyaiken
 
 from .. import *
 from ..optimizer import pre_evaluation
-from ..transformer import unique_variables
+from ..transformer import unique_variables, debrujin_variables
 from ..ast import *
-from .. import lexer
+from .. import lexer, flat_encoder
 
 
 def frozenlist(l):
@@ -17,7 +18,7 @@ def frozenlist(l):
     return l
 
 
-pos_int = hst.integers(min_value=0)
+pos_int = hst.integers(min_value=0, max_value=1000000000)
 
 
 uplc_data_integer = hst.builds(PlutusInteger, hst.integers())
@@ -103,7 +104,7 @@ uplc_expr = hst.recursive(
 )
 
 
-uplc_version = hst.builds(lambda x, y, z: f"{x}.{y}.{z}", pos_int, pos_int, pos_int)
+uplc_version = hst.builds(lambda x, y, z: (x, y, z), pos_int, pos_int, pos_int)
 uplc_program = hst.builds(Program, uplc_version, uplc_expr)
 
 
@@ -273,4 +274,29 @@ class HypothesisTests(unittest.TestCase):
             orig_res,
             rewrite_res,
             f"Two programs evaluate to different results after optimization in {code}",
+        )
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
+    @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
+    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
+    def test_flat_encode_pyaiken(self, p):
+        try:
+            flattened = flat_encoder.flatten(p)
+        except debrujin_variables.FreeVariableError:
+            return
+        unflattened_aiken_string = pyaiken.uplc.unflat(cbor2.dumps(flattened).hex())
+        unflattened_aiken = parse(unflattened_aiken_string)
+
+        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        unflattened_aiken_unique = unique_variables.UniqueVariableTransformer().visit(
+            unflattened_aiken
+        )
+        self.assertEqual(
+            p_unique,
+            unflattened_aiken_unique,
+            "Aiken unable to unflatten encoded flat or decodes to wrong program",
         )

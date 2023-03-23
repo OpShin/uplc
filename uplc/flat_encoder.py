@@ -1,3 +1,4 @@
+import copy
 import typing
 from ast import NodeVisitor
 from .ast import *
@@ -53,18 +54,18 @@ class BitWriter:
         """
         self.write_fixed_width_int(byte, 8)
 
-    def write_bytes(self, bytes: bytes):
+    def write_bytes(self, byts: bytes):
         """
         Write a bytestring to the BitWriter.
         :param bytes: bytearray
         """
         self.pad_to_byte_boundary(True)
-        n = len(bytes)
+        n = len(byts)
         pos = 0
         while pos < n:
             n_chunk = min(n - pos, 255)
             self.write_byte(n_chunk)
-            for byte in bytes[pos : pos + n_chunk]:
+            for byte in byts[pos : pos + n_chunk]:
                 self.write_byte(byte)
             pos += n_chunk
         self.write_byte(0)
@@ -110,10 +111,11 @@ class BitWriter:
 
             bytes_list.append(byte)
 
-        return bytes_list
+        return bytes(bytes_list)
 
     def write_int(self, i: int, signed: bool):
-        assert signed or i > 0, f"Tried to encode unsigned int {i} but is negative"
+        i = int(i)
+        assert signed or i >= 0, f"Tried to encode unsigned int {i} but is negative"
         zigzagged = zigzag(i, signed)
         bitstring = pad_zeroes(bin(zigzagged)[2:], 7)
 
@@ -123,9 +125,9 @@ class BitWriter:
 
         # write all but the last
         for chunk in parts[:-1]:
-            self.write("0" + chunk)
+            self.write("1" + chunk)
         # write the last
-        self.write("1" + parts[-1])
+        self.write("0" + parts[-1])
 
 
 def zigzag(i: int, signed: bool):
@@ -153,7 +155,7 @@ def pad_zeroes(bits, n):
 
 
 def flatten(x: Program):
-    x_debrujin = DeBrujinVariableTransformer().visit(x)
+    x_debrujin = DeBrujinVariableTransformer().visit(copy.deepcopy(x))
     x_flattener = FlatEncodingVisitor()
     x_flattener.visit(x_debrujin)
     return x_flattener.bit_writer.finalize()
@@ -188,7 +190,6 @@ class FlatEncodingVisitor(NodeVisitor):
 
     def visit_Constant(self, n: Constant):
         self.bit_writer.write("0100")
-        # TODO calls toFlatValue
         self.bit_writer.write("1")
         ConstantTypeFlatEncodingVisitor(self.bit_writer).visit(n)
         self.bit_writer.write("0")
@@ -203,9 +204,9 @@ class FlatEncodingVisitor(NodeVisitor):
 
     def visit_BuiltIn(self, n: BuiltIn):
         self.bit_writer.write("0111")
-        # TODO write index of uplc builtin
-        index = 0
-        self.bit_writer.write_int(index, signed=False)
+        # write index of uplc builtin
+        index = n.builtin.value
+        self.bit_writer.write_fixed_width_int(index, width=7)
 
     def visit_BuiltinUnit(self, n: BuiltinUnit):
         self.visit_Constant(n)
@@ -277,7 +278,7 @@ class ConstantValueFlatEncodingVisitor(NodeVisitor):
         self.bit_writer.write("0")
 
     def visit_PlutusData(self, n: PlutusData):
-        self.bit_writer.write_bytes(n.to_cbor())
+        self.bit_writer.write_bytes(cbor2.dumps(n.to_cbor()))
 
     def visit_PlutusInteger(self, n: PlutusInteger):
         self.visit_PlutusData(n)

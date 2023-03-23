@@ -14,7 +14,7 @@ class Parser:
             "program : PAREN_OPEN PROGRAM version expression PAREN_CLOSE"
         )
         def program(p):
-            return ast.Program(p[2], p[3])
+            return ast.Program(tuple(map(int, p[2].split("."))), p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
         def version(p):

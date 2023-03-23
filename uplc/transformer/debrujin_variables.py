@@ -14,15 +14,17 @@ class DeBrujinVariableTransformer(NodeTransformer):
         self.count = 0
 
     def get_index(self, name: str):
-        for index, var in enumerate(reversed(self.scope)):
+        for index, var in enumerate(reversed(self.scope), start=1):
             if var == name:
                 return index
         raise FreeVariableError(f"Variable {name} is never assigned")
 
     def visit_Lambda(self, node: Lambda):
+        nc = copy(node)
         self.scope.append(node.var_name)
-        self.visit(node.term)
+        nc.term = self.visit(node.term)
         self.scope.pop()
+        return nc
 
     def visit_Variable(self, node: Variable):
         nc = copy(node)
