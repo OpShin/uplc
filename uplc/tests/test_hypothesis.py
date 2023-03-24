@@ -18,7 +18,7 @@ def frozenlist(l):
     return l
 
 
-pos_int = hst.integers(min_value=0, max_value=1000000000)
+pos_int = hst.integers(min_value=0, max_value=2**64 - 1)
 
 
 uplc_data_integer = hst.builds(PlutusInteger, hst.integers())
