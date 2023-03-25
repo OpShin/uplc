@@ -59,7 +59,7 @@ uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
 #     BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
 # )
 uplc_builtin_string = hst.builds(
-    BuiltinString, hst.from_regex(r'([^\n\r"])*', fullmatch=True)
+    BuiltinString, hst.from_regex(r'([^\n\r"\\])*', fullmatch=True)
 )
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
