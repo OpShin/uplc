@@ -418,8 +418,12 @@ def default_encoder(encoder: CBOREncoder, value: PlutusData):
         if -(2**64) < value.value < 2**64 - 1:
             encoder.encode(value.value)
             return
-        byts = _int_to_bytes(value.value)
-        encoder.write(b"\xc2")
+        if value.value >= 0:
+            byts = _int_to_bytes(value.value)
+            encoder.write(b"\xc2")
+        if value.value < 0:
+            byts = _int_to_bytes(-value.value - 1)
+            encoder.write(b"\xc3")
     else:
         encoder.encode(value)
         return
