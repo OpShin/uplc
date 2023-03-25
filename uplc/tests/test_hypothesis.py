@@ -9,7 +9,7 @@ from .. import *
 from ..optimizer import pre_evaluation
 from ..transformer import unique_variables, debrujin_variables
 from ..ast import *
-from .. import lexer, flat_encoder
+from .. import lexer
 
 
 def frozenlist(l):
@@ -292,10 +292,10 @@ class HypothesisTests(unittest.TestCase):
     # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
     def test_flat_encode_pyaiken(self, p):
         try:
-            flattened = flat_encoder.flatten(p)
+            flattened = flatten(p)
         except debrujin_variables.FreeVariableError:
             return
-        unflattened_aiken_string = pyaiken.uplc.unflat(cbor2.dumps(flattened).hex())
+        unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
         unflattened_aiken = parse(unflattened_aiken_string)
 
         p_unique = unique_variables.UniqueVariableTransformer().visit(p)

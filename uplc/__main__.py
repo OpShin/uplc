@@ -8,7 +8,7 @@ import cbor2
 import pyaiken
 import pycardano
 
-from .util import *
+from .tools import *
 from .ast import Program, Apply
 from .transformer import unique_variables
 
@@ -107,8 +107,8 @@ def main():
         else:
             target_dir = pathlib.Path(args.output_directory)
         target_dir.mkdir(exist_ok=True)
-        uplc_dump = code.dumps(dialect=UPLCDialect.Aiken)
-        cbor_hex = pyaiken.uplc.flat(uplc_dump)
+        cbor_bytes = flatten(code)
+        cbor_hex = cbor_bytes.hex()
         # create cbor file for use with pycardano/lucid
         with (target_dir / "script.cbor").open("w") as fp:
             fp.write(cbor_hex)

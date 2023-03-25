@@ -1,8 +1,5 @@
-import copy
-import typing
 from ast import NodeVisitor
 from .ast import *
-from .transformer.debrujin_variables import DeBrujinVariableTransformer
 
 
 def _int_to_bits(x: int):
@@ -156,13 +153,6 @@ def pad_zeroes(bits, n):
         n_pad = n - (len(bits) % n)
         bits = n_pad * "0" + bits
     return bits
-
-
-def flatten(x: Program):
-    x_debrujin = DeBrujinVariableTransformer().visit(copy.deepcopy(x))
-    x_flattener = FlatEncodingVisitor()
-    x_flattener.visit(x_debrujin)
-    return x_flattener.bit_writer.finalize()
 
 
 class FlatEncodingVisitor(NodeVisitor):
