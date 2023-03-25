@@ -289,6 +289,12 @@ class HypothesisTests(unittest.TestCase):
             ),
         )
     )
+    @hypothesis.example(
+        Program(
+            version=(0, 0, 0),
+            term=PlutusInteger(2**64 + 2),
+        )
+    )
     # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
     def test_flat_encode_pyaiken(self, p):
         try:

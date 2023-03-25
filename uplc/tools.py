@@ -1,5 +1,6 @@
 import copy
 
+import cbor2
 import rply.errors
 
 from .lexer import strip_comments, Lexer
@@ -16,8 +17,7 @@ def flatten(x: Program):
     x_flattener = FlatEncodingVisitor()
     x_flattener.visit(x_debrujin)
     x_flattened = x_flattener.bit_writer.finalize()
-    x_flattened_cbor = plutus_cbor_dumps(PlutusByteString(x_flattened))
-    return x_flattened_cbor
+    return cbor2.dumps(x_flattened)
 
 
 def parse(s: str, filename=None):
