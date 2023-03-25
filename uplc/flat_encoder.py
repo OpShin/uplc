@@ -5,6 +5,10 @@ from .ast import *
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
 
 
+def _int_to_bits(x: int):
+    return bin(x)[2:]
+
+
 class BitWriter:
     """
     BitWriter turns a string of '0's and '1's into a list of bytes.
@@ -38,7 +42,7 @@ class BitWriter:
         :param i: int
         :param width: int
         """
-        self.write(self.pad_zeroes(bin(i)[2:], width))
+        self.write(self.pad_zeroes(_int_to_bits(i), width))
 
     def write_nibble(self, nibble: int):
         """
@@ -117,7 +121,7 @@ class BitWriter:
         i = int(i)
         assert signed or i >= 0, f"Tried to encode unsigned int {i} but is negative"
         zigzagged = zigzag(i, signed)
-        bitstring = pad_zeroes(bin(zigzagged)[2:], 7)
+        bitstring = pad_zeroes(_int_to_bits(zigzagged), 7)
 
         # split every 7th
         parts = list(chunkstring(bitstring, 7))
@@ -278,7 +282,7 @@ class ConstantValueFlatEncodingVisitor(NodeVisitor):
         self.bit_writer.write("0")
 
     def visit_PlutusData(self, n: PlutusData):
-        self.bit_writer.write_bytes(cbor2.dumps(n.to_cbor()))
+        self.bit_writer.write_bytes(plutus_cbor2_dumps(n))
 
     def visit_PlutusInteger(self, n: PlutusInteger):
         self.visit_PlutusData(n)

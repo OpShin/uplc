@@ -13,6 +13,7 @@ import cbor2
 import frozendict
 import frozenlist
 import nacl.exceptions
+from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 
 try:
@@ -339,7 +340,7 @@ class PlutusData(Constant):
         return "data"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"#{cbor2.dumps(self.to_cbor()).hex()}"
+        return f"#{plutus_cbor2_dumps(self).hex()}"
 
     def to_cbor(self) -> bytes:
         """Returns a CBOR encodable representation of this object"""
@@ -351,7 +352,7 @@ class PlutusAtomic(PlutusData):
     value: Any
 
     def to_cbor(self):
-        return self.value
+        return self
 
 
 @dataclass(frozen=True, eq=True)
@@ -398,6 +399,38 @@ class PlutusConstr(PlutusData):
             return cbor2.CBORTag(
                 102, [self.constructor, [f.to_cbor() for f in self.fields]]
             )
+
+
+def _int_to_bytes(x: int):
+    return x.to_bytes((x.bit_length() + 7) // 8, byteorder="big")
+
+
+def default_encoder(encoder: CBOREncoder, value: PlutusData):
+    """A fallback function that encodes PlutusData objects"""
+    if not isinstance(value, PlutusData):
+        raise NotImplementedError(f"Can not encode type {type(value)}")
+    value = value.to_cbor()
+    if isinstance(value, PlutusByteString):
+        # the encoder can not handle indefinite length arrays, but the plutus standard
+        # requires encoding bytes as indefinite byte sequence where each chunk is at most 64 bytes long
+        byts = value.value
+    elif isinstance(value, PlutusInteger):
+        byts = _int_to_bytes(value.value)
+        encoder.write(b"\xc2")
+    encoder.write(b"\xf5")
+    max_chunk_len = 64
+    n = len(byts)
+    pos = 0
+    while pos < n:
+        n_chunk = min(n - pos, max_chunk_len)
+        chunk = byts[pos : pos + n_chunk]
+        encoder.encode(chunk)
+        pos += n_chunk
+    encoder.write(b"\xff")
+
+
+def plutus_cbor2_dumps(x):
+    return cbor2.dumps(x, default=default_encoder)
 
 
 def data_from_cbortag(cbor) -> PlutusData:
@@ -659,7 +692,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
-    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(cbor2.dumps(x.to_cbor())),
+    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor2_dumps(x)),
 }
 
 BuiltInFunForceMap = defaultdict(int)
