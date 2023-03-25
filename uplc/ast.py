@@ -340,7 +340,7 @@ class PlutusData(Constant):
         return "data"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"#{plutus_cbor2_dumps(self).hex()}"
+        return f"#{plutus_cbor_dumps(self).hex()}"
 
     def to_cbor(self) -> bytes:
         """Returns a CBOR encodable representation of this object"""
@@ -415,9 +415,18 @@ def default_encoder(encoder: CBOREncoder, value: PlutusData):
         # requires encoding bytes as indefinite byte sequence where each chunk is at most 64 bytes long
         byts = value.value
     elif isinstance(value, PlutusInteger):
+        if -(2**64) < value.value < 2**64 - 1:
+            encoder.encode(value.value)
+            return
         byts = _int_to_bytes(value.value)
         encoder.write(b"\xc2")
-    encoder.write(b"\xf5")
+    else:
+        encoder.encode(value)
+        return
+    if len(byts) < 64:
+        encoder.encode(byts)
+        return
+    encoder.write(b"\x5f")
     max_chunk_len = 64
     n = len(byts)
     pos = 0
@@ -429,7 +438,7 @@ def default_encoder(encoder: CBOREncoder, value: PlutusData):
     encoder.write(b"\xff")
 
 
-def plutus_cbor2_dumps(x):
+def plutus_cbor_dumps(x):
     return cbor2.dumps(x, default=default_encoder)
 
 
@@ -692,7 +701,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
-    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor2_dumps(x)),
+    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
 }
 
 BuiltInFunForceMap = defaultdict(int)

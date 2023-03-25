@@ -282,7 +282,7 @@ class ConstantValueFlatEncodingVisitor(NodeVisitor):
         self.bit_writer.write("0")
 
     def visit_PlutusData(self, n: PlutusData):
-        self.bit_writer.write_bytes(plutus_cbor2_dumps(n))
+        self.bit_writer.write_bytes(plutus_cbor_dumps(n))
 
     def visit_PlutusInteger(self, n: PlutusInteger):
         self.visit_PlutusData(n)
