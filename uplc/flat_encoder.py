@@ -29,9 +29,9 @@ class BitWriter:
         Write a string of '0's and '1's to the BitWriter.
         :param bit_chars: string
         """
-        for c in bit_chars:
-            if c != "0" and c != "1":
-                raise ValueError("bad bit char")
+        assert all(
+            c in ("0", "1") for c in bit_chars
+        ), "did pass invalid value to write in bitwriter"
 
         self._parts.append(bit_chars)
         self._n += len(bit_chars)

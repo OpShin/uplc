@@ -278,11 +278,15 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
-    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
+    @hypothesis.example(
+        Program(
+            version=(0, 0, 0),
+            term=PlutusByteString(
+                b"asdjahsdhjddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ),
+        )
+    )
+    @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
     def test_flat_encode_pyaiken(self, p):
         try:
             flattened = flat_encoder.flatten(p)
