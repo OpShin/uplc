@@ -5,7 +5,6 @@ import pathlib
 import sys
 
 import cbor2
-import pyaiken
 import pycardano
 
 from .tools import *
@@ -71,11 +70,12 @@ def main():
         source_code = f.read()
 
     if args.from_cbor:
-        source_code = pyaiken.uplc.unflat(source_code)
-    code: Program = parse(
-        source_code,
-        input_file.absolute() if isinstance(input_file, pathlib.Path) else None,
-    )
+        code = unflatten(bytes.fromhex(source_code))
+    else:
+        code: Program = parse(
+            source_code,
+            input_file.absolute() if isinstance(input_file, pathlib.Path) else None,
+        )
 
     if command == Command.parse:
         print("Parsed successfully.")
@@ -103,10 +103,10 @@ def main():
                     "Please supply an output directory if no input file is specified."
                 )
                 exit(-1)
-            target_dir = pathlib.Path(pathlib.Path(input_file).stem)
+            target_dir = pathlib.Path("build") / input_file.stem
         else:
             target_dir = pathlib.Path(args.output_directory)
-        target_dir.mkdir(exist_ok=True)
+        target_dir.mkdir(exist_ok=True, parents=True)
         cbor_bytes = flatten(code)
         cbor_hex = cbor_bytes.hex()
         # create cbor file for use with pycardano/lucid
