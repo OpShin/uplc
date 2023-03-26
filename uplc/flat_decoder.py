@@ -1,4 +1,6 @@
 from ast import NodeVisitor
+from typing import Callable
+
 from .ast import *
 
 UPLC_TAG_WIDTHS = {
@@ -10,38 +12,82 @@ UPLC_TAG_WIDTHS = {
     "kind": 1,
 }
 
-from typing import Callable, List, Union
+
+def parse_raw_byte(b):
+    """
+    Parses a single byte in the Plutus-core byte-list representation of an int
+    :param b: int
+    :return: int
+    """
+    return b & 0b01111111
 
 
-class UplcDeserializer(BitReader):
-    def __init__(self, bytes: List[int]):
-        super().__init__(bytes)
+def raw_byte_is_last(b):
+    """
+    Returns true if 'b' is the last byte in the Plutus-core byte-list representation of an int.
+    :param b: int
+    :return: bool
+    """
+    return (b & 0b10000000) == 0
+
+
+def bytes_to_int(bytes):
+    """
+    Combines a list of Plutus-core bytes into a int (leading bit of each byte is ignored).
+    Differs from int.from_bytes because only 7 bits are used from each byte.
+    :param bytes: list[int]
+    :return: int
+    """
+    value = 0
+
+    n = len(bytes)
+
+    for i in range(n):
+        b = bytes[i]
+
+        # 7 (not 8), because leading bit isn't used here
+        value += b * (2 ** (i * 7))
+
+    return value
+
+
+def unzigzag(value: int, signed: bool):
+    """
+    Unapplies zigzag encoding
+    :return: int
+    """
+    if not signed:
+        return value
+    else:
+        if value % 2 == 0:
+            return value // 2
+        else:
+            return -((value + 1) // 2)
+
+
+class UplcDeserializer:
+    def __init__(self, bits: str):
+        self._bits = bits
+        self._pos = 0
 
     def tag_width(self, category: str) -> int:
         assert category in UPLC_TAG_WIDTHS, f"unknown tag category {category}"
 
         return UPLC_TAG_WIDTHS[category]
 
-    def builtin_name(self, id: int) -> Union[str, int]:
-        all = UPLC_BUILTINS
+    def built_in_fun(self, id: int) -> BuiltInFun:
+        return BuiltInFun(id)
 
-        if 0 <= id < len(all):
-            return all[id].name
-        else:
-            print(f"Warning: builtin id {id} out of range")
-
-            return id
-
-    def read_linked_list(self, elem_size: int) -> List[int]:
-        nil_or_cons = self.read_bits(1)
+    def read_linked_list(self, elem_size: int) -> List[str]:
+        nil_or_cons = self.read_bit()
 
         if nil_or_cons == 0:
             return []
         else:
             return [self.read_bits(elem_size)] + self.read_linked_list(elem_size)
 
-    def read_term(self) -> UplcTerm:
-        tag = self.read_bits(self.tag_width("term"))
+    def read_term(self) -> AST:
+        tag = self.read_tag("term")
 
         if tag == 0:
             return self.read_variable()
@@ -50,184 +96,228 @@ class UplcDeserializer(BitReader):
         elif tag == 2:
             return self.read_lambda()
         elif tag == 3:
-            return self.read_call()
+            return self.read_apply()
         elif tag == 4:
             return self.read_constant()
         elif tag == 5:
             return self.read_force()
         elif tag == 6:
-            return UplcError(Site.dummy())
+            return Error()
         elif tag == 7:
             return self.read_builtin()
         else:
             raise ValueError(f"term tag {tag} unhandled")
 
-    def read_integer(self, signed: bool = False) -> UplcInt:
-        bytes = []
+    def read_integer(self, signed: bool = False) -> BuiltinInteger:
+        byts = []
 
         b = self.read_byte()
-        bytes.append(b)
+        byts.append(b)
 
-        while not UplcInt.raw_byte_is_last(b):
+        while not raw_byte_is_last(b):
             b = self.read_byte()
-            bytes.append(b)
+            byts.append(b)
 
-        res = UplcInt(
-            Site.dummy(),
-            UplcInt.bytes_to_big_int([UplcInt.parse_raw_byte(b) for b in bytes]),
-            False,
-        )
+        res = bytes_to_int([parse_raw_byte(b) for b in byts])
 
-        if signed:
-            res = res.to_signed()
+        res = unzigzag(res, signed)
 
-        return res
+        return BuiltinInteger(res)
 
-    def read_bytes(self) -> List[int]:
+    def move_to_byte_boundary(self, force=False):
+        """
+        Moves position to the next byte boundary.
+
+        Args:
+            force (bool): If True, move to the next byte boundary even if already at one.
+
+        Returns:
+            None
+        """
+        if self._pos % 8 != 0:
+            n = 8 - self._pos % 8
+            self.read_bits(n)
+        elif force:
+            self.read_bits(8)
+
+    def read_bytes(self) -> bytes:
         self.move_to_byte_boundary(True)
 
-        bytes = []
+        byts = []
 
         n_chunk = self.read_byte()
 
         while n_chunk > 0:
             for _ in range(n_chunk):
-                bytes.append(self.read_byte())
+                byts.append(self.read_byte())
 
             n_chunk = self.read_byte()
 
-        return bytes
+        return bytes(byts)
 
-    def read_byte_array(self) -> UplcByteArray:
-        bytes = self.read_bytes()
+    def read_byte_array(self) -> BuiltinByteString:
+        byts = self.read_bytes()
 
-        return UplcByteArray(Site.dummy(), bytes)
+        return BuiltinByteString(byts)
 
-    def read_string(self) -> UplcString:
-        bytes = self.read_bytes()
+    def read_string(self) -> BuiltinString:
+        byts = self.read_bytes()
 
-        s = bytes_to_text(bytes)
+        s = byts.decode("utf8")
 
-        return UplcString(Site.dummy(), s)
+        return BuiltinString(s)
 
-    def read_list(self, typed_reader: Callable[[], UplcValue]) -> List[UplcValue]:
+    def read_list(self, typed_reader: Callable[[], Constant]) -> List[Constant]:
         items = []
 
-        while self.read_bits(1) == 1:
+        while self.read_bit() == 1:
             items.append(typed_reader())
 
         return items
 
-    def read_data(self) -> UplcData:
-        bytes = self.read_bytes()
+    def read_data(self) -> PlutusData:
+        byts = self.read_bytes()
 
-        return UplcData.from_cbor(bytes)
+        return data_from_cbortag(byts)
 
-    def read_variable(self) -> UplcVariable:
-        index = self.read_integer()
+    def read_variable(self) -> Variable:
+        index = self.read_integer(signed=False)
 
-        return UplcVariable(Site.dummy(), index)
+        return Variable(str(index))
 
-    def read_lambda(self) -> UplcLambda:
+    def read_lambda(self) -> Lambda:
         rhs = self.read_term()
 
-        return UplcLambda(Site.dummy(), rhs)
+        return Lambda("_", rhs)
 
-    def read_call(self) -> UplcCall:
+    def read_apply(self) -> Apply:
         a = self.read_term()
         b = self.read_term()
 
-        return UplcCall(Site.dummy(), a, b)
+        return Apply(a, b)
 
-    def read_constant(self) -> UplcConst:
+    def read_constant(self) -> Constant:
         type_list = self.read_linked_list(self.tag_width("constType"))
 
-        res = UplcConst(self.read_typed_value(type_list))
+        res = self.read_typed_value(type_list)
 
         return res
 
-    def read_typed_value(self, type_list: List[int]) -> UplcValue:
+    def read_typed_value(self, type_list: List[int]) -> Constant:
         typed_reader = self.construct_typed_reader(type_list)
 
         assert len(type_list) == 0, "Did not consume all type parameters"
 
         return typed_reader()
 
-    def construct_typed_reader(self, type_list: List[int]) -> Callable[[], UplcValue]:
-        type = type_list.pop(0)
-
+    def sample_value(self, type_list: List[int]):
         if type == 0:
-            return lambda: self.read_integer(True)
+            return BuiltinInteger(0)
         elif type == 1:
-            return lambda: self.read_byte_array()
+            return BuiltinByteString(b"")
         elif type == 2:
-            return lambda: self.read_string()
+            return BuiltinString("")
         elif type == 3:
-            return lambda: UplcUnit(Site.dummy())
+            return BuiltinUnit()
         elif type == 4:
-            return lambda: UplcBool(Site.dummy(), self.read_bits(1) == 1)
+            return BuiltinBool(False)
         elif type in (5, 6):
             raise ValueError("unexpected type tag without type application")
         elif type == 7:
             container_type = type_list.pop(0)
             if container_type == 5:
-                list_type = UplcType.from_numbers(type_list)
+                list_type = self.sample_value(type_list)
+                return BuiltinList([], list_type)
+            else:
+                assert container_type == 7, "Unexpected type tag"
+                container_type = type_list.pop(0)
+                if container_type == 6:
+                    return BuiltinPair(
+                        self.sample_value(type_list), self.sample_value(type_list)
+                    )
+        elif type == 8:
+            return PlutusInteger(0)
+        else:
+            raise ValueError(f"unhandled constant type {type}")
+
+    def construct_typed_reader(self, type_list: List[int]) -> Callable[[], Constant]:
+        type = type_list.pop(0)
+
+        if type == 0:
+            return lambda: self.read_integer(signed=True)
+        elif type == 1:
+            return lambda: self.read_byte_array()
+        elif type == 2:
+            return lambda: self.read_string()
+        elif type == 3:
+            return lambda: BuiltinUnit()
+        elif type == 4:
+            return lambda: BuiltinBool(self.read_bit() == 1)
+        elif type in (5, 6):
+            raise ValueError("unexpected type tag without type application")
+        elif type == 7:
+            container_type = type_list.pop(0)
+            if container_type == 5:
+                list_type = self.sample_value(type_list.copy())
                 type_reader = self.construct_typed_reader(type_list)
 
-                return lambda: UplcList(
-                    Site.dummy(), list_type, self.read_list(type_reader)
-                )
+                return lambda: BuiltinList(self.read_list(type_reader), list_type)
             else:
                 assert container_type == 7, "Unexpected type tag"
                 container_type = type_list.pop(0)
                 if container_type == 6:
                     left_reader = self.construct_typed_reader(type_list)
                     right_reader = self.construct_typed_reader(type_list)
-                    return lambda: UplcPair(Site.dummy(), left_reader(), right_reader())
+                    return lambda: BuiltinPair(left_reader(), right_reader())
+                else:
+                    raise ValueError(f"unhandled container type {container_type}")
         elif type == 8:
-            return lambda: UplcDataValue(Site.dummy(), self.read_data())
+            return lambda: self.read_data()
         else:
             raise ValueError(f"unhandled constant type {type}")
 
-    def read_delay(self) -> UplcDelay:
+    def read_delay(self) -> Delay:
         expr = self.read_term()
 
-        return UplcDelay(Site.dummy(), expr)
+        return Delay(expr)
 
-    def read_force(self) -> UplcForce:
+    def read_force(self) -> Force:
         expr = self.read_term()
 
-        return UplcForce(Site.dummy(), expr)
+        return Force(expr)
 
-    def read_builtin(self) -> UplcBuiltin:
-        id = self.read_bits(self.tag_width("builtin"))
+    def read_builtin(self) -> BuiltIn:
+        id = self.read_tag("builtin")
 
-        name = self.builtin_name(id)
+        builtin = self.built_in_fun(id)
 
-        return UplcBuiltin(Site.dummy(), name)
+        return BuiltIn(builtin)
 
     def finalize(self):
         self.move_to_byte_boundary(True)
 
+    def read_bits(self, num: int) -> str:
+        bits = self._bits[self._pos : self._pos + num]
+        self._pos += num
+        return bits
 
-def deserialize_uplc_bytes(bytes: List[int]) -> UplcProgram:
-    reader = UplcDeserializer(bytes)
+    def read_fixed_width_integer(self, width: int) -> int:
+        return int(self.read_bits(width), 2)
 
-    version = [
-        reader.read_integer(),
-        reader.read_integer(),
-        reader.read_integer(),
-    ]
+    def read_tag(self, name: str) -> int:
+        return self.read_fixed_width_integer(self.tag_width(name))
 
-    version_key = ".".join(str(v) for v in version)
+    def read_bit(self) -> int:
+        return self.read_fixed_width_integer(1)
 
-    if version_key != UPLC_VERSION:
-        print(
-            f"Warning: Plutus-core script doesn't match version of Helios (expected {UPLC_VERSION}, got {version_key})"
-        )
+    def read_byte(self) -> int:
+        return self.read_fixed_width_integer(8)
 
-    expr = reader.read_term()
+    def read_program(self) -> Program:
+        version = tuple(self.read_integer(signed=False).value for _ in range(3))
 
-    reader.finalize()
+        expr = self.read_term()
 
-    return UplcProgram(expr, None, version)
+        self.finalize()
+
+        return Program(version, expr)

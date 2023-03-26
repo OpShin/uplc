@@ -6,7 +6,10 @@ import frozenlist as fl
 import pyaiken
 
 from .. import *
+from ..flat_decoder import unzigzag
+from ..flat_encoder import zigzag
 from ..optimizer import pre_evaluation
+from ..tools import unflatten
 from ..transformer import unique_variables, debrujin_variables
 from ..ast import *
 from .. import lexer
@@ -313,3 +316,11 @@ class HypothesisTests(unittest.TestCase):
             unflattened_aiken_unique,
             "Aiken unable to unflatten encoded flat or decodes to wrong program",
         )
+
+    @hypothesis.given(hst.integers(), hst.booleans())
+    def test_zigzag(self, i, b):
+        self.assertEqual(i, unzigzag(zigzag(i, b), b)), "Incorrect roundtrip"
+
+    @hypothesis.given(uplc_program)
+    def test_flat_unflat_roundtrip(self, p: Program):
+        self.assertEqual(p, unflatten(flatten(p)), "incorrect flatten roundtrip")

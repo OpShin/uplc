@@ -8,16 +8,26 @@ from .parser import Parser
 from .machine import Machine
 from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString
 from .flat_encoder import FlatEncodingVisitor
+from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
 
 
-def flatten(x: Program):
+def flatten(x: Program) -> bytes:
     """Returns the properly CBOR wrapped program"""
     x_debrujin = DeBrujinVariableTransformer().visit(copy.deepcopy(x))
-    x_flattener = FlatEncodingVisitor()
-    x_flattener.visit(x_debrujin)
-    x_flattened = x_flattener.bit_writer.finalize()
+    flattener = FlatEncodingVisitor()
+    flattener.visit(x_debrujin)
+    x_flattened = flattener.bit_writer.finalize()
     return cbor2.dumps(x_flattened)
+
+
+def unflatten(x_cbor: bytes) -> Program:
+    """Returns the program from a singly-CBOR wrapped flat encoding"""
+    x = cbor2.loads(x_cbor)
+    unflattener = UplcDeserializer(x)
+    reader = UplcDeserializer(bin(int.from_bytes(x, "big", signed=False))[2:])
+    x_uplc = reader.read_program()
+    return x_uplc
 
 
 def parse(s: str, filename=None):
