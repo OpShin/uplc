@@ -323,4 +323,5 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     def test_flat_unflat_roundtrip(self, p: Program):
-        self.assertEqual(p, unflatten(flatten(p)), "incorrect flatten roundtrip")
+        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")

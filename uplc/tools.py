@@ -10,6 +10,8 @@ from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString
 from .flat_encoder import FlatEncodingVisitor
 from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
+from .transformer.undebrujin_variables import UnDeBrujinVariableTransformer
+from .transformer.unique_variables import UniqueVariableTransformer
 
 
 def flatten(x: Program) -> bytes:
@@ -24,9 +26,10 @@ def flatten(x: Program) -> bytes:
 def unflatten(x_cbor: bytes) -> Program:
     """Returns the program from a singly-CBOR wrapped flat encoding"""
     x = cbor2.loads(x_cbor)
-    unflattener = UplcDeserializer(x)
     reader = UplcDeserializer(bin(int.from_bytes(x, "big", signed=False))[2:])
-    x_uplc = reader.read_program()
+    x_debrujin = reader.read_program()
+    x_unique_debrujin = UniqueVariableTransformer().visit(x_debrujin)
+    x_uplc = UnDeBrujinVariableTransformer().visit(x_unique_debrujin)
     return x_uplc
 
 
