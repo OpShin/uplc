@@ -106,7 +106,7 @@ def main():
             target_dir = pathlib.Path("build") / input_file.stem
         else:
             target_dir = pathlib.Path(args.output_directory)
-        target_dir.mkdir(exist_ok=True)
+        target_dir.mkdir(exist_ok=True, parents=True)
         cbor_bytes = flatten(code)
         cbor_hex = cbor_bytes.hex()
         # create cbor file for use with pycardano/lucid
