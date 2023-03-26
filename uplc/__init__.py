@@ -5,7 +5,7 @@
 import logging
 
 
-VERSION = (0, 5, 6)
+VERSION = (0, 6, 0)
 
 __version__ = ".".join([str(i) for i in VERSION])
 __author__ = "nielstron"
