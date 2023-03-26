@@ -15,7 +15,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/imperatorlang/uplc"
 
 try:
-    from .tools import parse, eval, dumps, UPLCDialect, flatten
+    from .tools import parse, eval, dumps, UPLCDialect, flatten, unflatten
 
 except ImportError as e:
     logging.error(

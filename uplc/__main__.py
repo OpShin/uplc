@@ -71,7 +71,7 @@ def main():
         source_code = f.read()
 
     if args.from_cbor:
-        source_code = pyaiken.uplc.unflat(source_code)
+        source_code = unflatten(bytes.fromhex(source_code))
     code: Program = parse(
         source_code,
         input_file.absolute() if isinstance(input_file, pathlib.Path) else None,
