@@ -1,7 +1,8 @@
 from copy import copy
 
-from ..util import NodeTransformer, eval
+from ..util import NodeTransformer
 from ..ast import Program, AST
+from ..machine import Machine
 
 """
 Optimizes code by pre-evaluating each subterm
@@ -15,7 +16,7 @@ class PreEvaluationOptimizer(NodeTransformer):
 
     def generic_visit(self, node: AST) -> AST:
         try:
-            nc = eval(node)
+            nc = Machine(node).eval()
         except Exception as e:
             nc = node
         return super().generic_visit(nc)

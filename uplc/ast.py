@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import json
 import logging
+import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -12,6 +13,7 @@ import cbor2
 import frozendict
 import frozenlist
 import nacl.exceptions
+from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 
 try:
@@ -338,7 +340,7 @@ class PlutusData(Constant):
         return "data"
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"#{cbor2.dumps(self.to_cbor()).hex()}"
+        return f"#{plutus_cbor_dumps(self).hex()}"
 
     def to_cbor(self) -> bytes:
         """Returns a CBOR encodable representation of this object"""
@@ -350,7 +352,7 @@ class PlutusAtomic(PlutusData):
     value: Any
 
     def to_cbor(self):
-        return self.value
+        return self
 
 
 @dataclass(frozen=True, eq=True)
@@ -397,6 +399,51 @@ class PlutusConstr(PlutusData):
             return cbor2.CBORTag(
                 102, [self.constructor, [f.to_cbor() for f in self.fields]]
             )
+
+
+def _int_to_bytes(x: int):
+    return x.to_bytes((x.bit_length() + 7) // 8, byteorder="big")
+
+
+def default_encoder(encoder: CBOREncoder, value: PlutusData):
+    """A fallback function that encodes PlutusData objects"""
+    if not isinstance(value, PlutusData):
+        raise NotImplementedError(f"Can not encode type {type(value)}")
+    value = value.to_cbor()
+    if isinstance(value, PlutusByteString):
+        # the encoder can not handle indefinite length arrays, but the plutus standard
+        # requires encoding bytes as indefinite byte sequence where each chunk is at most 64 bytes long
+        byts = value.value
+    elif isinstance(value, PlutusInteger):
+        if -(2**64) < value.value < 2**64 - 1:
+            encoder.encode(value.value)
+            return
+        if value.value >= 0:
+            byts = _int_to_bytes(value.value)
+            encoder.write(b"\xc2")
+        if value.value < 0:
+            byts = _int_to_bytes(-value.value - 1)
+            encoder.write(b"\xc3")
+    else:
+        encoder.encode(value)
+        return
+    if len(byts) < 64:
+        encoder.encode(byts)
+        return
+    encoder.write(b"\x5f")
+    max_chunk_len = 64
+    n = len(byts)
+    pos = 0
+    while pos < n:
+        n_chunk = min(n - pos, max_chunk_len)
+        chunk = byts[pos : pos + n_chunk]
+        encoder.encode(chunk)
+        pos += n_chunk
+    encoder.write(b"\xff")
+
+
+def plutus_cbor_dumps(x):
+    return cbor2.dumps(x, default=default_encoder)
 
 
 def data_from_cbortag(cbor) -> PlutusData:
@@ -446,8 +493,19 @@ class ConstantType(Enum):
     data = auto()
 
 
+class callable_staticmethod(staticmethod):
+    """Callable version of staticmethod."""
+
+    def __call__(self, *args, **kwargs):
+        return self.__func__(*args, **kwargs)
+
+
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
 class BuiltInFun(Enum):
+    @callable_staticmethod
+    def _generate_next_value_(name, start, count, last_values):
+        return count
+
     AddInteger = auto()
     SubtractInteger = auto()
     MultiplyInteger = auto()
@@ -469,10 +527,8 @@ class BuiltInFun(Enum):
     Sha2_256 = auto()
     Sha3_256 = auto()
     Blake2b_256 = auto()
-    VerifySignature = auto()
+    # VerifySignature = auto()
     VerifyEd25519Signature = auto()
-    VerifyEcdsaSecp256k1Signature = auto()
-    VerifySchnorrSecp256k1Signature = auto()
     AppendString = auto()
     EqualsString = auto()
     EncodeUtf8 = auto()
@@ -502,6 +558,9 @@ class BuiltInFun(Enum):
     MkPairData = auto()
     MkNilData = auto()
     MkNilPairData = auto()
+    SerialiseData = auto()
+    VerifyEcdsaSecp256k1Signature = auto()
+    VerifySchnorrSecp256k1Signature = auto()
 
 
 def _IfThenElse(i, t, e):
@@ -604,7 +663,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
         hashlib.blake2b(x.value, digest_size=32).digest()
     ),
-    BuiltInFun.VerifySignature: verify_ed25519,
+    # BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
     BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
@@ -646,6 +705,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
+    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
 }
 
 BuiltInFunForceMap = defaultdict(int)
@@ -668,7 +728,7 @@ BuiltInFunForceMap.update(
 
 @dataclass
 class Program(AST):
-    version: str
+    version: typing.Tuple[int, int, int]
     term: AST
     _fields = ["term"]
 
@@ -676,7 +736,7 @@ class Program(AST):
         return self.term.eval(context, state)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
-        return f"(program {self.version} {self.term.dumps(dialect=dialect)})"
+        return f"(program {'.'.join(str(x) for x in self.version)} {self.term.dumps(dialect=dialect)})"
 
 
 @dataclass

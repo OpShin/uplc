@@ -3,10 +3,11 @@ import unittest
 import hypothesis
 from hypothesis import strategies as hst
 import frozenlist as fl
+import pyaiken
 
 from .. import *
 from ..optimizer import pre_evaluation
-from ..transformer import unique_variables
+from ..transformer import unique_variables, debrujin_variables
 from ..ast import *
 from .. import lexer
 
@@ -17,7 +18,7 @@ def frozenlist(l):
     return l
 
 
-pos_int = hst.integers(min_value=0)
+pos_int = hst.integers(min_value=0, max_value=2**64 - 1)
 
 
 uplc_data_integer = hst.builds(PlutusInteger, hst.integers())
@@ -30,7 +31,7 @@ def rec_data_strategies(uplc_data):
     )
     uplc_data_constr = hst.builds(
         lambda x, y: PlutusConstr(x, frozenlist(y)),
-        hst.integers(),
+        pos_int,
         hst.lists(uplc_data),
     )
     uplc_data_map = hst.builds(
@@ -54,8 +55,11 @@ uplc_data = hst.recursive(
 uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
+# uplc_builtin_string = hst.builds(
+#     BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
+# )
 uplc_builtin_string = hst.builds(
-    BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
+    BuiltinString, hst.from_regex(r'([^\n\r"\\])*', fullmatch=True)
 )
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
@@ -103,7 +107,7 @@ uplc_expr = hst.recursive(
 )
 
 
-uplc_version = hst.builds(lambda x, y, z: f"{x}.{y}.{z}", pos_int, pos_int, pos_int)
+uplc_version = hst.builds(lambda x, y, z: (x, y, z), pos_int, pos_int, pos_int)
 uplc_program = hst.builds(Program, uplc_version, uplc_expr)
 
 
@@ -124,26 +128,26 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000)
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
+        Program(version=(0, 0, 0), term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltIn(builtin=BuiltInFun.ConstrData)),
+        Program(version=(0, 0, 0), term=BuiltIn(builtin=BuiltInFun.ConstrData)),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinInteger(value=0)), UPLCDialect.Aiken
+        Program(version=(0, 0, 0), term=BuiltinInteger(value=0)), UPLCDialect.Aiken
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinString("\\")),
+        Program(version=(0, 0, 0), term=BuiltinString("\\")),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
-        Program(version="0.0.0", term=BuiltinString('\\"')),
+        Program(version=(0, 0, 0), term=BuiltinString('\\"')),
         UPLCDialect.Aiken,
     )
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=BuiltinList([BuiltinString("\\"), BuiltinString("\\")]),
         ),
         UPLCDialect.Aiken,
@@ -200,7 +204,7 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=Apply(
                 f=Apply(
                     f=BuiltIn(builtin=BuiltInFun.EqualsString),
@@ -212,7 +216,7 @@ class HypothesisTests(unittest.TestCase):
     )
     @hypothesis.example(
         Program(
-            version="0.0.0",
+            version=(0, 0, 0),
             term=Lambda(
                 var_name="_",
                 term=Apply(
@@ -273,4 +277,39 @@ class HypothesisTests(unittest.TestCase):
             orig_res,
             rewrite_res,
             f"Two programs evaluate to different results after optimization in {code}",
+        )
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(
+        Program(
+            version=(0, 0, 0),
+            term=PlutusByteString(
+                b"asdjahsdhjddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+            ),
+        )
+    )
+    @hypothesis.example(
+        Program(
+            version=(0, 0, 0),
+            term=PlutusInteger(2**64 + 2),
+        )
+    )
+    # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
+    def test_flat_encode_pyaiken(self, p):
+        try:
+            flattened = flatten(p)
+        except debrujin_variables.FreeVariableError:
+            return
+        unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
+        unflattened_aiken = parse(unflattened_aiken_string)
+
+        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        unflattened_aiken_unique = unique_variables.UniqueVariableTransformer().visit(
+            unflattened_aiken
+        )
+        self.assertEqual(
+            p_unique,
+            unflattened_aiken_unique,
+            "Aiken unable to unflatten encoded flat or decodes to wrong program",
         )

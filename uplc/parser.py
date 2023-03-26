@@ -14,7 +14,7 @@ class Parser:
             "program : PAREN_OPEN PROGRAM version expression PAREN_CLOSE"
         )
         def program(p):
-            return ast.Program(p[2], p[3])
+            return ast.Program(tuple(map(int, p[2].split("."))), p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
         def version(p):
@@ -49,6 +49,8 @@ class Parser:
             for e in ast.BuiltInFun:
                 if e.name.lower() == bfn:
                     correct_bfn = e
+            if bfn == "verifysignature":
+                correct_bfn = ast.BuiltInFun.VerifyEd25519Signature
             if correct_bfn is None:
                 raise SyntaxError(f"Unknown builtin function {bfn}")
             return ast.BuiltIn(correct_bfn)
