@@ -29,11 +29,11 @@ setup(
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
         "rply==0.7.8",
-        "pyaiken==0.4.0",
         "pycardano==0.7.2",
         "python-secp256k1-cardano==0.2.3",
     ],
     tests_require=[
+        "pyaiken==0.4.0",
         "hypothesis==6.62.0",
         "parameterized==0.8.1",
     ],

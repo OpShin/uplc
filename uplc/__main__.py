@@ -5,7 +5,6 @@ import pathlib
 import sys
 
 import cbor2
-import pyaiken
 import pycardano
 
 from .tools import *
