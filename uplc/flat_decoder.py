@@ -78,13 +78,14 @@ class UplcDeserializer:
     def built_in_fun(self, id: int) -> BuiltInFun:
         return BuiltInFun(id)
 
-    def read_linked_list(self, elem_size: int) -> List[str]:
+    def read_linked_fixed_width_integer_list(self, elem_size: int) -> List[int]:
         nil_or_cons = self.read_bit()
 
         if nil_or_cons == 0:
             return []
         else:
-            return [self.read_bits(elem_size)] + self.read_linked_list(elem_size)
+            elem = self.read_fixed_width_integer(elem_size)
+            return [elem] + self.read_linked_fixed_width_integer_list(elem_size)
 
     def read_term(self) -> AST:
         tag = self.read_tag("term")
@@ -108,7 +109,7 @@ class UplcDeserializer:
         else:
             raise ValueError(f"term tag {tag} unhandled")
 
-    def read_integer(self, signed: bool = False) -> BuiltinInteger:
+    def read_integer(self, signed: bool = False) -> int:
         byts = []
 
         b = self.read_byte()
@@ -122,7 +123,7 @@ class UplcDeserializer:
 
         res = unzigzag(res, signed)
 
-        return BuiltinInteger(res)
+        return res
 
     def move_to_byte_boundary(self, force=False):
         """
@@ -155,12 +156,12 @@ class UplcDeserializer:
 
         return bytes(byts)
 
-    def read_byte_array(self) -> BuiltinByteString:
+    def read_builtin_byte_string(self) -> BuiltinByteString:
         byts = self.read_bytes()
 
         return BuiltinByteString(byts)
 
-    def read_string(self) -> BuiltinString:
+    def read_builtin_string(self) -> BuiltinString:
         byts = self.read_bytes()
 
         s = byts.decode("utf8")
@@ -197,7 +198,9 @@ class UplcDeserializer:
         return Apply(a, b)
 
     def read_constant(self) -> Constant:
-        type_list = self.read_linked_list(self.tag_width("constType"))
+        type_list = self.read_linked_fixed_width_integer_list(
+            self.tag_width("constType")
+        )
 
         res = self.read_typed_value(type_list)
 
@@ -211,19 +214,20 @@ class UplcDeserializer:
         return typed_reader()
 
     def sample_value(self, type_list: List[int]):
-        if type == 0:
+        typ = type_list.pop(0)
+        if typ == 0:
             return BuiltinInteger(0)
-        elif type == 1:
+        elif typ == 1:
             return BuiltinByteString(b"")
-        elif type == 2:
+        elif typ == 2:
             return BuiltinString("")
-        elif type == 3:
+        elif typ == 3:
             return BuiltinUnit()
-        elif type == 4:
+        elif typ == 4:
             return BuiltinBool(False)
-        elif type in (5, 6):
+        elif typ in (5, 6):
             raise ValueError("unexpected type tag without type application")
-        elif type == 7:
+        elif typ == 7:
             container_type = type_list.pop(0)
             if container_type == 5:
                 list_type = self.sample_value(type_list)
@@ -235,27 +239,27 @@ class UplcDeserializer:
                     return BuiltinPair(
                         self.sample_value(type_list), self.sample_value(type_list)
                     )
-        elif type == 8:
+        elif typ == 8:
             return PlutusInteger(0)
         else:
-            raise ValueError(f"unhandled constant type {type}")
+            raise ValueError(f"unhandled constant type {typ}")
 
     def construct_typed_reader(self, type_list: List[int]) -> Callable[[], Constant]:
-        type = type_list.pop(0)
+        typ = type_list.pop(0)
 
-        if type == 0:
-            return lambda: self.read_integer(signed=True)
-        elif type == 1:
-            return lambda: self.read_byte_array()
-        elif type == 2:
-            return lambda: self.read_string()
-        elif type == 3:
+        if typ == 0:
+            return lambda: BuiltinInteger(self.read_integer(signed=True))
+        elif typ == 1:
+            return lambda: self.read_builtin_byte_string()
+        elif typ == 2:
+            return lambda: self.read_builtin_string()
+        elif typ == 3:
             return lambda: BuiltinUnit()
-        elif type == 4:
+        elif typ == 4:
             return lambda: BuiltinBool(self.read_bit() == 1)
-        elif type in (5, 6):
+        elif typ in (5, 6):
             raise ValueError("unexpected type tag without type application")
-        elif type == 7:
+        elif typ == 7:
             container_type = type_list.pop(0)
             if container_type == 5:
                 list_type = self.sample_value(type_list.copy())
@@ -274,7 +278,7 @@ class UplcDeserializer:
         elif type == 8:
             return lambda: self.read_data()
         else:
-            raise ValueError(f"unhandled constant type {type}")
+            raise ValueError(f"unhandled constant type {typ}")
 
     def read_delay(self) -> Delay:
         expr = self.read_term()
@@ -314,7 +318,11 @@ class UplcDeserializer:
         return self.read_fixed_width_integer(8)
 
     def read_program(self) -> Program:
-        version = tuple(self.read_integer(signed=False).value for _ in range(3))
+        version = (
+            self.read_integer(signed=False),
+            self.read_integer(signed=False),
+            self.read_integer(signed=False),
+        )
 
         expr = self.read_term()
 

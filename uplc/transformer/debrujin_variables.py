@@ -11,7 +11,6 @@ class FreeVariableError(ValueError):
 class DeBrujinVariableTransformer(NodeTransformer):
     def __init__(self):
         self.scope = []
-        self.count = 0
 
     def get_index(self, name: str):
         for index, var in enumerate(reversed(self.scope), start=1):

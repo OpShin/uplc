@@ -26,10 +26,10 @@ def flatten(x: Program) -> bytes:
 def unflatten(x_cbor: bytes) -> Program:
     """Returns the program from a singly-CBOR wrapped flat encoding"""
     x = cbor2.loads(x_cbor)
-    reader = UplcDeserializer(bin(int.from_bytes(x, "big", signed=False))[2:])
+    x_bin = "".join(f"{i:08b}" for i in x)
+    reader = UplcDeserializer(x_bin)
     x_debrujin = reader.read_program()
-    x_unique_debrujin = UniqueVariableTransformer().visit(x_debrujin)
-    x_uplc = UnDeBrujinVariableTransformer().visit(x_unique_debrujin)
+    x_uplc = UnDeBrujinVariableTransformer().visit(x_debrujin)
     return x_uplc
 
 

@@ -100,7 +100,6 @@ uplc_variable = hst.builds(Variable, uplc_name)
 class UnboundVariableVisitor(NodeVisitor):
     def __init__(self):
         self.scope = []
-        self.count = 0
         self.unbound = []
 
     def check_bound(self, name: str):
@@ -374,7 +373,10 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    @hypothesis.example(Program(version=(16, 0, 0), term=BuiltinUnit()))
+    @hypothesis.example(
+        Program(version=(0, 0, 0), term=Lambda(var_name="_", term=Variable(name="_")))
+    )
+    @hypothesis.example(Program(version=(1, 0, 0), term=BuiltinUnit()))
     def test_flat_unflat_roundtrip(self, p: Program):
         p_unique = unique_variables.UniqueVariableTransformer().visit(p)
         self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")
