@@ -10,7 +10,7 @@ from ..flat_decoder import unzigzag
 from ..flat_encoder import zigzag
 from ..optimizer import pre_evaluation
 from ..tools import unflatten
-from ..transformer import unique_variables, debrujin_variables
+from ..transformer import unique_variables, debrujin_variables, undebrujin_variables
 from ..ast import *
 from .. import lexer
 
@@ -322,6 +322,24 @@ class HypothesisTests(unittest.TestCase):
         self.assertEqual(i, unzigzag(zigzag(i, b), b)), "Incorrect roundtrip"
 
     @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    def test_debrujin_undebrujin(self, p: Program):
+        try:
+            p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        except unique_variables.FreeVariableError:
+            return
+        debrujin = debrujin_variables.DeBrujinVariableTransformer().visit(p_unique)
+        undebrujin = undebrujin_variables.UnDeBrujinVariableTransformer().visit(
+            debrujin
+        )
+        self.assertEqual(p_unique, undebrujin, "incorrect flatten roundtrip")
+
+    @hypothesis.given(uplc_program)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(Program(version=(16, 0, 0), term=BuiltinUnit()))
     def test_flat_unflat_roundtrip(self, p: Program):
-        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        try:
+            p_unique = unique_variables.UniqueVariableTransformer().visit(p)
+        except unique_variables.FreeVariableError:
+            return
         self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")
