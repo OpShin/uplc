@@ -374,6 +374,9 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     @hypothesis.example(
+        Program(version=(0, 0, 0), term=PlutusMap(value=frozendict.frozendict({})))
+    )
+    @hypothesis.example(
         Program(version=(0, 0, 0), term=Lambda(var_name="_", term=Variable(name="_")))
     )
     @hypothesis.example(Program(version=(1, 0, 0), term=BuiltinUnit()))

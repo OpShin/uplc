@@ -179,7 +179,7 @@ class UplcDeserializer:
     def read_data(self) -> PlutusData:
         byts = self.read_bytes()
 
-        return data_from_cbortag(byts)
+        return data_from_cbor(byts)
 
     def read_variable(self) -> Variable:
         index = self.read_integer(signed=False)
@@ -275,7 +275,7 @@ class UplcDeserializer:
                     return lambda: BuiltinPair(left_reader(), right_reader())
                 else:
                     raise ValueError(f"unhandled container type {container_type}")
-        elif type == 8:
+        elif typ == 8:
             return lambda: self.read_data()
         else:
             raise ValueError(f"unhandled constant type {typ}")
