@@ -1,5 +1,6 @@
 import datetime
 import unittest
+
 import hypothesis
 from hypothesis import strategies as hst
 import frozenlist as fl
@@ -13,6 +14,7 @@ from ..tools import unflatten
 from ..transformer import unique_variables, debrujin_variables, undebrujin_variables
 from ..ast import *
 from .. import lexer
+from ..util import NodeVisitor
 
 
 def frozenlist(l):
@@ -95,12 +97,47 @@ uplc_builtin_fun = hst.builds(BuiltIn, hst.sampled_from(BuiltInFun))
 uplc_variable = hst.builds(Variable, uplc_name)
 
 
+class UnboundVariableVisitor(NodeVisitor):
+    def __init__(self):
+        self.scope = []
+        self.count = 0
+        self.unbound = []
+
+    def check_bound(self, name: str):
+        if name in self.scope:
+            return
+        self.unbound.append(name)
+
+    def visit_Lambda(self, node: Lambda):
+        self.scope.append(node.var_name)
+        self.visit(node.term)
+        self.scope.pop()
+
+    def visit_Variable(self, node: Variable):
+        self.check_bound(node.name)
+
+
+@hst.composite
+def uplc_expr_all_bound(draw, uplc_expr):
+    x = draw(uplc_expr)
+    unbound_var_visitor = UnboundVariableVisitor()
+    unbound_var_visitor.visit(x)
+    unbound_vars = unbound_var_visitor.unbound
+    vars = draw(hst.permutations(unbound_vars))
+    for v in vars:
+        x = Lambda(v, x)
+    return x
+
+
 def rec_expr_strategies(uplc_expr):
     uplc_delay = hst.builds(Delay, uplc_expr)
     uplc_force = hst.builds(Force, uplc_expr)
     uplc_apply = hst.builds(Apply, uplc_expr, uplc_expr)
     uplc_lambda = hst.builds(Lambda, uplc_name, uplc_expr)
-    return hst.one_of(uplc_lambda, uplc_delay, uplc_force, uplc_apply)
+    uplc_lambda_bound = uplc_expr_all_bound(uplc_expr)
+    return hst.one_of(
+        uplc_lambda, uplc_delay, uplc_force, uplc_apply, uplc_lambda_bound
+    )
 
 
 uplc_expr = hst.recursive(
@@ -111,8 +148,13 @@ uplc_expr = hst.recursive(
 
 
 uplc_version = hst.builds(lambda x, y, z: (x, y, z), pos_int, pos_int, pos_int)
-uplc_program = hst.builds(Program, uplc_version, uplc_expr)
+# This strategy also produces invalid programs (due to variables not being bound)
+uplc_program_any = hst.builds(Program, uplc_version, uplc_expr)
 
+
+uplc_expr_valid = uplc_expr_all_bound(uplc_expr)
+# This strategy only produces valid programs (all variables are bound)
+uplc_program_valid = hst.builds(Program, uplc_version, uplc_expr_valid)
 
 uplc_token = hst.one_of(
     *(hst.from_regex(t, fullmatch=True) for t in lexer.TOKENS.values())
@@ -125,6 +167,8 @@ uplc_token_concat = hst.recursive(
         hst.lists(uplc_token_concat, min_size=5),
     ),
 )
+
+uplc_program = hst.one_of(uplc_program_any, uplc_program_valid)
 
 
 class HypothesisTests(unittest.TestCase):
@@ -282,7 +326,7 @@ class HypothesisTests(unittest.TestCase):
             f"Two programs evaluate to different results after optimization in {code}",
         )
 
-    @hypothesis.given(uplc_program)
+    @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     @hypothesis.example(
         Program(
@@ -300,10 +344,7 @@ class HypothesisTests(unittest.TestCase):
     )
     # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
     def test_flat_encode_pyaiken(self, p):
-        try:
-            flattened = flatten(p)
-        except debrujin_variables.FreeVariableError:
-            return
+        flattened = flatten(p)
         unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
         unflattened_aiken = parse(unflattened_aiken_string)
 
@@ -321,25 +362,21 @@ class HypothesisTests(unittest.TestCase):
     def test_zigzag(self, i, b):
         self.assertEqual(i, unzigzag(zigzag(i, b), b)), "Incorrect roundtrip"
 
-    @hypothesis.given(uplc_program)
+    @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     def test_debrujin_undebrujin(self, p: Program):
-        try:
-            p_unique = unique_variables.UniqueVariableTransformer().visit(p)
-        except unique_variables.FreeVariableError:
-            return
+        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
         debrujin = debrujin_variables.DeBrujinVariableTransformer().visit(p_unique)
         undebrujin = undebrujin_variables.UnDeBrujinVariableTransformer().visit(
             debrujin
         )
         self.assertEqual(p_unique, undebrujin, "incorrect flatten roundtrip")
 
-    @hypothesis.given(uplc_program)
+    @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     @hypothesis.example(Program(version=(16, 0, 0), term=BuiltinUnit()))
     def test_flat_unflat_roundtrip(self, p: Program):
-        try:
-            p_unique = unique_variables.UniqueVariableTransformer().visit(p)
-        except unique_variables.FreeVariableError:
-            return
+        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
         self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")
+
+    # TODO test invalid programs being detected with an free variable error
