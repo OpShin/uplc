@@ -55,6 +55,11 @@ class UniqueVariableTransformer(NodeTransformer):
             self.pop_map()
         return nc
 
+    def visit_ForcedBuiltIn(self, node: ForcedBuiltIn):
+        nc = copy(node)
+        nc.bound_arguments = [self.visit(a) for a in nc.bound_arguments]
+        return nc
+
     def visit_Variable(self, node: Variable):
         nc = copy(node)
         nc.name = self.get_map(node.name)

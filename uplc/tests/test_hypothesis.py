@@ -203,6 +203,12 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(
+        parse("(program 0.0.0 [(force (builtin mkCons)) (lam _ (error))])")
+    )
+    @hypothesis.example(
+        parse("(program 0.0.0 (lam _ [(builtin mkPairData) (lam ' _)]))")
+    )
     @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
     @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
     @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
@@ -211,12 +217,13 @@ class HypothesisTests(unittest.TestCase):
     def test_rewrite_no_semantic_change(self, p):
         code = dumps(p)
         try:
-            rewrite_p = unique_variables.UniqueVariableTransformer().visit(p)
+            rewrite_p = unique_variables.UniqueVariableTransformer().visit(parse(code))
         except unique_variables.FreeVariableError:
             return
         try:
             res = eval(p)
             res = unique_variables.UniqueVariableTransformer().visit(res)
+            res = res.dumps()
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
@@ -226,6 +233,7 @@ class HypothesisTests(unittest.TestCase):
             rewrite_res = unique_variables.UniqueVariableTransformer().visit(
                 rewrite_res
             )
+            rewrite_res = rewrite_res.dumps()
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
