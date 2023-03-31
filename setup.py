@@ -29,7 +29,7 @@ setup(
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
         "rply==0.7.8",
-        "pycardano==0.7.2",
+        "pycardano==0.8.0",
         "python-secp256k1-cardano==0.2.3",
     ],
     tests_require=[
