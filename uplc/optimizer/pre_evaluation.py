@@ -1,5 +1,3 @@
-from copy import copy
-
 from ..util import NodeTransformer
 from ..ast import Program, AST
 from ..machine import Machine

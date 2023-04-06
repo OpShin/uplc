@@ -1,4 +1,5 @@
 from ast import iter_fields
+from copy import copy
 
 
 class NodeVisitor(object):
@@ -70,6 +71,7 @@ class NodeTransformer(NodeVisitor):
     """
 
     def generic_visit(self, node):
+        node = copy(node)
         for field, old_value in iter_fields(node):
             new_node = self.visit(old_value)
             if new_node is None:

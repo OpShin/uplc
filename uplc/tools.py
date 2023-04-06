@@ -1,5 +1,3 @@
-import copy
-
 import cbor2
 import rply.errors
 
@@ -11,12 +9,11 @@ from .flat_encoder import FlatEncodingVisitor
 from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
 from .transformer.undebrujin_variables import UnDeBrujinVariableTransformer
-from .transformer.unique_variables import UniqueVariableTransformer
 
 
 def flatten(x: Program) -> bytes:
     """Returns the properly CBOR wrapped program"""
-    x_debrujin = DeBrujinVariableTransformer().visit(copy.deepcopy(x))
+    x_debrujin = DeBrujinVariableTransformer().visit(x)
     flattener = FlatEncodingVisitor()
     flattener.visit(x_debrujin)
     x_flattened = flattener.bit_writer.finalize()
