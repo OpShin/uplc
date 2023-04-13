@@ -795,7 +795,10 @@ class BoundStateDelay(AST):
         return Return(context, BoundStateDelay(self.term, self.state | state))
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
-        return f"(delay {self.term.dumps(dialect=dialect)})"
+        s = f"(delay {self.term.dumps(dialect=dialect)})"
+        for k, v in reversed(self.state.items()):
+            s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
+        return s
 
 
 @dataclass

@@ -203,6 +203,10 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(parse("(program 0.0.0 [(lam a (delay a)) (lam c c)])"))
+    @hypothesis.example(
+        parse("(program 0.0.0 [(lam a (lam b (error))) (lam _ (error))])")
+    )
     @hypothesis.example(
         parse("(program 0.0.0 [(force (builtin mkCons)) (lam _ (error))])")
     )

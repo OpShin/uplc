@@ -32,7 +32,7 @@ class UniqueVariableTransformer(NodeTransformer):
         new_map = {}
         for k, v in node.state.items():
             nk = self.push_map(k)
-            new_map[nk] = v
+            new_map[nk] = self.visit(v)
         n = self.push_map(node.var_name)
         nc = copy(node)
         nc.state = frozendict.frozendict(new_map)
@@ -47,9 +47,12 @@ class UniqueVariableTransformer(NodeTransformer):
         return self.visit_BoundStateLambda(node)
 
     def visit_BoundStateDelay(self, node: BoundStateDelay):
-        for k in node.state.keys():
-            self.push_map(k)
+        new_map = {}
+        for k, v in node.state.items():
+            nk = self.push_map(k)
+            new_map[nk] = self.visit(v)
         nc = copy(node)
+        nc.state = frozendict.frozendict(new_map)
         nc.term = self.visit(node.term)
         for _ in node.state.keys():
             self.pop_map()
