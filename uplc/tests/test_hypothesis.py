@@ -100,12 +100,12 @@ uplc_variable = hst.builds(Variable, uplc_name)
 class UnboundVariableVisitor(NodeVisitor):
     def __init__(self):
         self.scope = []
-        self.unbound = []
+        self.unbound = set()
 
     def check_bound(self, name: str):
         if name in self.scope:
             return
-        self.unbound.append(name)
+        self.unbound.add(name)
 
     def visit_Lambda(self, node: Lambda):
         self.scope.append(node.var_name)
@@ -121,7 +121,7 @@ def uplc_expr_all_bound(draw, uplc_expr):
     x = draw(uplc_expr)
     unbound_var_visitor = UnboundVariableVisitor()
     unbound_var_visitor.visit(x)
-    unbound_vars = unbound_var_visitor.unbound
+    unbound_vars = list(unbound_var_visitor.unbound)
     vars = draw(hst.permutations(unbound_vars))
     for v in vars:
         x = Lambda(v, x)
