@@ -397,3 +397,15 @@ class HypothesisTests(unittest.TestCase):
         self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")
 
     # TODO test invalid programs being detected with an free variable error
+
+    @hypothesis.given(uplc_data)
+    def test_cbor_plutus_data_roundtrip(self, p: PlutusData):
+        encoded = plutus_cbor_dumps(p)
+        decoded = data_from_cbor(encoded)
+        self.assertEqual(p, decoded, "incorrect cbor roundtrip")
+
+    @hypothesis.given(uplc_data)
+    def test_json_plutus_data_roundtrip(self, p: PlutusData):
+        encoded = p.to_json()
+        decoded = data_from_json_dict(encoded)
+        self.assertEqual(p, decoded, "incorrect json roundtrip")

@@ -342,7 +342,7 @@ class PlutusData(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{plutus_cbor_dumps(self).hex()}"
 
-    def to_cbor(self) -> bytes:
+    def to_cbor(self) -> Any:
         """Returns a CBOR encodable representation of this object"""
         raise NotImplementedError
 
@@ -523,7 +523,10 @@ def data_from_json_dict(d: dict) -> PlutusData:
     if "map" in d:
         return PlutusMap(
             frozendict.frozendict(
-                {data_from_cbortag(m["k"]): data_from_cbortag(m["v"]) for m in d["map"]}
+                {
+                    data_from_json_dict(m["k"]): data_from_json_dict(m["v"])
+                    for m in d["map"]
+                }
             )
         )
     raise NotImplementedError(f"Unknown json notation in {d}")
@@ -532,6 +535,10 @@ def data_from_json_dict(d: dict) -> PlutusData:
 def data_from_json(json_string: str) -> PlutusData:
     raw_datum = json.loads(json_string)
     return data_from_json_dict(raw_datum)
+
+
+def plutus_json_dumps(x: PlutusData):
+    return json.dumps(x.to_json())
 
 
 class ConstantType(Enum):
