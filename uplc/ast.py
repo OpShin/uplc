@@ -499,11 +499,39 @@ def data_from_cbortag(cbor) -> PlutusData:
                 {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
             )
         )
+    raise NotImplementedError(f"Unknown cbor type notation in {cbor}")
 
 
 def data_from_cbor(cbor: bytes) -> PlutusData:
     raw_datum = cbor2.loads(cbor)
     return data_from_cbortag(raw_datum)
+
+
+def data_from_json_dict(d: dict) -> PlutusData:
+    if "constructor" in d:
+        fields = frozenlist.FrozenList([data_from_json_dict(f) for f in d["fields"]])
+        fields.freeze()
+        return PlutusConstr(d["constructor"], fields)
+    if "int" in d:
+        return PlutusInteger(d["int"])
+    if "bytes" in d:
+        return PlutusByteString(bytes.fromhex(d["bytes"]))
+    if "list" in d:
+        entries = frozenlist.FrozenList(list(map(data_from_json_dict, d["list"])))
+        entries.freeze()
+        return PlutusList(entries)
+    if "map" in d:
+        return PlutusMap(
+            frozendict.frozendict(
+                {data_from_cbortag(m["k"]): data_from_cbortag(m["v"]) for m in d["map"]}
+            )
+        )
+    raise NotImplementedError(f"Unknown json notation in {d}")
+
+
+def data_from_json(json_string: str) -> PlutusData:
+    raw_datum = json.loads(json_string)
+    return data_from_json_dict(raw_datum)
 
 
 class ConstantType(Enum):
