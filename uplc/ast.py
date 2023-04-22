@@ -346,6 +346,10 @@ class PlutusData(Constant):
         """Returns a CBOR encodable representation of this object"""
         raise NotImplementedError
 
+    def to_json(self) -> dict:
+        """Returns a JSON encodable representation of this object"""
+        raise NotImplementedError
+
 
 @dataclass(frozen=True)
 class PlutusAtomic(PlutusData):
@@ -359,10 +363,16 @@ class PlutusAtomic(PlutusData):
 class PlutusInteger(PlutusAtomic):
     value: int
 
+    def to_json(self):
+        return {"int": self.value}
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
     value: bytes
+
+    def to_json(self):
+        return {"bytes": self.value.hex()}
 
 
 @dataclass(frozen=True, eq=True)
@@ -372,6 +382,9 @@ class PlutusList(PlutusData):
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
 
+    def to_json(self):
+        return {"list": [v.to_json() for v in self.value]}
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
@@ -379,6 +392,11 @@ class PlutusMap(PlutusData):
 
     def to_cbor(self):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
+
+    def to_json(self):
+        return {
+            "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
+        }
 
 
 @dataclass(frozen=True, eq=True)
@@ -399,6 +417,12 @@ class PlutusConstr(PlutusData):
             return cbor2.CBORTag(
                 102, [self.constructor, [f.to_cbor() for f in self.fields]]
             )
+
+    def to_json(self):
+        return {
+            "constructor": self.constructor,
+            "fields": [v.to_json() for v in self.fields],
+        }
 
 
 def _int_to_bytes(x: int):
