@@ -342,8 +342,12 @@ class PlutusData(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{plutus_cbor_dumps(self).hex()}"
 
-    def to_cbor(self) -> bytes:
+    def to_cbor(self) -> Any:
         """Returns a CBOR encodable representation of this object"""
+        raise NotImplementedError
+
+    def to_json(self) -> dict:
+        """Returns a JSON encodable representation of this object"""
         raise NotImplementedError
 
 
@@ -359,10 +363,16 @@ class PlutusAtomic(PlutusData):
 class PlutusInteger(PlutusAtomic):
     value: int
 
+    def to_json(self):
+        return {"int": self.value}
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
     value: bytes
+
+    def to_json(self):
+        return {"bytes": self.value.hex()}
 
 
 @dataclass(frozen=True, eq=True)
@@ -372,6 +382,9 @@ class PlutusList(PlutusData):
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
 
+    def to_json(self):
+        return {"list": [v.to_json() for v in self.value]}
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
@@ -379,6 +392,11 @@ class PlutusMap(PlutusData):
 
     def to_cbor(self):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
+
+    def to_json(self):
+        return {
+            "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
+        }
 
 
 @dataclass(frozen=True, eq=True)
@@ -399,6 +417,12 @@ class PlutusConstr(PlutusData):
             return cbor2.CBORTag(
                 102, [self.constructor, [f.to_cbor() for f in self.fields]]
             )
+
+    def to_json(self):
+        return {
+            "constructor": self.constructor,
+            "fields": [v.to_json() for v in self.fields],
+        }
 
 
 def _int_to_bytes(x: int):
@@ -475,11 +499,46 @@ def data_from_cbortag(cbor) -> PlutusData:
                 {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
             )
         )
+    raise NotImplementedError(f"Unknown cbor type notation in {cbor}")
 
 
 def data_from_cbor(cbor: bytes) -> PlutusData:
     raw_datum = cbor2.loads(cbor)
     return data_from_cbortag(raw_datum)
+
+
+def data_from_json_dict(d: dict) -> PlutusData:
+    if "constructor" in d:
+        fields = frozenlist.FrozenList([data_from_json_dict(f) for f in d["fields"]])
+        fields.freeze()
+        return PlutusConstr(d["constructor"], fields)
+    if "int" in d:
+        return PlutusInteger(d["int"])
+    if "bytes" in d:
+        return PlutusByteString(bytes.fromhex(d["bytes"]))
+    if "list" in d:
+        entries = frozenlist.FrozenList(list(map(data_from_json_dict, d["list"])))
+        entries.freeze()
+        return PlutusList(entries)
+    if "map" in d:
+        return PlutusMap(
+            frozendict.frozendict(
+                {
+                    data_from_json_dict(m["k"]): data_from_json_dict(m["v"])
+                    for m in d["map"]
+                }
+            )
+        )
+    raise NotImplementedError(f"Unknown json notation in {d}")
+
+
+def data_from_json(json_string: str) -> PlutusData:
+    raw_datum = json.loads(json_string)
+    return data_from_json_dict(raw_datum)
+
+
+def plutus_json_dumps(x: PlutusData):
+    return json.dumps(x.to_json())
 
 
 class ConstantType(Enum):
