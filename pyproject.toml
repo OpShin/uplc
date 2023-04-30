@@ -38,7 +38,7 @@ pre-commit = "^3.2.2"
 [tool.poetry.scripts]
 uplc = "uplc.__main__:main"
 
-[tool.poetry_bumpversion.file."opshin/__init__.py"]
+[tool.poetry_bumpversion.file."uplc/__init__.py"]
 
 [build-system]
 requires = ["poetry-core"]
