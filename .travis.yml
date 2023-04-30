@@ -14,15 +14,12 @@ before_install:
 - bash install_secp256k1.sh
 - LD_LIBRARY_PATH=/usr/local/lib:"$LD_LIBRARY_PATH"
 - export LD_LIBRARY_PATH
+- pip install poetry
 install:
-- if [[ $TRAVIS_PYTHON_VERSION == 3.7 ]]; then pip install -U importlib_metadata;
-  fi
-- pip install coverage coveralls
-- pip install black
-- pip install -e .
+- poetry install
 script:
 - black --check .
-- coverage run --source=uplc setup.py test
+- coverage run --source=uplc -m pytest uplc/tests
 - coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
 - coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect aiken
 - coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
