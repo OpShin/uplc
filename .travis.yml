@@ -30,12 +30,9 @@ after_success:
 - coverage report
 - coveralls
 deploy:
-  provider: pypi
+  provider: script
   on:
-    branch: master
+    tags: true
     python: '3.10'
-  distributions: sdist bdist_wheel
-  skip_existing: true
-  username: __token__
-  password:
-    secure: UGhzlTlZoDPnagV8bZjz5/iyLNYh0q50yE6kwuN7LdBrMMzKrdadieyVODunU1buqBUP8dDQ4GwNpMUhUumOnXCrTquLhPVVxjf9KeIEH+WXcZOJ6ExBTbECV555qZ06yTG+I1bbAzXfjpf9JUzPv63kV/tPra14vlK8gvcKvqMqu7Brb4Dg1+GtdO/2bmU0UdMpxlGP/06EIWtFMDTNZIm9J+93/j8XQlch008xOr7FvXc9diKnmorEsYSBv38UpCROoj6w6jnF8mIQALOhSCW/4ezfSPHrTSS6H0bREQ62xXadkEd0etHWlgtCH7s5rLkUI7OTBkxcKXv7G5uqDLGH15vCTFbAaa41ZV8f/5Yi6eNj0vO/hXUJOQYxRnBylfnsxFKDB5kyPuXS/eSLX9JZ0fORW4nlLSoEPz8NiHpt/sZ9H2Ix+BTUfjIaXgQR/uEY3Ea3hi1HbPHibcxgFDdfb7GwM3Vwz5df4kKYeeCQpVjsUMaJQnrDatf6LytD4ytuANpX0S5gCDotR+pCYE8H6N3UEIqCQB65PXvRLBMoCihTX430csFNYheCucOFcgAPKbVypumFOZwxcF/uMYO9n8G7JO9A2oq/iVAQwcR9g3RDHCesFLw6Q78WhMnLQ0tvrAGLyv7oxMTqBJswMGxb018eSrhETy0kkK2Qs7s=
+    repo: OpShin/uplc
+  script: poetry publish --username __token__ --password $PYPI_PASS --build
