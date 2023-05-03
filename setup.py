@@ -35,7 +35,7 @@ setup(
     tests_require=[
         "pyaiken==0.4.0",
         "hypothesis==6.62.0",
-        "parameterized==0.8.1",
+        "parameterized==0.9.0",
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
