@@ -33,7 +33,7 @@ setup(
         "python-secp256k1-cardano==0.2.3",
     ],
     tests_require=[
-        "pyaiken==0.4.0",
+        "pyaiken==0.5.1",
         "hypothesis==6.62.0",
         "parameterized==0.8.1",
     ],
