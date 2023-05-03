@@ -15,8 +15,6 @@ before_install:
 - LD_LIBRARY_PATH=/usr/local/lib:"$LD_LIBRARY_PATH"
 - export LD_LIBRARY_PATH
 - pip install poetry
-- curl https://sh.rustup.rs -sSf | sh -y
-- PATH=" ~/.cargo/bin:$PATH"
 install:
 - poetry install
 script:
