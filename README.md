@@ -43,6 +43,12 @@ uplc eval examples/fibonacci.uplc "(con integer 5)"
 
 # Build smart contract artifacts from the UPLC program
 uplc build examples/fibonacci.uplc
+
+# This package can also be used to analyze built contracts (output from any Smart Contract Language)
+uplc dump build/fibonacci/script.cbor --from-cbor
+
+# Show all options
+uplc --help
 ```
 
 
