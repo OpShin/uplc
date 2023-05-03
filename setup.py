@@ -25,7 +25,7 @@ setup(
     py_modules=["uplc"],
     packages=find_packages(),
     install_requires=[
-        "frozendict==2.3.4",
+        "frozendict==2.3.8",
         "cbor2==5.4.6",
         "frozenlist==1.3.3",
         "rply==0.7.8",
