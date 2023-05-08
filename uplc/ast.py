@@ -15,6 +15,7 @@ import frozenlist
 import nacl.exceptions
 from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
+from pycardano import IndefiniteList
 
 try:
     import pysecp256k1
@@ -405,18 +406,15 @@ class PlutusConstr(PlutusData):
     fields: Union[List[PlutusData], frozenlist.FrozenList]
 
     def to_cbor(self):
+        fields = (
+            IndefiniteList([f.to_cbor() for f in self.fields]) if self.fields else []
+        )
         if 0 <= self.constructor < 7:
-            return cbor2.CBORTag(
-                self.constructor + 121, [f.to_cbor() for f in self.fields]
-            )
+            return cbor2.CBORTag(self.constructor + 121, fields)
         elif 7 <= self.constructor < 128:
-            return cbor2.CBORTag(
-                (self.constructor - 7) + 1280, [f.to_cbor() for f in self.fields]
-            )
+            return cbor2.CBORTag((self.constructor - 7) + 1280, fields)
         else:
-            return cbor2.CBORTag(
-                102, [self.constructor, [f.to_cbor() for f in self.fields]]
-            )
+            return cbor2.CBORTag(102, [self.constructor, fields])
 
     def to_json(self):
         return {
@@ -429,8 +427,17 @@ def _int_to_bytes(x: int):
     return x.to_bytes((x.bit_length() + 7) // 8, byteorder="big")
 
 
-def default_encoder(encoder: CBOREncoder, value: PlutusData):
+def default_encoder(encoder: CBOREncoder, value: Union[PlutusData, IndefiniteList]):
     """A fallback function that encodes PlutusData objects"""
+    if isinstance(value, IndefiniteList):
+        # Currently, cbor2 doesn't support indefinite list, therefore we need special
+        # handling here to explicitly write header (b'\x9f'), each body item, and footer (b'\xff') to
+        # the output bytestring.
+        encoder.write(b"\x9f")
+        for item in value:
+            encoder.encode(item)
+        encoder.write(b"\xff")
+        return
     if not isinstance(value, PlutusData):
         raise NotImplementedError(f"Can not encode type {type(value)}")
     value = value.to_cbor()
