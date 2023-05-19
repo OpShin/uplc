@@ -63,7 +63,14 @@ def main():
         default=[],
         help="Input parameters for the function, in case the command is eval.",
     )
+    a.add_argument(
+        "--recursion-limit",
+        default=sys.getrecursionlimit(),
+        help="Modify the recursion limit (necessary for larger UPLC programs)",
+        type=int,
+    )
     args = a.parse_args()
+    sys.setrecursionlimit(args.recursion_limit)
     command = Command(args.command)
     input_file = pathlib.Path(args.input_file) if args.input_file != "-" else sys.stdin
     with open(input_file, "r") as f:
