@@ -56,4 +56,6 @@ uplc --help
 This is a side product of the development of a pythonic smart contract language for the Cardano blockchain
 and hence much tailored to the needs of that development.
 
+Most likely it *can* do what you would like to do but its not properly documented. Please do reach out via Discord or GitHub issue if you think this tool could be of use to you.
+
 Contributions are very welcome.
