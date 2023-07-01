@@ -17,6 +17,8 @@ from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano import IndefiniteList
 
+from .builtins.classes import G1Point, G2Point
+
 try:
     import pysecp256k1
 except ImportError:
@@ -27,6 +29,8 @@ try:
     import pysecp256k1.schnorrsig as schnorrsig
 except (RuntimeError, ImportError):
     schnorrsig = None
+
+from .builtins.pairing import bn128_pairing, bn256_addition, bn256_scalar_mul
 
 
 class UPLCDialect(enum.Enum):
@@ -627,6 +631,9 @@ class BuiltInFun(Enum):
     SerialiseData = auto()
     VerifyEcdsaSecp256k1Signature = auto()
     VerifySchnorrSecp256k1Signature = auto()
+    Bn256Add = auto()
+    Bn256Mul = auto()
+    Bn128Pairing = auto()
 
 
 def _IfThenElse(i, t, e):
@@ -772,6 +779,20 @@ BuiltInFunEvalMap = {
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
     BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
+    BuiltInFun.Bn256Add: lambda x, y: data_from_cbor(
+        bn256_addition(
+            G1Point.from_cbor(plutus_cbor_dumps(x)), G1Point.from_cbor(y)
+        ).to_cbor()
+    ),
+    BuiltInFun.Bn256Mul: lambda x, y: data_from_cbor(
+        bn256_scalar_mul(G1Point.from_cbor(plutus_cbor_dumps(x)), y.value).to_cbor()
+    ),
+    BuiltInFun.Bn128Pairing: lambda xs, ys: BuiltinBool(
+        bn128_pairing(
+            [G1Point.from_cbor(plutus_cbor_dumps(x)) for x in xs.values],
+            [G2Point.from_cbor(plutus_cbor_dumps(x)) for x in xs.values],
+        )
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
