@@ -781,7 +781,8 @@ BuiltInFunEvalMap = {
     BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
     BuiltInFun.Bn256Add: lambda x, y: data_from_cbor(
         bn256_addition(
-            G1Point.from_cbor(plutus_cbor_dumps(x)), G1Point.from_cbor(y)
+            G1Point.from_cbor(plutus_cbor_dumps(x)),
+            G1Point.from_cbor(plutus_cbor_dumps(x)),
         ).to_cbor()
     ),
     BuiltInFun.Bn256Mul: lambda x, y: data_from_cbor(
