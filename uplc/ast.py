@@ -893,6 +893,9 @@ class BoundStateLambda(AST):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass
 class Lambda(BoundStateLambda):
@@ -917,6 +920,9 @@ class BoundStateDelay(AST):
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
@@ -969,6 +975,9 @@ class ForcedBuiltIn(AST):
                 )
             ).dumps(dialect=dialect)
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
