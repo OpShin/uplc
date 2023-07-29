@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import json
 import logging
+import math
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -95,6 +96,10 @@ class AST:
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         raise NotImplementedError()
 
+    def ex_mem(self) -> int:
+        """The memory consumption of this element"""
+        raise NotImplementedError()
+
 
 @dataclass(frozen=True)
 class Constant(AST):
@@ -119,6 +124,9 @@ class BuiltinUnit(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return "()"
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass(frozen=True)
 class BuiltinBool(Constant):
@@ -130,6 +138,9 @@ class BuiltinBool(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass(frozen=True)
 class BuiltinInteger(Constant):
@@ -140,6 +151,11 @@ class BuiltinInteger(Constant):
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
+
+    def ex_mem(self) -> int:
+        if self.value == 0:
+            return 1
+        return (math.ceil(math.log2(abs(self.value))) // 64) + 1
 
     def __add__(self, other):
         assert isinstance(
@@ -203,6 +219,11 @@ class BuiltinByteString(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{self.value.hex()}"
 
+    def ex_mem(self) -> int:
+        if not self.value:
+            return 1
+        return ((len(self.value) - 1) // 8) + 1
+
     def __add__(self, other):
         assert isinstance(
             other, BuiltinByteString
@@ -250,6 +271,9 @@ class BuiltinString(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return json.dumps(self.value)
 
+    def ex_mem(self) -> int:
+        return len(self.value)
+
     def __add__(self, other):
         assert isinstance(other, BuiltinString), "Can only add two bytestrings"
         return BuiltinString(self.value + other.value)
@@ -280,6 +304,9 @@ class BuiltinPair(Constant):
             return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
         elif dialect == UPLCDialect.Plutus:
             return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
+
+    def ex_mem(self) -> int:
+        return self.l_value.ex_mem() + self.r_value.ex_mem()
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -314,6 +341,9 @@ class BuiltinList(Constant):
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
+
+    def ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.values)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinList), "Can only append two lists"
@@ -351,6 +381,13 @@ class PlutusData(Constant):
         """Returns a JSON encodable representation of this object"""
         raise NotImplementedError
 
+    def ex_mem(self) -> int:
+        return 4 + self.d_ex_mem()
+
+    def d_ex_mem(self) -> int:
+        """Ex-Mem without the constant 4 cost for deconstruction"""
+        raise NotImplementedError()
+
 
 @dataclass(frozen=True)
 class PlutusAtomic(PlutusData):
@@ -367,6 +404,9 @@ class PlutusInteger(PlutusAtomic):
     def to_json(self):
         return {"int": self.value}
 
+    def d_ex_mem(self) -> int:
+        return BuiltinInteger(self.value).ex_mem()
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
@@ -374,6 +414,9 @@ class PlutusByteString(PlutusAtomic):
 
     def to_json(self):
         return {"bytes": self.value.hex()}
+
+    def d_ex_mem(self) -> int:
+        return BuiltinByteString(self.value).ex_mem()
 
 
 @dataclass(frozen=True, eq=True)
@@ -385,6 +428,9 @@ class PlutusList(PlutusData):
 
     def to_json(self):
         return {"list": [v.to_json() for v in self.value]}
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.value)
 
 
 @dataclass(frozen=True, eq=True)
@@ -398,6 +444,9 @@ class PlutusMap(PlutusData):
         return {
             "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
         }
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() + k.ex_mem() for k, v in self.value.items())
 
 
 @dataclass(frozen=True, eq=True)
@@ -421,6 +470,9 @@ class PlutusConstr(PlutusData):
             "constructor": self.constructor,
             "fields": [v.to_json() for v in self.fields],
         }
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.fields)
 
 
 def _int_to_bytes(x: int):
