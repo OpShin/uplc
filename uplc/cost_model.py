@@ -154,3 +154,35 @@ class ConstantBelowDiagonal(CostingFun):
     def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
         self.model_below_diagonal._from_cost_model(cost_model, prefix)
         self.model_above_equal_diagonal._from_cost_model(cost_model, f"{prefix}-model")
+
+
+# TODO automatically parse from
+# https://github.com/input-output-hk/plutus/blob/43ecfc3403cf908c55af57c8461e96e8b131b97c/plutus-core/cost-model/data/builtinCostModel.json
+# or similar files
+
+PlutusV2_mem_FunctionModel = {
+    BuiltInFun.AddInteger: MaxSize(LinearSize()),
+    BuiltInFun.SubtractInteger: MaxSize(LinearSize()),
+    BuiltInFun.MultiplyInteger: AddedSizes(LinearSize()),
+    BuiltInFun.DivideInteger: SubtractedSizes(LinearSize()),
+    BuiltInFun.QuotientInteger: SubtractedSizes(LinearSize()),
+    BuiltInFun.RemainderInteger: SubtractedSizes(LinearSize()),
+    BuiltInFun.ModInteger: SubtractedSizes(LinearSize()),
+    BuiltInFun.EqualsInteger: ConstantCost(),
+    BuiltInFun.LessThanInteger: ConstantCost(),
+    BuiltInFun.LessThanEqualsInteger: ConstantCost(),
+    BuiltInFun.AppendByteString: AddedSizes(LinearSize()),
+    BuiltInFun.ConsByteString: AddedSizes(LinearSize()),
+    BuiltInFun.SliceByteString: AddedSizes(LinearSize()),
+}
+
+PlutusV2_cpu_FunctionModel = {
+    BuiltInFun.AddInteger: MaxSize(LinearSize()),
+    BuiltInFun.AppendByteString: AddedSizes(LinearSize()),
+    BuiltInFun.AppendString: AddedSizes(LinearSize()),
+    BuiltInFun.BData: ConstantCost(),
+    # BuiltInFun.Blake2b_224: LinearSize(),
+    BuiltInFun.Blake2b_256: LinearSize(),
+    BuiltInFun.ChooseData: ConstantCost(),
+    BuiltInFun.ChooseList: ConstantCost(),
+}
