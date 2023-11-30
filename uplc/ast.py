@@ -681,13 +681,29 @@ class BuiltInFun(Enum):
     VerifySchnorrSecp256k1Signature = auto()
 
 
+def typechecked(*typs):
+    def typecheck_decorator(fun):
+        def wrapped_fun(*args):
+            assert len(args) == len(
+                typs
+            ), f"Invalid number of arguments given, expected {len(typs)}, got {len(args)}"
+            for i, (arg, typ) in enumerate(zip(args, typs)):
+                assert isinstance(
+                    arg, typ
+                ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+            return fun(*args)
+
+        return wrapped_fun
+
+    return typecheck_decorator
+
+
+@typechecked(BuiltinBool, AST, AST)
 def _IfThenElse(i, t, e):
-    assert isinstance(
-        i, BuiltinBool
-    ), "Trying to compute ifthenelse with non-builtin-bool"
     return t if i.value else e
 
 
+@typechecked(PlutusData, AST, AST, AST, AST, AST)
 def _ChooseData(d, v, w, x, y, z):
     if isinstance(d, PlutusConstr):
         return v
@@ -701,6 +717,7 @@ def _ChooseData(d, v, w, x, y, z):
         return z
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
     assert len(pk.value) == 32, "Ed25519S PublicKey should be 32 bytes"
     assert len(s.value) == 64, "Ed25519S Signature should be 64 bytes"
@@ -711,9 +728,11 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
         return BuiltinBool(False)
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    # TODO length checks
     if pysecp256k1 is None:
         _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
         raise RuntimeError("ECDSA not supported")
@@ -723,9 +742,11 @@ def verify_ecdsa_secp256k1(
     return BuiltinBool(res)
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    # TODO length checks
     if pysecp256k1 is None:
         _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
         raise RuntimeError("ECDSA not supported")
@@ -743,62 +764,81 @@ def _quot(a, b):
     return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
 
 
+@typechecked(BuiltinList)
 def _TailList(xs: BuiltinList):
     if xs.values == []:
         raise RuntimeError("Can not tailList on an empty list")
     return xs[1:]
 
 
+two_ints = typechecked(BuiltinInteger, BuiltinInteger)
+two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
+two_strings = typechecked(BuiltinByteString, BuiltinByteString)
+single_bytestring = typechecked(BuiltinByteString)
+
 BuiltInFunEvalMap = {
-    BuiltInFun.AddInteger: lambda x, y: BuiltinInteger(x.value) + y,
-    BuiltInFun.SubtractInteger: lambda x, y: BuiltinInteger(x.value) - y,
-    BuiltInFun.MultiplyInteger: lambda x, y: BuiltinInteger(x.value) * y,
+    BuiltInFun.AddInteger: two_ints(lambda x, y: x + y),
+    BuiltInFun.SubtractInteger: two_ints(lambda x, y: x - y),
+    BuiltInFun.MultiplyInteger: two_ints(lambda x, y: x * y),
     # round towards -inf
-    BuiltInFun.DivideInteger: lambda x, y: BuiltinInteger(x.value) // y,
+    BuiltInFun.DivideInteger: two_ints(lambda x, y: x // y),
     # round towards 0
-    BuiltInFun.QuotientInteger: _quot,
+    BuiltInFun.QuotientInteger: two_ints(_quot),
     # (x `quot` y)*y + (x `rem` y) == x
-    BuiltInFun.RemainderInteger: lambda x, y: BuiltinInteger(x.value) - _quot(x, y) * y,
+    BuiltInFun.RemainderInteger: two_ints(lambda x, y: x - _quot(x, y) * y),
     # (x `div` y)*y + (x `mod` y) == x
-    BuiltInFun.ModInteger: lambda x, y: BuiltinInteger(x.value) % y,
-    BuiltInFun.EqualsInteger: lambda x, y: BuiltinInteger(x.value) == y,
-    BuiltInFun.LessThanInteger: lambda x, y: BuiltinInteger(x.value) < y,
-    BuiltInFun.LessThanEqualsInteger: lambda x, y: BuiltinInteger(x.value) <= y,
-    BuiltInFun.AppendByteString: lambda x, y: BuiltinByteString(x.value) + y,
-    BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
-    BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
-        z.value[max(x.value, 0) :][: max(y.value, 0)]
+    BuiltInFun.ModInteger: two_ints(lambda x, y: x % y),
+    BuiltInFun.EqualsInteger: two_ints(lambda x, y: x == y),
+    BuiltInFun.LessThanInteger: two_ints(lambda x, y: x < y),
+    BuiltInFun.LessThanEqualsInteger: two_ints(lambda x, y: x <= y),
+    BuiltInFun.AppendByteString: two_bytestrings(lambda x, y: x + y),
+    BuiltInFun.ConsByteString: typechecked(BuiltinInteger, BuiltinByteString)(
+        lambda x, y: BuiltinByteString(bytes([x.value])) + y
     ),
-    BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: BuiltinByteString(x.value)[y],
-    BuiltInFun.EqualsByteString: lambda x, y: BuiltinByteString(x.value) == y,
-    BuiltInFun.LessThanByteString: lambda x, y: BuiltinByteString(x.value) < y,
-    BuiltInFun.LessThanEqualsByteString: lambda x, y: BuiltinByteString(x.value) <= y,
-    BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x.value).digest()),
-    BuiltInFun.Sha3_256: lambda x: BuiltinByteString(
-        hashlib.sha3_256(x.value).digest()
+    BuiltInFun.SliceByteString: typechecked(
+        BuiltinInteger, BuiltinInteger, BuiltinByteString
+    )(lambda x, y, z: BuiltinByteString(z.value[max(x.value, 0) :][: max(y.value, 0)])),
+    BuiltInFun.LengthOfByteString: single_bytestring(
+        lambda x: BuiltinInteger(len(x.value))
     ),
-    BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
-        hashlib.blake2b(x.value, digest_size=32).digest()
+    BuiltInFun.IndexByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        lambda x, y: x[y]
+    ),
+    BuiltInFun.EqualsByteString: two_bytestrings(lambda x, y: x == y),
+    BuiltInFun.LessThanByteString: two_bytestrings(lambda x, y: x < y),
+    BuiltInFun.LessThanEqualsByteString: two_bytestrings(lambda x, y: x <= y),
+    BuiltInFun.Sha2_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.sha256(x.value).digest())
+    ),
+    BuiltInFun.Sha3_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.sha3_256(x.value).digest())
+    ),
+    BuiltInFun.Blake2b_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.blake2b(x.value, digest_size=32).digest())
     ),
     # BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
     BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
-    BuiltInFun.AppendString: lambda x, y: BuiltinString(x.value) + y,
-    BuiltInFun.EqualsString: lambda x, y: BuiltinString(x.value) == y,
-    BuiltInFun.EncodeUtf8: lambda x: BuiltinByteString(x.value.encode("utf8")),
-    BuiltInFun.DecodeUtf8: lambda x: BuiltinString(x.value.decode("utf8")),
+    BuiltInFun.AppendString: two_strings(lambda x, y: x + y),
+    BuiltInFun.EqualsString: two_strings(lambda x, y: x == y),
+    BuiltInFun.EncodeUtf8: typechecked(BuiltinString)(
+        lambda x: BuiltinByteString(x.value.encode("utf8"))
+    ),
+    BuiltInFun.DecodeUtf8: single_bytestring(
+        lambda x: BuiltinString(x.value.decode("utf8"))
+    ),
     BuiltInFun.IfThenElse: _IfThenElse,
-    BuiltInFun.ChooseUnit: lambda x, y: y,
-    BuiltInFun.Trace: lambda x, y: print(x.value) or y,
-    BuiltInFun.FstPair: lambda x: x[0],
-    BuiltInFun.SndPair: lambda x: x[1],
-    BuiltInFun.ChooseList: lambda l, x, y: x
-    if BuiltinList([], l.sample_value) == l
-    else y,
+    BuiltInFun.ChooseUnit: typechecked(BuiltinUnit, AST)(lambda x, y: y),
+    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: print(x.value) or y),
+    BuiltInFun.FstPair: typechecked(BuiltinPair)(lambda x: x[0]),
+    BuiltInFun.SndPair: typechecked(BuiltinPair)(lambda x: x[1]),
+    BuiltInFun.ChooseList: typechecked(BuiltinList, AST, AST)(
+        lambda l, x, y: x if BuiltinList([], l.sample_value) == l else y
+    ),
+    # TODO
     BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
-    BuiltInFun.HeadList: lambda l: l[0],
+    BuiltInFun.HeadList: typechecked(BuiltinList)(lambda l: l[0]),
     BuiltInFun.TailList: _TailList,
     BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([], l.sample_value)),
     BuiltInFun.ChooseData: _ChooseData,
