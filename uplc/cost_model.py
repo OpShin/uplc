@@ -1,6 +1,8 @@
 import dataclasses
+import json
 import math
-from typing import Dict
+from pathlib import Path
+from typing import Dict, Any, Union
 from enum import Enum
 
 
@@ -16,16 +18,14 @@ class CostingFun:
     def cost(self, *memories: int) -> int:
         raise NotImplementedError("Abstract cost not implemented")
 
-    def from_cost_model(
-        self, cost_model: Dict[str, int], fun: BuiltInFun, mode: BudgetMode
-    ) -> None:
-        """Initializes the parameters in this costing function based on the cost model"""
-        fun_name = fun.name[0].lower() + fun.name[1:]
-        budget_name = mode.value
-        self._from_cost_model(cost_model, f"{fun_name}-{budget_name}")
-
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        raise NotImplementedError()
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        """Parses the arguments of the Plutus Core cost model description"""
+        if isinstance(arguments, int):
+            return ConstantCost.from_arguments(arguments)
+        if "intercept" in arguments and "slope" in arguments and len(arguments) == 2:
+            return LinearCost(arguments["intercept"], arguments["slope"])
+        raise NotImplementedError("Cost model unknown")
 
 
 @dataclasses.dataclass
@@ -35,45 +35,47 @@ class ConstantCost(CostingFun):
     def cost(self, *memories: int) -> int:
         return self.constant
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.constant = cost_model[f"{prefix}-arguments"]
+    @classmethod
+    def from_arguments(cls, arguments: int):
+        return cls(arguments)
 
 
 @dataclasses.dataclass
-class LinearSize(CostingFun):
+class LinearCost(CostingFun):
     intercept: int = 0
     slope: int = 0
 
     def cost(self, *memories: int) -> int:
         return self.intercept + self.slope * memories[0]
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.intercept = cost_model[f"{prefix}-arguments-intercept"]
-        self.slope = cost_model[f"{prefix}-arguments-slope"]
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
 
 
 @dataclasses.dataclass
 class Derived(CostingFun):
     model: CostingFun
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.model._from_cost_model(cost_model, prefix)
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        return cls(CostingFun.from_arguments(arguments))
 
 
 @dataclasses.dataclass
-class SizeX(Derived):
+class LinearInX(Derived):
     def cost(self, *memories: int) -> int:
         return self.model.cost(memories[0])
 
 
 @dataclasses.dataclass
-class SizeY(Derived):
+class LinearInY(Derived):
     def cost(self, *memories: int) -> int:
         return self.model.cost(memories[1])
 
 
 @dataclasses.dataclass
-class SizeZ(Derived):
+class LinearInZ(Derived):
     def cost(self, *memories: int) -> int:
         return self.model.cost(memories[2])
 
@@ -86,11 +88,19 @@ class AddedSizes(Derived):
 
 @dataclasses.dataclass
 class SubtractedSizes(Derived):
-    pass
     minimum: int = 0
 
     def cost(self, *memories: int) -> int:
         return self.model.cost(max(memories[0] - memories[1], self.minimum))
+
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        min = arguments["minimum"]
+        del arguments["minimum"]
+        return cls(
+            CostingFun.from_arguments(arguments),
+            min,
+        )
 
 
 @dataclasses.dataclass
@@ -113,7 +123,7 @@ class MaxSize(Derived):
 
 @dataclasses.dataclass
 class LinearOnDiagonal(CostingFun):
-    model_on_diagonal: LinearSize
+    model_on_diagonal: LinearCost
     model_off_diagonal: ConstantCost = ConstantCost(0)
 
     def cost(self, x: int, y: int) -> int:
@@ -121,13 +131,15 @@ class LinearOnDiagonal(CostingFun):
             return self.model_on_diagonal.cost(x)
         return self.model_off_diagonal.cost(x, y)
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.model_on_diagonal._from_cost_model(cost_model, prefix)
-        self.model_off_diagonal._from_cost_model(cost_model, prefix)
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        const_model = ConstantCost(arguments["constant"])
+        linear_model = LinearCost(arguments["intercept"], arguments["slope"])
+        return cls(linear_model, const_model)
 
 
 @dataclasses.dataclass
-class ConstantAboveDiagonal(CostingFun):
+class ConstAboveDiagonal(CostingFun):
     model_below_equal_diagonal: CostingFun
     model_above_diagonal: ConstantCost = ConstantCost(0)
 
@@ -136,13 +148,15 @@ class ConstantAboveDiagonal(CostingFun):
             return self.model_above_diagonal.cost(x, y)
         return self.model_below_equal_diagonal.cost(x, y)
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.model_above_diagonal._from_cost_model(cost_model, prefix)
-        self.model_below_equal_diagonal._from_cost_model(cost_model, f"{prefix}-model")
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        model = parse_costing_fun(arguments["model"])
+        const = ConstantCost(arguments["constant"])
+        return cls(model, const)
 
 
 @dataclasses.dataclass
-class ConstantBelowDiagonal(CostingFun):
+class ConstBelowDiagonal(CostingFun):
     model_above_equal_diagonal: CostingFun
     model_below_diagonal: ConstantCost = ConstantCost(0)
 
@@ -151,38 +165,62 @@ class ConstantBelowDiagonal(CostingFun):
             return self.model_above_equal_diagonal.cost(x, y)
         return self.model_below_diagonal.cost(x, y)
 
-    def _from_cost_model(self, cost_model: Dict[str, int], prefix: str) -> None:
-        self.model_below_diagonal._from_cost_model(cost_model, prefix)
-        self.model_above_equal_diagonal._from_cost_model(cost_model, f"{prefix}-model")
+    @classmethod
+    def from_arguments(cls, arguments: Union[Dict[str, Any]]):
+        model = parse_costing_fun(arguments["model"])
+        const = ConstantCost(arguments["constant"])
+        return cls(model, const)
 
 
 # TODO automatically parse from
 # https://github.com/input-output-hk/plutus/blob/43ecfc3403cf908c55af57c8461e96e8b131b97c/plutus-core/cost-model/data/builtinCostModel.json
 # or similar files
 
-PlutusV2_mem_FunctionModel = {
-    BuiltInFun.AddInteger: MaxSize(LinearSize()),
-    BuiltInFun.SubtractInteger: MaxSize(LinearSize()),
-    BuiltInFun.MultiplyInteger: AddedSizes(LinearSize()),
-    BuiltInFun.DivideInteger: SubtractedSizes(LinearSize()),
-    BuiltInFun.QuotientInteger: SubtractedSizes(LinearSize()),
-    BuiltInFun.RemainderInteger: SubtractedSizes(LinearSize()),
-    BuiltInFun.ModInteger: SubtractedSizes(LinearSize()),
-    BuiltInFun.EqualsInteger: ConstantCost(),
-    BuiltInFun.LessThanInteger: ConstantCost(),
-    BuiltInFun.LessThanEqualsInteger: ConstantCost(),
-    BuiltInFun.AppendByteString: AddedSizes(LinearSize()),
-    BuiltInFun.ConsByteString: AddedSizes(LinearSize()),
-    BuiltInFun.SliceByteString: AddedSizes(LinearSize()),
+
+@dataclasses.dataclass
+class CostModel:
+    cpu: Dict[BuiltInFun, CostingFun]
+    memory: Dict[BuiltInFun, CostingFun]
+
+
+COSTING_FUN_DICT = {
+    fun.__name__: fun
+    for fun in (
+        ConstBelowDiagonal,
+        ConstantCost,
+        ConstAboveDiagonal,
+        LinearOnDiagonal,
+        LinearCost,
+        AddedSizes,
+        MultipliedSizes,
+        MinSize,
+        MaxSize,
+        LinearInX,
+        LinearInY,
+        LinearInZ,
+        SubtractedSizes,
+    )
 }
 
-PlutusV2_cpu_FunctionModel = {
-    BuiltInFun.AddInteger: MaxSize(LinearSize()),
-    BuiltInFun.AppendByteString: AddedSizes(LinearSize()),
-    BuiltInFun.AppendString: AddedSizes(LinearSize()),
-    BuiltInFun.BData: ConstantCost(),
-    # BuiltInFun.Blake2b_224: LinearSize(),
-    BuiltInFun.Blake2b_256: LinearSize(),
-    BuiltInFun.ChooseData: ConstantCost(),
-    BuiltInFun.ChooseList: ConstantCost(),
-}
+
+def parse_costing_fun(model: dict):
+    type, arguments = model["type"], model["arguments"]
+    CamelCaseType = "".join(x.capitalize() for x in type.split("_"))
+    costing_fun = COSTING_FUN_DICT[CamelCaseType]
+    return costing_fun.from_arguments(arguments)
+
+
+def parse_cost_model(model: dict):
+    cost_model = CostModel({}, {})
+    for fun, d in model.items():
+        builtin_fun = BuiltInFun.__dict__[fun[:1].capitalize() + fun[1:]]
+        cost_model.memory[builtin_fun] = parse_costing_fun(d["memory"])
+        cost_model.cpu[builtin_fun] = parse_costing_fun(d["cpu"])
+    return cost_model
+
+
+def default_cost_model_plutus_v2():
+    builtinCostModel = Path(__file__).parent.joinpath("builtinCostModel.json")
+    with open(builtinCostModel) as f:
+        d = json.load(f)
+    return d
