@@ -782,7 +782,7 @@ def _MapData(x):
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
-two_strings = typechecked(BuiltinByteString, BuiltinByteString)
+two_strings = typechecked(BuiltinString, BuiltinString)
 single_bytestring = typechecked(BuiltinByteString)
 single_data = typechecked(PlutusData)
 
