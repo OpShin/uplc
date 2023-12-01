@@ -719,10 +719,25 @@ def _TailList(xs: BuiltinList):
     return xs[1:]
 
 
+def _MkCons(x, xs):
+    assert isinstance(xs, BuiltinList), "Can only cons onto a list"
+    assert isinstance(
+        x, xs.sample_value.__class__
+    ), "Can only cons elements of the same type"
+    return BuiltinList([x]) + xs
+
+
+def _MapData(x):
+    assert isinstance(x, BuiltinList), "Can only map over a list"
+    assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
+    return PlutusMap({p.l_value: p.r_value for p in x.values})
+
+
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
 two_strings = typechecked(BuiltinByteString, BuiltinByteString)
 single_bytestring = typechecked(BuiltinByteString)
+single_data = typechecked(PlutusData)
 
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger: two_ints(lambda x, y: x + y),
@@ -784,34 +799,45 @@ BuiltInFunEvalMap = {
     BuiltInFun.ChooseList: typechecked(BuiltinList, AST, AST)(
         lambda l, x, y: x if BuiltinList([], l.sample_value) == l else y
     ),
-    # TODO
-    BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
+    BuiltInFun.MkCons: _MkCons,
     BuiltInFun.HeadList: typechecked(BuiltinList)(lambda l: l[0]),
     BuiltInFun.TailList: _TailList,
-    BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([], l.sample_value)),
+    BuiltInFun.NullList: typechecked(BuiltinList)(lambda l: BuiltinBool(l.value == [])),
     BuiltInFun.ChooseData: _ChooseData,
-    BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
-    BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
-    BuiltInFun.ListData: lambda x: PlutusList(x.values),
-    BuiltInFun.IData: lambda x: PlutusInteger(x.value),
-    BuiltInFun.BData: lambda x: PlutusByteString(x.value),
-    BuiltInFun.UnConstrData: lambda x: BuiltinPair(
-        BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+    BuiltInFun.ConstrData: typechecked(BuiltinInteger, BuiltinList)(
+        lambda x, y: PlutusConstr(x.value, y.values)
     ),
-    BuiltInFun.UnMapData: lambda x: BuiltinList(
-        [BuiltinPair(k, v) for k, v in x.value.items()],
-        BuiltinPair(PlutusData(), PlutusData()),
+    BuiltInFun.MapData: _MapData,
+    BuiltInFun.ListData: typechecked(BuiltinList)(lambda x: PlutusList(x.values)),
+    BuiltInFun.IData: typechecked(BuiltinInteger)(lambda x: PlutusInteger(x.value)),
+    BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
+    BuiltInFun.UnConstrData: single_data(
+        lambda x: BuiltinPair(
+            BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+        )
     ),
-    BuiltInFun.UnListData: lambda x: BuiltinList(x.value, PlutusData()),
-    BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
-    BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
-    BuiltInFun.EqualsData: lambda x, y: BuiltinBool(x == y),
-    BuiltInFun.MkPairData: lambda x, y: BuiltinPair(x, y),
+    BuiltInFun.UnMapData: single_data(
+        lambda x: BuiltinList(
+            [BuiltinPair(k, v) for k, v in x.value.items()],
+            BuiltinPair(PlutusData(), PlutusData()),
+        )
+    ),
+    BuiltInFun.UnListData: single_data(lambda x: BuiltinList(x.value, PlutusData())),
+    BuiltInFun.UnIData: single_data(lambda x: BuiltinInteger(x.value)),
+    BuiltInFun.UnBData: single_data(lambda x: BuiltinByteString(x.value)),
+    BuiltInFun.EqualsData: typechecked(PlutusData, PlutusData)(
+        lambda x, y: BuiltinBool(x == y)
+    ),
+    BuiltInFun.MkPairData: typechecked(Constant, Constant)(
+        lambda x, y: BuiltinPair(x, y)
+    ),
     BuiltInFun.MkNilData: lambda _: BuiltinList([], PlutusData()),
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
-    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
+    BuiltInFun.SerialiseData: single_data(
+        lambda x: BuiltinByteString(plutus_cbor_dumps(x))
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
