@@ -683,16 +683,63 @@ class BuiltInFun(Enum):
 
 def typechecked(*typs):
     def typecheck_decorator(fun):
-        def wrapped_fun(*args):
-            assert len(args) == len(
-                typs
-            ), f"Invalid number of arguments given, expected {len(typs)}, got {len(args)}"
-            for i, (arg, typ) in enumerate(zip(args, typs)):
-                assert isinstance(
-                    arg, typ
-                ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
-            return fun(*args)
 
+        if len(typs) == 1:
+
+            def wrapped_fun(a1):
+                for i, (arg, typ) in enumerate(zip([a1], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1)
+
+        elif len(typs) == 2:
+
+            def wrapped_fun(a1, a2):
+                for i, (arg, typ) in enumerate(zip([a1, a2], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2)
+
+        elif len(typs) == 3:
+
+            def wrapped_fun(a1, a2, a3):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3)
+
+        elif len(typs) == 4:
+
+            def wrapped_fun(a1, a2, a3, a4):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4)
+
+        elif len(typs) == 5:
+
+            def wrapped_fun(a1, a2, a3, a4, a5):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4, a5], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4, a5)
+
+        elif len(typs) == 6:
+
+            def wrapped_fun(a1, a2, a3, a4, a5, a6):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4, a5, a6], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4, a5, a6)
+
+        else:
+            raise NotImplementedError("Too many arguments")
         return wrapped_fun
 
     return typecheck_decorator
