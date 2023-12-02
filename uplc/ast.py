@@ -848,7 +848,9 @@ BuiltInFunEvalMap = {
     BuiltInFun.MkCons: _MkCons,
     BuiltInFun.HeadList: typechecked(BuiltinList)(lambda l: l[0]),
     BuiltInFun.TailList: _TailList,
-    BuiltInFun.NullList: typechecked(BuiltinList)(lambda l: BuiltinBool(l.value == [])),
+    BuiltInFun.NullList: typechecked(BuiltinList)(
+        lambda l: BuiltinBool(l.values == [])
+    ),
     BuiltInFun.ChooseData: _ChooseData,
     BuiltInFun.ConstrData: typechecked(BuiltinInteger, BuiltinList)(
         lambda x, y: PlutusConstr(x.value, y.values)
