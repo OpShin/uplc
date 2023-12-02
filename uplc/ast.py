@@ -631,7 +631,6 @@ class BuiltInFun(Enum):
 
 def typechecked(*typs):
     def typecheck_decorator(fun):
-
         if len(typs) == 1:
 
             def wrapped_fun(a1):
