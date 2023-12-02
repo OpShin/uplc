@@ -4,6 +4,7 @@ import re
 from rply import ParserGenerator
 import rply
 from . import lexer, ast
+from .ast import PlutusData, PlutusConstr, PlutusByteString, PlutusInteger, PlutusList
 
 
 class Parser:
@@ -180,6 +181,65 @@ class Parser:
             # and the Plutus dialect for pairs
             return (p[1], p[3])
 
+        @self.pg.production("builtinvalue : PAREN_OPEN plutusvalue PAREN_CLOSE")
+        def expression(p):
+            return p[1]
+
+        @self.pg.production("plutusvalue : NAME HEX")
+        def expression(p):
+            assert p[0].value == "B", f"Invalid plutus bytestring constant {p}"
+            return PlutusByteString(bytes.fromhex(p[1].value[1:]))
+
+        @self.pg.production("plutusvalue : NAME NUMBER")
+        def expression(p):
+            assert p[0].value == "I", f"Invalid plutus integer constant {p}"
+            return PlutusInteger(int(p[1].value))
+
+        @self.pg.production("plutusvalue : NAME NUMBER plutusvaluelist")
+        def expression(p):
+            assert p[0].value == "Constr", f"Invalid plutus list constant {p}"
+            return PlutusConstr(int(p[1].value), p[2])
+
+        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluelist")
+        def expression(p):
+            assert p[0].value == "List", f"Invalid plutus bytestring constant {p}"
+            return PlutusList(p[1])
+
+        @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluelist : plutusvalue plutusvaluelist ")
+        def expression(p):
+            return [p[0]] + p[1]
+
+        @self.pg.production("plutusvaluelist : BRACK_CLOSE ")
+        def expression(p):
+            return []
+
+        @self.pg.production("builtinvalue : NAME BRACK_OPEN plutusvaluemap")
+        def expression(p):
+            assert p[0].value == "Map", f"Invalid plutus map constant {p}"
+            return PlutusList(p[1])
+
+        @self.pg.production(
+            "plutusvaluepair : PAREN_OPEN plutusvalue COMMA plutusvalue PAREN_CLOSE"
+        )
+        def expression(p):
+            return (p[1], p[3])
+
+        @self.pg.production("plutusvaluemap : plutusvaluepair COMMA plutusvaluemap ")
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluemap : plutusvaluepair plutusvaluemap ")
+        def expression(p):
+            return [p[0]] + p[1]
+
+        @self.pg.production("plutusvaluemap : BRACK_CLOSE ")
+        def expression(p):
+            return []
+
     def get_parser(self):
         lrparser = self.pg.build()
         lrparser_imp = LRParserImproved(lrparser.lr_table, lrparser.error_handler)
@@ -272,8 +332,11 @@ class LRParserImproved(rply.parser.LRParser):
 def wrap_builtin_type(typ: ast.Constant, val):
     """Hmmmmmmm wraps ...."""
     if isinstance(typ, ast.PlutusData):
-        assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
-        return ast.data_from_cbor(val)
+        if isinstance(val, bytes):
+            return ast.data_from_cbor(val)
+        if isinstance(val, PlutusData):
+            return val
+        raise SyntaxError(f"Invalid plutus data constant {val}")
     if isinstance(typ, ast.BuiltinList):
         assert isinstance(val, list), f"Expected list but found {type(val)}"
         return ast.BuiltinList(
