@@ -84,7 +84,9 @@ class AcceptanceTests(unittest.TestCase):
         res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.Aiken)
         output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.Aiken)
         self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
-        # cost_file = next(f for f in files if f.endswith("cost"))
-        # with open(Path(dirpath).joinpath(cost_file)) as f:
-        #     cost = json.load(f)
+        cost_file = next(f for f in files if f.endswith("cost"))
+        with open(Path(dirpath).joinpath(cost_file)) as f:
+            cost_content = f.read()
+        if cost_content != "error":
+            cost = json.loads(cost_content)
         # TODO check cost
