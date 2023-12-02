@@ -1,0 +1,5 @@
+{
+  "result": "(delay (lam z (lam f z)))",
+  "cpu": 23100,
+  "mem": 200
+}

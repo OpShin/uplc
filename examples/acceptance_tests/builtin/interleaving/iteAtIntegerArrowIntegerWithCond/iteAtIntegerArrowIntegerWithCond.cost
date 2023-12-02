@@ -1,0 +1,5 @@
+{
+  "result": "[ (force (builtin ifThenElse)) (con bool True) ]",
+  "cpu": 389497,
+  "mem": 901
+}
