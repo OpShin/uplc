@@ -4,7 +4,14 @@ import re
 from rply import ParserGenerator
 import rply
 from . import lexer, ast
-from .ast import PlutusData, PlutusConstr, PlutusByteString, PlutusInteger, PlutusList
+from .ast import (
+    PlutusData,
+    PlutusConstr,
+    PlutusByteString,
+    PlutusInteger,
+    PlutusList,
+    PlutusMap,
+)
 
 
 class Parser:
@@ -195,15 +202,15 @@ class Parser:
             assert p[0].value == "I", f"Invalid plutus integer constant {p}"
             return PlutusInteger(int(p[1].value))
 
-        @self.pg.production("plutusvalue : NAME NUMBER plutusvaluelist")
+        @self.pg.production("plutusvalue : NAME NUMBER BRACK_OPEN plutusvaluelist")
         def expression(p):
             assert p[0].value == "Constr", f"Invalid plutus list constant {p}"
-            return PlutusConstr(int(p[1].value), p[2])
+            return PlutusConstr(int(p[1].value), p[3])
 
         @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluelist")
         def expression(p):
             assert p[0].value == "List", f"Invalid plutus bytestring constant {p}"
-            return PlutusList(p[1])
+            return PlutusList(p[2])
 
         @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
         def expression(p):
@@ -217,10 +224,10 @@ class Parser:
         def expression(p):
             return []
 
-        @self.pg.production("builtinvalue : NAME BRACK_OPEN plutusvaluemap")
+        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluemap")
         def expression(p):
             assert p[0].value == "Map", f"Invalid plutus map constant {p}"
-            return PlutusList(p[1])
+            return PlutusMap(dict(p[2]))
 
         @self.pg.production(
             "plutusvaluepair : PAREN_OPEN plutusvalue COMMA plutusvalue PAREN_CLOSE"
