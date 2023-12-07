@@ -90,9 +90,6 @@ _LOGGER = logging.getLogger(__name__)
 class AST:
     _fields = []
 
-    def eval(self, context: Context, state: frozendict.frozendict):
-        raise NotImplementedError()
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         raise NotImplementedError()
 
@@ -103,9 +100,6 @@ class AST:
 
 @dataclass(frozen=True)
 class Constant(AST):
-    def eval(self, context, state):
-        return Return(context, self)
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(con {self.typestring(dialect=dialect)} {self.valuestring(dialect=dialect)})"
 
@@ -683,7 +677,6 @@ class BuiltInFun(Enum):
 
 def typechecked(*typs):
     def typecheck_decorator(fun):
-
         if len(typs) == 1:
 
             def wrapped_fun(a1):
@@ -996,12 +989,6 @@ class BoundStateLambda(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(
-            context,
-            BoundStateLambda(self.var_name, self.term, self.state | state),
-        )
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
@@ -1027,9 +1014,6 @@ class BoundStateDelay(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(context, BoundStateDelay(self.term, self.state | state))
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(delay {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
@@ -1053,15 +1037,6 @@ class Force(AST):
     term: AST
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Compute(
-            FrameForce(
-                context,
-            ),
-            state,
-            self.term,
-        )
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(force {self.term.dumps(dialect=dialect)})"
 
@@ -1071,9 +1046,6 @@ class ForcedBuiltIn(AST):
     builtin: BuiltInFun
     applied_forces: int
     bound_arguments: List[AST]
-
-    def eval(self, context, state):
-        return Return(context, self)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         if len(self.bound_arguments):
@@ -1104,9 +1076,6 @@ class BuiltIn(ForcedBuiltIn):
 
 @dataclass
 class Error(AST):
-    def eval(self, context, state):
-        raise RuntimeError(f"Execution called Error")
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(error)"
 
@@ -1116,17 +1085,6 @@ class Apply(AST):
     f: AST
     x: AST
     _fields = ["f", "x"]
-
-    def eval(self, context, state):
-        return Compute(
-            FrameApplyArg(
-                state,
-                self.x,
-                context,
-            ),
-            state,
-            self.f,
-        )
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"

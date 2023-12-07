@@ -1,22 +1,133 @@
 """
 DeBrujin Machine to evaluate UPLC AST
 """
+import copy
 
 import frozendict
 import logging
 from dataclasses import dataclass
 
 from .ast import *
+from .cost_model import CekMachineCostModel, BuiltinCostModel, CekOp
 
 _LOGGER = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
+class Budget:
+    cpu: int
+    memory: int
+
+    def __add__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu + other.cpu, self.memory + other.memory)
+
+    def __sub__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu - other.cpu, self.memory - other.memory)
+
+    def __mul__(self, other: int) -> "Budget":
+        return Budget(self.cpu * other, self.memory * other)
+
+    def __isub__(self, other: "Budget") -> "Budget":
+        self.cpu -= other.cpu
+        self.memory -= other.memory
+        return self
+
+    def __iadd__(self, other: "Budget") -> "Budget":
+        self.cpu += other.cpu
+        self.memory += other.memory
+        return self
+
+    def __imul__(self, other: int) -> "Budget":
+        self.cpu *= other
+        self.memory *= other
+        return self
+
+    def __radd__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu + other.cpu, self.memory + other.memory)
+
+    def __rsub__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu - other.cpu, self.memory - other.memory)
+
+    def __rmul__(self, other: int) -> "Budget":
+        return Budget(self.cpu * other, self.memory * other)
+
+    def exhausted(self):
+        return self.cpu < 0 or self.memory < 0
+
+
+@dataclasses.dataclass
+class ComputationResult:
+    result: Union[AST, Exception]
+    logs: List[str]
+    cost: Budget
+
+
+def budget_cost_of_op_on_model(
+    model: Union[BuiltinCostModel, CekMachineCostModel],
+    op: Union[BuiltInFun, CekOp],
+    *args: int,
+):
+    return Budget(
+        cpu=model.cpu[op].cost(*args),
+        memory=model.memory[op].cost(*args),
+    )
+
+
+AST_TO_CEK_OP_MAP = {
+    Constant: CekOp.Const,
+    Program: CekOp.Startup,
+    Variable: CekOp.Var,
+    BoundStateLambda: CekOp.Lam,
+    ForcedBuiltIn: CekOp.Builtin,
+    BoundStateDelay: CekOp.Delay,
+    Force: CekOp.Force,
+    Apply: CekOp.Apply,
+}
+
+
 class Machine:
-    def __init__(self, program: AST, max_steps=1000000):
+    def __init__(
+        self,
+        program: AST,
+        budget: Budget,
+        cek_machine_cost_model: CekMachineCostModel,
+        builtin_cost_model: BuiltinCostModel,
+        slippage: int = 10000,
+    ):
         self.program = program
-        self.rem_steps = max_steps
+        self.budget = budget
+        self.unbudgeted_steps = defaultdict(int)
+        self.cek_machine_cost_model = cek_machine_cost_model
+        self.builtin_cost_model = builtin_cost_model
+        self.slippage = slippage
+
+    # Cost methods
+
+    def spend_budget(self, budget: Budget):
+        self.remaining_budget -= budget
+        if self.remaining_budget.exhausted():
+            raise RuntimeError("Exhausted budget")
+
+    def step_and_maybe_spend(self, term: AST):
+        step = [op for ast, op in AST_TO_CEK_OP_MAP.items() if isinstance(term, ast)][0]
+        self.unbudgeted_steps[step] += 1
+        self.unbudgeted_steps[None] += 1
+        if self.unbudgeted_steps[None] >= self.slippage:
+            self.spend_unbudgeted_steps()
+
+    def spend_unbudgeted_steps(self):
+        for cek_op in CekOp:
+            self.spend_budget(
+                self.unbudgeted_steps[cek_op]
+                * budget_cost_of_op_on_model(self.cek_machine_cost_model, cek_op, 0)
+            )
+        self.unbudgeted_steps = defaultdict(int)
+
+    # Compute methods
 
     def eval(self):
+        self.remaining_budget = copy.copy(self.budget)
+        self.logs = []
         stack = [
             Compute(
                 NoFrame(),
@@ -25,20 +136,59 @@ class Machine:
             )
         ]
 
-        while stack:
-            self.rem_steps -= 1
-            if self.rem_steps < 0:
-                raise RuntimeError("Maximum steps exceeded")
-            step = stack.pop()
-            if isinstance(step, Compute):
-                stack.append(step.term.eval(step.ctx, step.env))
-            elif isinstance(step, Return):
-                stack.append(self.return_compute(step.context, step.value))
-            elif isinstance(step, Done):
-                stack.append(step.term)
-                break
+        try:
+            while stack:
+                step = stack.pop()
+                if isinstance(step, Compute):
+                    stack.append(self.compute(step.term, step.ctx, step.env))
+                elif isinstance(step, Return):
+                    stack.append(self.return_compute(step.context, step.value))
+                elif isinstance(step, Done):
+                    stack.append(step.term)
+                    break
+            res = stack.pop()
+        except Exception as e:
+            res = e
 
-        return stack.pop()
+        return ComputationResult(
+            res,
+            self.logs,
+            self.budget - self.remaining_budget,
+        )
+
+    def compute(self, term: AST, context: Context, state: frozendict.frozendict):
+        if isinstance(term, Error):
+            raise RuntimeError(f"Execution called Error")
+        self.step_and_maybe_spend(term)
+        if isinstance(term, Constant):
+            return Return(context, term)
+        elif isinstance(term, BoundStateLambda):
+            return Return(
+                context,
+                BoundStateLambda(term.var_name, term.term, term.state | state),
+            )
+        elif isinstance(term, BoundStateDelay):
+            return Return(context, BoundStateDelay(term.term, term.state | state))
+        elif isinstance(term, Force):
+            return Compute(
+                FrameForce(
+                    context,
+                ),
+                state,
+                term.term,
+            )
+        elif isinstance(term, ForcedBuiltIn):
+            return Return(context, term)
+        elif isinstance(term, Apply):
+            return Compute(
+                FrameApplyArg(
+                    state,
+                    term.x,
+                    context,
+                ),
+                state,
+                term.f,
+            )
 
     def return_compute(self, context, value):
         if isinstance(context, FrameApplyFun):
@@ -70,7 +220,14 @@ class Machine:
             needs_forces = BuiltInFunForceMap[function.builtin]
             if function.applied_forces == needs_forces:
                 if eval_fun.__code__.co_argcount == len(function.bound_arguments) + 1:
-                    res = eval_fun(*function.bound_arguments, argument)
+                    arguments = [*function.bound_arguments, argument]
+                    cost = budget_cost_of_op_on_model(
+                        self.builtin_cost_model,
+                        function.builtin,
+                        *(arg.ex_mem() for arg in arguments),
+                    )
+                    self.spend_budget(cost)
+                    res = eval_fun(*arguments)
                 else:
                     res = ForcedBuiltIn(
                         function.builtin,

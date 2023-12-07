@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import functools
 import json
 import math
 from pathlib import Path
@@ -185,14 +186,14 @@ class BuiltinCostModel:
 
 
 class CekOp(enum.Enum):
-    Startup = enum.auto()
-    Var = enum.auto()
     Const = enum.auto()
+    Var = enum.auto()
     Lam = enum.auto()
+    Apply = enum.auto()
     Delay = enum.auto()
     Force = enum.auto()
-    Apply = enum.auto()
     Builtin = enum.auto()
+    Startup = enum.auto()
     Constr = enum.auto()
     Case = enum.auto()
 
@@ -240,6 +241,7 @@ def parse_builtin_cost_model(model: dict):
     return cost_model
 
 
+@functools.lru_cache(maxsize=1)
 def default_builtin_cost_model_plutus_v2():
     builtinCostModel = Path(__file__).parent.joinpath("builtinCostModel.json")
     with open(builtinCostModel) as f:
@@ -257,6 +259,7 @@ def parse_cek_machine_cost_model(model: dict):
     return cost_model
 
 
+@functools.lru_cache(maxsize=1)
 def default_cek_machine_cost_model_plutus_v2():
     builtinCostModel = Path(__file__).parent.joinpath("cekMachineCosts.json")
     with open(builtinCostModel) as f:
