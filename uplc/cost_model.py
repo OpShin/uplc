@@ -16,6 +16,48 @@ class BudgetMode(Enum):
     Memory = "memory"
 
 
+@dataclasses.dataclass
+class Budget:
+    cpu: int
+    memory: int
+
+    def __add__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu + other.cpu, self.memory + other.memory)
+
+    def __sub__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu - other.cpu, self.memory - other.memory)
+
+    def __mul__(self, other: int) -> "Budget":
+        return Budget(self.cpu * other, self.memory * other)
+
+    def __isub__(self, other: "Budget") -> "Budget":
+        self.cpu -= other.cpu
+        self.memory -= other.memory
+        return self
+
+    def __iadd__(self, other: "Budget") -> "Budget":
+        self.cpu += other.cpu
+        self.memory += other.memory
+        return self
+
+    def __imul__(self, other: int) -> "Budget":
+        self.cpu *= other
+        self.memory *= other
+        return self
+
+    def __radd__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu + other.cpu, self.memory + other.memory)
+
+    def __rsub__(self, other: "Budget") -> "Budget":
+        return Budget(self.cpu - other.cpu, self.memory - other.memory)
+
+    def __rmul__(self, other: int) -> "Budget":
+        return Budget(self.cpu * other, self.memory * other)
+
+    def exhausted(self):
+        return self.cpu < 0 or self.memory < 0
+
+
 class CostingFun:
     def cost(self, *memories: int) -> int:
         raise NotImplementedError("Abstract cost not implemented")
@@ -243,7 +285,11 @@ def parse_builtin_cost_model(model: dict):
 
 @functools.lru_cache(maxsize=1)
 def default_builtin_cost_model_plutus_v2():
-    builtinCostModel = Path(__file__).parent.joinpath("builtinCostModel.json")
+    builtinCostModel = (
+        Path(__file__)
+        .parent.joinpath("cost_model_files")
+        .joinpath("builtinCostModel.json")
+    )
     with open(builtinCostModel) as f:
         d = json.load(f)
     return parse_builtin_cost_model(d)
@@ -261,7 +307,15 @@ def parse_cek_machine_cost_model(model: dict):
 
 @functools.lru_cache(maxsize=1)
 def default_cek_machine_cost_model_plutus_v2():
-    builtinCostModel = Path(__file__).parent.joinpath("cekMachineCosts.json")
+    builtinCostModel = (
+        Path(__file__)
+        .parent.joinpath("cost_model_files")
+        .joinpath("cekMachineCosts.json")
+    )
     with open(builtinCostModel) as f:
         d = json.load(f)
     return parse_cek_machine_cost_model(d)
+
+
+def default_budget():
+    return Budget(memory=14000000, cpu=10000000000)

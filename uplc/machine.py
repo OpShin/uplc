@@ -3,56 +3,10 @@ DeBrujin Machine to evaluate UPLC AST
 """
 import copy
 
-import frozendict
-import logging
-from dataclasses import dataclass
-
 from .ast import *
-from .cost_model import CekMachineCostModel, BuiltinCostModel, CekOp
+from .cost_model import CekMachineCostModel, BuiltinCostModel, CekOp, Budget
 
 _LOGGER = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass
-class Budget:
-    cpu: int
-    memory: int
-
-    def __add__(self, other: "Budget") -> "Budget":
-        return Budget(self.cpu + other.cpu, self.memory + other.memory)
-
-    def __sub__(self, other: "Budget") -> "Budget":
-        return Budget(self.cpu - other.cpu, self.memory - other.memory)
-
-    def __mul__(self, other: int) -> "Budget":
-        return Budget(self.cpu * other, self.memory * other)
-
-    def __isub__(self, other: "Budget") -> "Budget":
-        self.cpu -= other.cpu
-        self.memory -= other.memory
-        return self
-
-    def __iadd__(self, other: "Budget") -> "Budget":
-        self.cpu += other.cpu
-        self.memory += other.memory
-        return self
-
-    def __imul__(self, other: int) -> "Budget":
-        self.cpu *= other
-        self.memory *= other
-        return self
-
-    def __radd__(self, other: "Budget") -> "Budget":
-        return Budget(self.cpu + other.cpu, self.memory + other.memory)
-
-    def __rsub__(self, other: "Budget") -> "Budget":
-        return Budget(self.cpu - other.cpu, self.memory - other.memory)
-
-    def __rmul__(self, other: int) -> "Budget":
-        return Budget(self.cpu * other, self.memory * other)
-
-    def exhausted(self):
-        return self.cpu < 0 or self.memory < 0
 
 
 @dataclasses.dataclass
@@ -88,13 +42,11 @@ AST_TO_CEK_OP_MAP = {
 class Machine:
     def __init__(
         self,
-        program: AST,
         budget: Budget,
         cek_machine_cost_model: CekMachineCostModel,
         builtin_cost_model: BuiltinCostModel,
-        slippage: int = 10000,
+        slippage: int = 5,
     ):
-        self.program = program
         self.budget = budget
         self.unbudgeted_steps = defaultdict(int)
         self.cek_machine_cost_model = cek_machine_cost_model
@@ -125,16 +77,19 @@ class Machine:
 
     # Compute methods
 
-    def eval(self):
+    def eval(self, program: Program):
         self.remaining_budget = copy.copy(self.budget)
         self.logs = []
         stack = [
             Compute(
                 NoFrame(),
                 frozendict.frozendict(),
-                self.program,
+                program.term,
             )
         ]
+        self.spend_budget(
+            budget_cost_of_op_on_model(self.cek_machine_cost_model, CekOp.Startup, 0)
+        )
 
         try:
             while stack:
@@ -146,6 +101,7 @@ class Machine:
                 elif isinstance(step, Done):
                     stack.append(step.term)
                     break
+            self.spend_unbudgeted_steps()
             res = stack.pop()
         except Exception as e:
             res = e
