@@ -658,7 +658,7 @@
     },
     "verifyEcdsaSecp256k1Signature": {
         "cpu": {
-            "arguments": 35190005,
+            "arguments": 35892428,
             "type": "constant_cost"
         },
         "memory": {
@@ -669,8 +669,8 @@
     "verifyEd25519Signature": {
         "cpu": {
             "arguments": {
-                "intercept": 57996947,
-                "slope": 18975
+                "intercept": 9462713,
+                "slope": 1021
             },
             "type": "linear_in_z"
         },
@@ -682,8 +682,8 @@
     "verifySchnorrSecp256k1Signature": {
         "cpu": {
             "arguments": {
-                "intercept": 39121781,
-                "slope": 32260
+                "intercept": 38887044,
+                "slope": 32947
             },
             "type": "linear_in_y"
         },

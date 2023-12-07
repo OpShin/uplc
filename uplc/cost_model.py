@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import enum
 import functools
@@ -7,6 +8,7 @@ from pathlib import Path
 from typing import Dict, Any, Union
 from enum import Enum
 
+import pycardano
 
 from .ast import BuiltInFun
 
@@ -71,6 +73,12 @@ class CostingFun:
             return LinearCost(arguments["intercept"], arguments["slope"])
         raise NotImplementedError("Cost model unknown")
 
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        """Updates the cost model from the network configuration"""
+        raise NotImplementedError("Base model can not update")
+
 
 @dataclasses.dataclass
 class ConstantCost(CostingFun):
@@ -82,6 +90,11 @@ class ConstantCost(CostingFun):
     @classmethod
     def from_arguments(cls, arguments: int):
         return cls(arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.constant = network_config[f"{prefix}-arguments"]
 
 
 @dataclasses.dataclass
@@ -96,6 +109,12 @@ class LinearCost(CostingFun):
     def from_arguments(cls, arguments: Dict[str, int]):
         return cls(**arguments)
 
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.intercept = network_config[f"{prefix}-arguments-intercept"]
+        self.slope = network_config[f"{prefix}-arguments-slope"]
+
 
 @dataclasses.dataclass
 class Derived(CostingFun):
@@ -104,6 +123,11 @@ class Derived(CostingFun):
     @classmethod
     def from_arguments(cls, arguments: Union[Dict[str, Any]]):
         return cls(CostingFun.from_arguments(arguments))
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.model.update_from_network_config(network_config, prefix)
 
 
 @dataclasses.dataclass
@@ -146,6 +170,12 @@ class SubtractedSizes(Derived):
             min,
         )
 
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.model.update_from_network_config(network_config, prefix)
+        self.minimum = network_config[f"{prefix}-arguments-minimum"]
+
 
 @dataclasses.dataclass
 class MultipliedSizes(Derived):
@@ -181,6 +211,14 @@ class LinearOnDiagonal(CostingFun):
         linear_model = LinearCost(arguments["intercept"], arguments["slope"])
         return cls(linear_model, const_model)
 
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.model_off_diagonal.constant = network_config[
+            f"{prefix}-arguments-constant"
+        ]
+        self.model_on_diagonal.update_from_network_config(network_config, prefix)
+
 
 @dataclasses.dataclass
 class ConstAboveDiagonal(CostingFun):
@@ -198,6 +236,16 @@ class ConstAboveDiagonal(CostingFun):
         const = ConstantCost(arguments["constant"])
         return cls(model, const)
 
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.model_above_diagonal.constant = network_config[
+            f"{prefix}-arguments-constant"
+        ]
+        self.model_below_equal_diagonal.update_from_network_config(
+            network_config, f"{prefix}-arguments-model"
+        )
+
 
 @dataclasses.dataclass
 class ConstBelowDiagonal(CostingFun):
@@ -214,6 +262,16 @@ class ConstBelowDiagonal(CostingFun):
         model = parse_costing_fun(arguments["model"])
         const = ConstantCost(arguments["constant"])
         return cls(model, const)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.model_below_diagonal.constant = network_config[
+            f"{prefix}-arguments-constant"
+        ]
+        self.model_above_equal_diagonal.update_from_network_config(
+            network_config, f"{prefix}-arguments-model"
+        )
 
 
 # TODO automatically parse from
@@ -242,8 +300,8 @@ class CekOp(enum.Enum):
 
 @dataclasses.dataclass
 class CekMachineCostModel:
-    cpu: Dict[CekOp, CostingFun]
-    memory: Dict[CekOp, CostingFun]
+    cpu: Dict[CekOp, ConstantCost]
+    memory: Dict[CekOp, ConstantCost]
 
 
 COSTING_FUN_DICT = {
@@ -283,6 +341,26 @@ def parse_builtin_cost_model(model: dict):
     return cost_model
 
 
+def updated_builtin_cost_model_from_network_config(
+    builtin_cost_model: BuiltinCostModel, network_config: Dict[str, int]
+):
+    builtin_cost_model = copy.deepcopy(builtin_cost_model)
+    for mode, cost_fun_dicts in (
+        ("cpu", builtin_cost_model.cpu),
+        ("memory", builtin_cost_model.memory),
+    ):
+        for builtin, cost_model in cost_fun_dicts.items():
+            builtin_fun_name = builtin.__name__[:1].lower() + builtin.__name__[1:]
+            prefix = f"{builtin_fun_name}-{mode}"
+            cost_model.update_from_network_config(network_config, prefix)
+    return builtin_cost_model
+
+
+class PlutusVersion(enum.Enum):
+    PlutusV1 = "PlutusV1"
+    PlutusV2 = "PlutusV2"
+
+
 @functools.lru_cache()
 def default_builtin_cost_model_base():
     builtinCostModel = (
@@ -294,6 +372,42 @@ def default_builtin_cost_model_base():
     with open(builtinCostModel) as f:
         d = json.load(f)
     return parse_builtin_cost_model(d)
+
+
+@functools.lru_cache()
+def latest_network_config():
+    latest_network_config_dir = (
+        Path(__file__).parent.joinpath("cost_model_files").joinpath("latest")
+    )
+    file = None
+    for file in latest_network_config_dir.iterdir():
+        if file.suffix == "json":
+            break
+    if file is None:
+        raise ValueError("Latest network config could not be loaded")
+    with open(file) as f:
+        d = json.load(f)
+    return d
+
+
+def latest_network_config_plutus(plutus_version: PlutusVersion):
+    return latest_network_config()[plutus_version.value]
+
+
+def default_builtin_cost_model(plutus_version: PlutusVersion):
+    return updated_builtin_cost_model_from_network_config(
+        default_builtin_cost_model_base(), latest_network_config_plutus(plutus_version)
+    )
+
+
+@functools.lru_cache()
+def default_builtin_cost_model_plutus_v1():
+    return default_builtin_cost_model(PlutusVersion.PlutusV1)
+
+
+@functools.lru_cache()
+def default_builtin_cost_model_plutus_v2():
+    return default_builtin_cost_model(PlutusVersion.PlutusV2)
 
 
 def parse_cek_machine_cost_model(model: dict):
@@ -317,6 +431,37 @@ def default_cek_machine_cost_model_base():
     with open(builtinCostModel) as f:
         d = json.load(f)
     return parse_cek_machine_cost_model(d)
+
+
+def updated_cek_machine_cost_model_from_network_config(
+    cek_machine_cost_model: CekMachineCostModel, network_config: Dict[str, int]
+):
+    cek_machine_cost_model = copy.deepcopy(cek_machine_cost_model)
+    for mode, cost_fun_dicts in (
+        ("CPU", cek_machine_cost_model.cpu),
+        ("Memory", cek_machine_cost_model.memory),
+    ):
+        for cek_op, cost_model in cost_fun_dicts.items():
+            cek_op_name = f"cek{cek_op.name}Cost"
+            cost_model.constant = network_config[f"{cek_op_name}-exBudget{mode}"]
+    return cek_machine_cost_model
+
+
+def default_cek_machine_cost_model(plutus_version: PlutusVersion):
+    return updated_cek_machine_cost_model_from_network_config(
+        default_cek_machine_cost_model_base(),
+        latest_network_config_plutus(plutus_version),
+    )
+
+
+@functools.lru_cache()
+def default_cek_machine_cost_model_plutus_v1():
+    return default_cek_machine_cost_model(PlutusVersion.PlutusV1)
+
+
+@functools.lru_cache()
+def default_cek_machine_cost_model_plutus_v2():
+    return default_cek_machine_cost_model(PlutusVersion.PlutusV2)
 
 
 def default_budget():
