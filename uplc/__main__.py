@@ -158,6 +158,9 @@ def main():
                 print(line)
         else:
             print("None.")
+        print("-------COST-------")
+        print(f"CPU: {ret.cost.cpu}")
+        print(f"Memory: {ret.cost.memory}")
         if isinstance(ret.result, Exception):
             print("-----ERROR-------")
             print(ret.result)
