@@ -885,7 +885,7 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.IfThenElse: _IfThenElse,
     BuiltInFun.ChooseUnit: typechecked(BuiltinUnit, AST)(lambda x, y: y),
-    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: print(x.value) or y),
+    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: y),
     BuiltInFun.FstPair: typechecked(BuiltinPair)(lambda x: x[0]),
     BuiltInFun.SndPair: typechecked(BuiltinPair)(lambda x: x[1]),
     BuiltInFun.ChooseList: typechecked(BuiltinList, AST, AST)(
@@ -968,15 +968,6 @@ class Program(AST):
 @dataclass
 class Variable(AST):
     name: str
-
-    def eval(self, context, state):
-        try:
-            return Return(context, state[self.name])
-        except KeyError as e:
-            _LOGGER.error(
-                f"Access to uninitialized variable {self.name} in {self.dumps()}"
-            )
-            raise e
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return self.name

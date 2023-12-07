@@ -145,11 +145,20 @@ class Machine:
                 state,
                 term.f,
             )
+        elif isinstance(term, Variable):
+            try:
+                return Return(context, state[term.name])
+            except KeyError as e:
+                _LOGGER.error(
+                    f"Access to uninitialized variable {term.name} in {term.dumps()}"
+                )
+                raise e
+        raise NotImplementedError(f"Invalid term to compute: {term}")
 
     def return_compute(self, context, value):
         if isinstance(context, FrameApplyFun):
             return self.apply_evaluate(context.ctx, context.val, value)
-        if isinstance(context, FrameApplyArg):
+        elif isinstance(context, FrameApplyArg):
             return Compute(
                 FrameApplyFun(
                     value,
@@ -158,11 +167,12 @@ class Machine:
                 context.env,
                 context.term,
             )
-        if isinstance(context, FrameForce):
+        elif isinstance(context, FrameForce):
             return self.force_evaluate(context.ctx, value)
-        if isinstance(context, NoFrame):
+        elif isinstance(context, NoFrame):
             term = value
             return Done(term)
+        raise NotImplementedError(f"Invalid context to return compute: {context}")
 
     def apply_evaluate(self, context, function, argument):
         if isinstance(function, BoundStateLambda):
@@ -183,6 +193,9 @@ class Machine:
                         *(arg.ex_mem() for arg in arguments),
                     )
                     self.spend_budget(cost)
+                    if function.builtin == BuiltInFun.Trace:
+                        # Hack to add this side effect to the machine
+                        self.logs.append(arguments[0])
                     res = eval_fun(*arguments)
                 else:
                     res = ForcedBuiltIn(
@@ -191,7 +204,7 @@ class Machine:
                         function.bound_arguments + [argument],
                     )
                 return Return(context, res)
-        raise RuntimeError("Tried to apply arguments to unapplyiable object")
+        raise RuntimeError(f"Tried to apply arguments to improper object: {function}")
 
     def force_evaluate(self, context, value):
         if isinstance(value, BoundStateDelay):
@@ -204,4 +217,4 @@ class Machine:
                 )
                 # Theoretically we could check if the builtin requires 0 arguments, but this is not the case for any function
                 return Return(context, res)
-        raise RuntimeError("Forcing an unforceable object")
+        raise RuntimeError(f"Forcing an unforceable object: {context}")
