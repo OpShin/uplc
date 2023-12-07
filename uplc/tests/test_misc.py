@@ -1427,7 +1427,7 @@ class MiscTest(unittest.TestCase):
         parse(d)
         # should not raise
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())
 
     def test_unpack_plutus_data(self):
         p = Program(
@@ -1447,9 +1447,9 @@ class MiscTest(unittest.TestCase):
         parse(d)
         r = eval(p)
         # should not raise anything
-        r.dumps()
+        r.result.dumps()
         self.assertEqual(
-            r,
+            r.result,
             BuiltinPair(
                 l_value=BuiltinInteger(value=0),
                 r_value=BuiltinList(
@@ -1555,7 +1555,7 @@ class MiscTest(unittest.TestCase):
         # should not raise
         parse(d)
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())
 
     @parameterized.expand(
         [
@@ -1591,4 +1591,4 @@ class MiscTest(unittest.TestCase):
         # should not raise
         parse(d)
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())

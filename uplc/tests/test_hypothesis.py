@@ -306,9 +306,12 @@ class HypothesisTests(unittest.TestCase):
                 if isinstance(orig_res, BoundStateDelay):
                     orig_res = Force(orig_res)
                 orig_res = eval(orig_res)
-            orig_res = unique_variables.UniqueVariableTransformer().visit(
-                orig_res.result
-            )
+            if not isinstance(orig_res.result, Exception):
+                orig_res = unique_variables.UniqueVariableTransformer().visit(
+                    orig_res.result
+                )
+            else:
+                orig_res = str(orig_res.result)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         try:
@@ -322,9 +325,12 @@ class HypothesisTests(unittest.TestCase):
                 if isinstance(rewrite_res, BoundStateDelay):
                     rewrite_res = Force(rewrite_res)
                 rewrite_res = eval(rewrite_res)
-            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
-                rewrite_res
-            )
+            if not isinstance(rewrite_res.result, Exception):
+                rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                    rewrite_res.result
+                )
+            else:
+                rewrite_res = str(rewrite_res.result)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         self.assertEqual(
