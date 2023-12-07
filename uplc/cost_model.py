@@ -350,7 +350,7 @@ def updated_builtin_cost_model_from_network_config(
         ("memory", builtin_cost_model.memory),
     ):
         for builtin, cost_model in cost_fun_dicts.items():
-            builtin_fun_name = builtin.__name__[:1].lower() + builtin.__name__[1:]
+            builtin_fun_name = builtin.name[:1].lower() + builtin.name[1:]
             prefix = f"{builtin_fun_name}-{mode}"
             cost_model.update_from_network_config(network_config, prefix)
     return builtin_cost_model
