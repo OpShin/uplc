@@ -374,10 +374,9 @@ def default_builtin_cost_model_base():
     return parse_builtin_cost_model(d)
 
 
-@functools.lru_cache()
-def latest_network_config():
+def load_network_config(config_date: str):
     latest_network_config_dir = (
-        Path(__file__).parent.joinpath("cost_model_files").joinpath("latest")
+        Path(__file__).parent.joinpath("cost_model_files").joinpath(config_date)
     )
     file = None
     for file in latest_network_config_dir.iterdir():
@@ -388,6 +387,11 @@ def latest_network_config():
     with open(file) as f:
         d = json.load(f)
     return d
+
+
+@functools.lru_cache()
+def latest_network_config():
+    return load_network_config("latest")
 
 
 def latest_network_config_plutus(plutus_version: PlutusVersion):

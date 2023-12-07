@@ -1,1 +1,5 @@
-error
+{
+  "result": "(con integer 4)",
+  "cpu": 19362962,
+  "mem": 78912
+}

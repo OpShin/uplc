@@ -1,1 +1,5 @@
-error
+{
+  "result": "(con bytestring #00)",
+  "cpu": 337584,
+  "mem": 602
+}

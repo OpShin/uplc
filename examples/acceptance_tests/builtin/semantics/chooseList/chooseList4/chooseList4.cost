@@ -1,1 +1,5 @@
-error
+{
+  "result": "(lam x x)",
+  "cpu": 382454,
+  "mem": 1032
+}
