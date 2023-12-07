@@ -417,7 +417,7 @@ def default_builtin_cost_model_plutus_v2():
 def parse_cek_machine_cost_model(model: dict):
     cost_model = CekMachineCostModel({}, {})
     for op, d in model.items():
-        enum_name = str(op).lstrip("cek").rstrip("Cost")
+        enum_name = str(op)[len("cek") :][: -len("Cost")]
         cek_op = CekOp.__dict__[enum_name]
         cost_model.memory[cek_op] = ConstantCost(d["exBudgetMemory"])
         cost_model.cpu[cek_op] = ConstantCost(d["exBudgetCPU"])
