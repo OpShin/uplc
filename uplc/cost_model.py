@@ -283,16 +283,12 @@ def parse_builtin_cost_model(model: dict):
     return cost_model
 
 
-@functools.lru_cache(maxsize=1)
-def default_builtin_cost_model_plutus_v2():
-    return default_builtin_cost_model("v2")
-
-
-def default_builtin_cost_model(plutus_version: str):
+@functools.lru_cache()
+def default_builtin_cost_model_base():
     builtinCostModel = (
         Path(__file__)
         .parent.joinpath("cost_model_files")
-        .joinpath(plutus_version)
+        .joinpath("base")
         .joinpath("builtinCostModel.json")
     )
     with open(builtinCostModel) as f:
@@ -310,21 +306,17 @@ def parse_cek_machine_cost_model(model: dict):
     return cost_model
 
 
-def default_cek_machine_cost_model(plutus_version: str):
+@functools.lru_cache()
+def default_cek_machine_cost_model_base():
     builtinCostModel = (
         Path(__file__)
         .parent.joinpath("cost_model_files")
-        .joinpath(plutus_version)
+        .joinpath("base")
         .joinpath("cekMachineCosts.json")
     )
     with open(builtinCostModel) as f:
         d = json.load(f)
     return parse_cek_machine_cost_model(d)
-
-
-@functools.lru_cache(maxsize=1)
-def default_cek_machine_cost_model_plutus_v2():
-    return default_cek_machine_cost_model("v2")
 
 
 def default_budget():

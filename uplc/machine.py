@@ -21,6 +21,8 @@ def budget_cost_of_op_on_model(
     op: Union[BuiltInFun, CekOp],
     *args: int,
 ):
+    if op not in model.cpu or op not in model.memory:
+        return Budget(0, 0)
     return Budget(
         cpu=model.cpu[op].cost(*args),
         memory=model.memory[op].cost(*args),
