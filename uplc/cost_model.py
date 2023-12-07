@@ -198,7 +198,9 @@ class MaxSize(Derived):
 @dataclasses.dataclass
 class LinearOnDiagonal(CostingFun):
     model_on_diagonal: LinearCost
-    model_off_diagonal: ConstantCost = ConstantCost(0)
+    model_off_diagonal: ConstantCost = dataclasses.field(
+        default_factory=lambda: ConstantCost(0)
+    )
 
     def cost(self, x: int, y: int) -> int:
         if x == y:
@@ -223,7 +225,9 @@ class LinearOnDiagonal(CostingFun):
 @dataclasses.dataclass
 class ConstAboveDiagonal(CostingFun):
     model_below_equal_diagonal: CostingFun
-    model_above_diagonal: ConstantCost = ConstantCost(0)
+    model_above_diagonal: ConstantCost = dataclasses.field(
+        default_factory=lambda: ConstantCost(0)
+    )
 
     def cost(self, x: int, y: int) -> int:
         if x > y:
@@ -250,7 +254,9 @@ class ConstAboveDiagonal(CostingFun):
 @dataclasses.dataclass
 class ConstBelowDiagonal(CostingFun):
     model_above_equal_diagonal: CostingFun
-    model_below_diagonal: ConstantCost = ConstantCost(0)
+    model_below_diagonal: ConstantCost = dataclasses.field(
+        default_factory=lambda: ConstantCost(0)
+    )
 
     def cost(self, x: int, y: int) -> int:
         if x >= y:
