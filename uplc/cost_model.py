@@ -1,4 +1,5 @@
 import dataclasses
+import enum
 import json
 import math
 from pathlib import Path
@@ -178,9 +179,28 @@ class ConstBelowDiagonal(CostingFun):
 
 
 @dataclasses.dataclass
-class CostModel:
+class BuiltinCostModel:
     cpu: Dict[BuiltInFun, CostingFun]
     memory: Dict[BuiltInFun, CostingFun]
+
+
+class CekOp(enum.Enum):
+    Startup = enum.auto()
+    Var = enum.auto()
+    Const = enum.auto()
+    Lam = enum.auto()
+    Delay = enum.auto()
+    Force = enum.auto()
+    Apply = enum.auto()
+    Builtin = enum.auto()
+    Constr = enum.auto()
+    Case = enum.auto()
+
+
+@dataclasses.dataclass
+class CekMachineCostModel:
+    cpu: Dict[CekOp, CostingFun]
+    memory: Dict[CekOp, CostingFun]
 
 
 COSTING_FUN_DICT = {
@@ -210,17 +230,35 @@ def parse_costing_fun(model: dict):
     return costing_fun.from_arguments(arguments)
 
 
-def parse_cost_model(model: dict):
-    cost_model = CostModel({}, {})
+def parse_builtin_cost_model(model: dict):
+    cost_model = BuiltinCostModel({}, {})
     for fun, d in model.items():
-        builtin_fun = BuiltInFun.__dict__[fun[:1].capitalize() + fun[1:]]
+        builtin_fun_name = fun[:1].capitalize() + fun[1:]
+        builtin_fun = BuiltInFun.__dict__[builtin_fun_name]
         cost_model.memory[builtin_fun] = parse_costing_fun(d["memory"])
         cost_model.cpu[builtin_fun] = parse_costing_fun(d["cpu"])
     return cost_model
 
 
-def default_cost_model_plutus_v2():
+def default_builtin_cost_model_plutus_v2():
     builtinCostModel = Path(__file__).parent.joinpath("builtinCostModel.json")
     with open(builtinCostModel) as f:
         d = json.load(f)
-    return d
+    return parse_builtin_cost_model(d)
+
+
+def parse_cek_machine_cost_model(model: dict):
+    cost_model = CekMachineCostModel({}, {})
+    for op, d in model.items():
+        enum_name = str(op).removeprefix("cek").removesuffix("Cost")
+        cek_op = CekOp.__dict__[enum_name]
+        cost_model.memory[cek_op] = ConstantCost(d["exBudgetMemory"])
+        cost_model.cpu[cek_op] = ConstantCost(d["exBudgetCPU"])
+    return cost_model
+
+
+def default_cek_machine_cost_model_plutus_v2():
+    builtinCostModel = Path(__file__).parent.joinpath("cekMachineCosts.json")
+    with open(builtinCostModel) as f:
+        d = json.load(f)
+    return parse_cek_machine_cost_model(d)
