@@ -151,14 +151,20 @@ def main():
         return
     if command == Command.eval:
         print("Starting execution")
-        print("------------------")
-        try:
-            ret = eval(code).dumps()
-        except Exception as e:
-            print("An exception was raised")
-            ret = e
-        print("------------------")
-        print(ret)
+        ret = eval(code)
+        print("-----SUCCESS-----")
+        if isinstance(ret.result, Exception):
+            print("Computation failed")
+        else:
+            print("Computation suceeded")
+        print("-------LOGS-------")
+        if ret.logs:
+            for line in ret.logs:
+                print(line)
+        else:
+            print("None.")
+        print("-----RESULT-------")
+        print(ret.result.dumps())
 
 
 if __name__ == "__main__":
