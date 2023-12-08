@@ -5,6 +5,7 @@ import hypothesis
 from hypothesis import strategies as hst
 import frozenlist as fl
 import pyaiken
+from parameterized import parameterized
 
 from .. import *
 from ..flat_decoder import unzigzag
@@ -363,7 +364,14 @@ class HypothesisTests(unittest.TestCase):
     # )
     @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
     @hypothesis.example(Program((0, 0, 0), BuiltinList([BuiltinString("\x00")])))
-    def test_flat_encode_pyaiken(self, p):
+    def test_flat_encode_pyaiken_hypothesis(self, p):
+        self.flat_encode_pyaiken_base(p)
+
+    @parameterized.expand(v for v in BuiltInFun)
+    def test_flat_encode_pyaiken_builtins(self, b: BuiltInFun):
+        self.flat_encode_pyaiken_base(Program(version=(0, 0, 0), term=BuiltIn(b)))
+
+    def flat_encode_pyaiken_base(self, p):
         flattened = flatten(p)
         unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
         unflattened_aiken = parse(unflattened_aiken_string)
