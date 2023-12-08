@@ -605,74 +605,96 @@ class ConstantType(Enum):
     data = auto()
 
 
-class callable_staticmethod(staticmethod):
-    """Callable version of staticmethod."""
-
-    def __call__(self, *args, **kwargs):
-        return self.__func__(*args, **kwargs)
-
-
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
+# NOTE it is crucial that the values matches
+# https://github.com/aiken-lang/aiken/blob/825e65d7a305296486d91e1cb7916b9158897691/crates/uplc/src/builtins.rs#L12
 class BuiltInFun(Enum):
-    @callable_staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        return count
 
-    AddInteger = auto()
-    SubtractInteger = auto()
-    MultiplyInteger = auto()
-    DivideInteger = auto()
-    QuotientInteger = auto()
-    RemainderInteger = auto()
-    ModInteger = auto()
-    EqualsInteger = auto()
-    LessThanInteger = auto()
-    LessThanEqualsInteger = auto()
-    AppendByteString = auto()
-    ConsByteString = auto()
-    SliceByteString = auto()
-    LengthOfByteString = auto()
-    IndexByteString = auto()
-    EqualsByteString = auto()
-    LessThanByteString = auto()
-    LessThanEqualsByteString = auto()
-    Sha2_256 = auto()
-    Sha3_256 = auto()
-    Blake2b_256 = auto()
-    # VerifySignature = auto()
-    VerifyEd25519Signature = auto()
-    AppendString = auto()
-    EqualsString = auto()
-    EncodeUtf8 = auto()
-    DecodeUtf8 = auto()
-    IfThenElse = auto()
-    ChooseUnit = auto()
-    Trace = auto()
-    FstPair = auto()
-    SndPair = auto()
-    ChooseList = auto()
-    MkCons = auto()
-    HeadList = auto()
-    TailList = auto()
-    NullList = auto()
-    ChooseData = auto()
-    ConstrData = auto()
-    MapData = auto()
-    ListData = auto()
-    IData = auto()
-    BData = auto()
-    UnConstrData = auto()
-    UnMapData = auto()
-    UnListData = auto()
-    UnIData = auto()
-    UnBData = auto()
-    EqualsData = auto()
-    MkPairData = auto()
-    MkNilData = auto()
-    MkNilPairData = auto()
-    SerialiseData = auto()
-    VerifyEcdsaSecp256k1Signature = auto()
-    VerifySchnorrSecp256k1Signature = auto()
+    # Integers
+    AddInteger = 0
+    SubtractInteger = 1
+    MultiplyInteger = 2
+    DivideInteger = 3
+    QuotientInteger = 4
+    RemainderInteger = 5
+    ModInteger = 6
+    EqualsInteger = 7
+    LessThanInteger = 8
+    LessThanEqualsInteger = 9
+    # Bytestrings
+    AppendByteString = 10
+    ConsByteString = 11
+    SliceByteString = 12
+    LengthOfByteString = 13
+    IndexByteString = 14
+    EqualsByteString = 15
+    LessThanByteString = 16
+    LessThanEqualsByteString = 17
+    # Cryptography and hashes
+    Sha2_256 = 18
+    Sha3_256 = 19
+    Blake2b_256 = 20
+    # Keccak_256 = 71
+    # Blake2b_224 = 72
+    VerifyEd25519Signature = 21  # formerly verifySignature
+    VerifyEcdsaSecp256k1Signature = 52
+    VerifySchnorrSecp256k1Signature = 53
+    # Strings
+    AppendString = 22
+    EqualsString = 23
+    EncodeUtf8 = 24
+    DecodeUtf8 = 25
+    # Bool
+    IfThenElse = 26
+    # Unit
+    ChooseUnit = 27
+    # Tracing
+    Trace = 28
+    # Pairs
+    FstPair = 29
+    SndPair = 30
+    # Lists
+    ChooseList = 31
+    MkCons = 32
+    HeadList = 33
+    TailList = 34
+    NullList = 35
+    # Data
+    ChooseData = 36
+    ConstrData = 37
+    MapData = 38
+    ListData = 39
+    IData = 40
+    BData = 41
+    UnConstrData = 42
+    UnMapData = 43
+    UnListData = 44
+    UnIData = 45
+    UnBData = 46
+    EqualsData = 47
+    SerialiseData = 51
+    # Misc monomorphized constructors
+    MkPairData = 48
+    MkNilData = 49
+    MkNilPairData = 50
+    # BLS Builtins
+    # Bls12_381_G1_Add = 54
+    # Bls12_381_G1_Neg = 55
+    # Bls12_381_G1_ScalarMul = 56
+    # Bls12_381_G1_Equal = 57
+    # Bls12_381_G1_Compress = 58
+    # Bls12_381_G1_Uncompress = 59
+    # Bls12_381_G1_HashToGroup = 60
+    # Bls12_381_G2_Add = 61
+    # Bls12_381_G2_Neg = 62
+    # Bls12_381_G2_ScalarMul = 63
+    # Bls12_381_G2_Equal = 64
+    # Bls12_381_G2_Compress = 65
+    # Bls12_381_G2_Uncompress = 66
+    # Bls12_381_G2_HashToGroup = 67
+    # Bls12_381_MillerLoop = 68
+    # Bls12_381_MulMlResult = 69
+    # Bls12_381_FinalVerify = 70
 
 
 def typechecked(*typs):
