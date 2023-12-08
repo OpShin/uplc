@@ -1592,3 +1592,18 @@ class MiscTest(unittest.TestCase):
         parse(d)
         r = eval(p)
         self.assertEqual(r.result, BuiltinUnit())
+
+    def test_logs(self):
+        x = "Hello, world!"
+        p = Program(
+            (1, 0, 0),
+            Apply(
+                Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=x)),
+                BuiltinUnit(),
+            ),
+        )
+        r = eval(p)
+        self.assertIn(x, r.logs, "Trace did not produce a log.")
+        self.assertEqual(
+            r.result, BuiltinUnit(), "Trace did not return second argument"
+        )
