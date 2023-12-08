@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import os
 
@@ -5,6 +6,7 @@ from parameterized import parameterized
 import unittest
 
 from .. import parse, dumps, UPLCDialect, eval
+from ..cost_model import Budget
 from ..util import NodeTransformer
 from ..transformer import unique_variables
 from ..optimizer import pre_evaluation
@@ -61,13 +63,11 @@ class AcceptanceTests(unittest.TestCase):
         except unique_variables.FreeVariableError:
             # will raise an evaluation error anyways
             pass
-        try:
-            res = eval(input_parsed)
-        except Exception:
+        comp_res = eval(input_parsed)
+        res = comp_res.result
+        if isinstance(res, Exception):
             self.assertEqual(
-                "evaluation failure",
-                output,
-                "Evaluating program failed unexpectedly",
+                output, "evaluation failure", "Machine failed but should not fail."
             )
             return
         self.assertNotIn(
@@ -83,3 +83,14 @@ class AcceptanceTests(unittest.TestCase):
         res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.Aiken)
         output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.Aiken)
         self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
+        cost_file = next(f for f in files if f.endswith("cost"))
+        with open(Path(dirpath).joinpath(cost_file)) as f:
+            cost_content = f.read()
+        if cost_content == "error":
+            return
+        cost = json.loads(cost_content)
+        expected_spent_budget = Budget(cost["cpu"], cost["mem"])
+        self.assertEqual(
+            expected_spent_budget, comp_res.cost, "Program evaluated with wrong cost."
+        )
+        # TODO check logs

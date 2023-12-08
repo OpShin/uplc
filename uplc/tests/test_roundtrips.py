@@ -5,6 +5,7 @@ import hypothesis
 from hypothesis import strategies as hst
 import frozenlist as fl
 import pyaiken
+from parameterized import parameterized
 
 from .. import *
 from ..flat_decoder import unzigzag
@@ -60,12 +61,9 @@ uplc_data = hst.recursive(
 uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
-# uplc_builtin_string = hst.builds(
-#     BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
-# )
-uplc_builtin_string = hst.builds(
-    BuiltinString, hst.from_regex(r'([^\n\r"\\])*', fullmatch=True)
-)
+# TODO reenable all text as soon as aiken issue for escaped strings in complex data is fixed
+# uplc_builtin_string = hst.builds(BuiltinString, hst.text())
+uplc_builtin_string = hst.builds(BuiltinString, hst.from_regex(r"\w*", fullmatch=True))
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
 
@@ -172,7 +170,7 @@ uplc_program = hst.one_of(uplc_program_any, uplc_program_valid)
 
 class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
-    @hypothesis.settings(max_examples=1000)
+    @hypothesis.settings(max_examples=1000, deadline=None)
     @hypothesis.example(
         Program(version=(0, 0, 0), term=BuiltinByteString(value=b"")), UPLCDialect.Aiken
     )
@@ -226,7 +224,7 @@ class HypothesisTests(unittest.TestCase):
             return
         try:
             res = eval(p)
-            res = unique_variables.UniqueVariableTransformer().visit(res)
+            res = unique_variables.UniqueVariableTransformer().visit(res.result)
             res = res.dumps()
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
@@ -235,7 +233,7 @@ class HypothesisTests(unittest.TestCase):
         try:
             rewrite_res = eval(rewrite_p)
             rewrite_res = unique_variables.UniqueVariableTransformer().visit(
-                rewrite_res
+                rewrite_res.result
             )
             rewrite_res = rewrite_res.dumps()
         except unique_variables.FreeVariableError:
@@ -308,11 +306,14 @@ class HypothesisTests(unittest.TestCase):
                 if isinstance(orig_res, BoundStateDelay):
                     orig_res = Force(orig_res)
                 orig_res = eval(orig_res)
-            orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
+            if not isinstance(orig_res.result, Exception):
+                orig_res = unique_variables.UniqueVariableTransformer().visit(
+                    orig_res.result
+                )
+            else:
+                orig_res = str(orig_res.result)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
-        except Exception as e:
-            orig_res = e.__class__
         try:
             rewrite_res = rewrite_p
             for _ in range(100):
@@ -324,13 +325,14 @@ class HypothesisTests(unittest.TestCase):
                 if isinstance(rewrite_res, BoundStateDelay):
                     rewrite_res = Force(rewrite_res)
                 rewrite_res = eval(rewrite_res)
-            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
-                rewrite_res
-            )
+            if not isinstance(rewrite_res.result, Exception):
+                rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                    rewrite_res.result
+                )
+            else:
+                rewrite_res = str(rewrite_res.result)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
-        except Exception as e:
-            rewrite_res = e.__class__
         self.assertEqual(
             orig_res,
             rewrite_res,
@@ -353,8 +355,28 @@ class HypothesisTests(unittest.TestCase):
             term=PlutusInteger(2**64 + 2),
         )
     )
+    # @hypothesis.example(
+    #     Program(
+    #         version=(0, 0, 0),
+    #         term=BuiltinString("\x00"),
+    #     )
+    # )
+    # TODO reenable once aiken issue for escaped strings in complex data is fixed
+    # https://github.com/aiken-lang/aiken/issues/773
+    # and https://github.com/aiken-lang/aiken/issues/771
+    # @hypothesis.example(
+    #     Program((0, 0, 0), BuiltinPair(BuiltinUnit(), BuiltinString('\x00')))
+    # )
     # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
-    def test_flat_encode_pyaiken(self, p):
+    # @hypothesis.example(Program((0, 0, 0), BuiltinList([BuiltinString("\x00")])))
+    def test_flat_encode_pyaiken_hypothesis(self, p):
+        self.flat_encode_pyaiken_base(p)
+
+    @parameterized.expand((v.name, v) for v in BuiltInFun)
+    def test_flat_encode_pyaiken_builtins(self, _, b: BuiltInFun):
+        self.flat_encode_pyaiken_base(Program(version=(0, 0, 0), term=BuiltIn(b)))
+
+    def flat_encode_pyaiken_base(self, p):
         flattened = flatten(p)
         unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
         unflattened_aiken = parse(unflattened_aiken_string)

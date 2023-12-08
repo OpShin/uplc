@@ -1427,7 +1427,7 @@ class MiscTest(unittest.TestCase):
         parse(d)
         # should not raise
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())
 
     def test_unpack_plutus_data(self):
         p = Program(
@@ -1447,9 +1447,9 @@ class MiscTest(unittest.TestCase):
         parse(d)
         r = eval(p)
         # should not raise anything
-        r.dumps()
+        r.result.dumps()
         self.assertEqual(
-            r,
+            r.result,
             BuiltinPair(
                 l_value=BuiltinInteger(value=0),
                 r_value=BuiltinList(
@@ -1555,7 +1555,7 @@ class MiscTest(unittest.TestCase):
         # should not raise
         parse(d)
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())
 
     @parameterized.expand(
         [
@@ -1591,4 +1591,40 @@ class MiscTest(unittest.TestCase):
         # should not raise
         parse(d)
         r = eval(p)
-        self.assertEqual(r, BuiltinUnit())
+        self.assertEqual(r.result, BuiltinUnit())
+
+    def test_log_single(self):
+        x = "Hello, world!"
+        p = Program(
+            (1, 0, 0),
+            Apply(
+                Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=x)),
+                BuiltinUnit(),
+            ),
+        )
+        r = eval(p)
+        self.assertIn(x, r.logs, "Trace did not produce a log.")
+        self.assertEqual(
+            r.result, BuiltinUnit(), "Trace did not return second argument"
+        )
+
+    def test_log_double(self):
+        x = "Hello, world!"
+        y = "Hello, world 2!"
+        p = Program(
+            (1, 0, 0),
+            Apply(
+                Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=y)),
+                Apply(
+                    Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=x)),
+                    BuiltinUnit(),
+                ),
+            ),
+        )
+        r = eval(p)
+        self.assertIn(x, r.logs, "Trace did not produce a log for first message.")
+        self.assertIn(y, r.logs, "Trace did not produce a log for second message.")
+        self.assertEqual(r.logs, [x, y], "Trace did log in correct order.")
+        self.assertEqual(
+            r.result, BuiltinUnit(), "Trace did not return second argument"
+        )

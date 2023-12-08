@@ -1,0 +1,5 @@
+{
+  "result": "(con (pair integer (pair unit bool)) (12345, ((), True)))",
+  "cpu": 23100,
+  "mem": 200
+}

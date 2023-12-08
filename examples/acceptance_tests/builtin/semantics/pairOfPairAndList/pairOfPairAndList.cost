@@ -1,0 +1,5 @@
+{
+  "result": "(con (pair (pair bool bytestring) (list integer)) ((True, #012345), [0, 1, 2]))",
+  "cpu": 23100,
+  "mem": 200
+}

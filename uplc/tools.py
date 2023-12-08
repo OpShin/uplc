@@ -1,6 +1,14 @@
 import cbor2
 import rply.errors
 
+from .cost_model import (
+    default_budget,
+    Budget,
+    CekMachineCostModel,
+    default_cek_machine_cost_model_plutus_v2,
+    BuiltinCostModel,
+    default_builtin_cost_model_plutus_v2,
+)
 from .lexer import strip_comments, Lexer
 from .parser import Parser
 from .machine import Machine
@@ -52,9 +60,16 @@ def parse(s: str, filename=None):
     return program
 
 
-def eval(u: AST):
-    m = Machine(u)
-    return m.eval()
+def eval(
+    u: AST,
+    budget: Budget = default_budget(),
+    cek_machine_cost_model: CekMachineCostModel = default_cek_machine_cost_model_plutus_v2(),
+    builtin_cost_model: BuiltinCostModel = default_builtin_cost_model_plutus_v2(),
+):
+    m = Machine(budget, cek_machine_cost_model, builtin_cost_model)
+    if not isinstance(u, Program):
+        u = Program((1, 0, 0), u)
+    return m.eval(u)
 
 
 def dumps(u: AST, dialect=UPLCDialect.Aiken):

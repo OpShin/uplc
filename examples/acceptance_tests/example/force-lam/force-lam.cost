@@ -1,0 +1,5 @@
+{
+  "result": "(lam x (force x))",
+  "cpu": 23100,
+  "mem": 200
+}

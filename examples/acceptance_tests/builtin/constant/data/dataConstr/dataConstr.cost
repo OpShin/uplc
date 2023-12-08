@@ -1,0 +1,5 @@
+{
+  "result": "(con data (Constr 1 [I 1]))",
+  "cpu": 23100,
+  "mem": 200
+}

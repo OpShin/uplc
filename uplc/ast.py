@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import json
 import logging
+import math
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -89,18 +90,16 @@ _LOGGER = logging.getLogger(__name__)
 class AST:
     _fields = []
 
-    def eval(self, context: Context, state: frozendict.frozendict):
+    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         raise NotImplementedError()
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def ex_mem(self) -> int:
+        """The memory consumption of this element"""
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
 class Constant(AST):
-    def eval(self, context, state):
-        return Return(context, self)
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(con {self.typestring(dialect=dialect)} {self.valuestring(dialect=dialect)})"
 
@@ -119,6 +118,9 @@ class BuiltinUnit(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return "()"
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass(frozen=True)
 class BuiltinBool(Constant):
@@ -130,6 +132,9 @@ class BuiltinBool(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass(frozen=True)
 class BuiltinInteger(Constant):
@@ -140,6 +145,11 @@ class BuiltinInteger(Constant):
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return str(self.value)
+
+    def ex_mem(self) -> int:
+        if self.value == 0:
+            return 1
+        return (math.ceil(math.log2(abs(self.value))) // 64) + 1
 
     def __add__(self, other):
         assert isinstance(
@@ -203,6 +213,11 @@ class BuiltinByteString(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"#{self.value.hex()}"
 
+    def ex_mem(self) -> int:
+        if not self.value:
+            return 1
+        return ((len(self.value) - 1) // 8) + 1
+
     def __add__(self, other):
         assert isinstance(
             other, BuiltinByteString
@@ -250,6 +265,9 @@ class BuiltinString(Constant):
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return json.dumps(self.value)
 
+    def ex_mem(self) -> int:
+        return len(self.value)
+
     def __add__(self, other):
         assert isinstance(other, BuiltinString), "Can only add two bytestrings"
         return BuiltinString(self.value + other.value)
@@ -280,6 +298,9 @@ class BuiltinPair(Constant):
             return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
         elif dialect == UPLCDialect.Plutus:
             return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
+
+    def ex_mem(self) -> int:
+        return self.l_value.ex_mem() + self.r_value.ex_mem()
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -314,6 +335,9 @@ class BuiltinList(Constant):
 
     def valuestring(self, dialect=UPLCDialect.Aiken):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
+
+    def ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.values)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinList), "Can only append two lists"
@@ -351,6 +375,13 @@ class PlutusData(Constant):
         """Returns a JSON encodable representation of this object"""
         raise NotImplementedError
 
+    def ex_mem(self) -> int:
+        return 4 + self.d_ex_mem()
+
+    def d_ex_mem(self) -> int:
+        """Ex-Mem without the constant 4 cost for deconstruction"""
+        raise NotImplementedError()
+
 
 @dataclass(frozen=True)
 class PlutusAtomic(PlutusData):
@@ -367,6 +398,9 @@ class PlutusInteger(PlutusAtomic):
     def to_json(self):
         return {"int": self.value}
 
+    def d_ex_mem(self) -> int:
+        return BuiltinInteger(self.value).ex_mem()
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
@@ -374,6 +408,9 @@ class PlutusByteString(PlutusAtomic):
 
     def to_json(self):
         return {"bytes": self.value.hex()}
+
+    def d_ex_mem(self) -> int:
+        return BuiltinByteString(self.value).ex_mem()
 
 
 @dataclass(frozen=True, eq=True)
@@ -385,6 +422,9 @@ class PlutusList(PlutusData):
 
     def to_json(self):
         return {"list": [v.to_json() for v in self.value]}
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.value)
 
 
 @dataclass(frozen=True, eq=True)
@@ -398,6 +438,9 @@ class PlutusMap(PlutusData):
         return {
             "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
         }
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() + k.ex_mem() for k, v in self.value.items())
 
 
 @dataclass(frozen=True, eq=True)
@@ -421,6 +464,9 @@ class PlutusConstr(PlutusData):
             "constructor": self.constructor,
             "fields": [v.to_json() for v in self.fields],
         }
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.fields)
 
 
 def _int_to_bytes(x: int):
@@ -559,74 +605,95 @@ class ConstantType(Enum):
     data = auto()
 
 
-class callable_staticmethod(staticmethod):
-    """Callable version of staticmethod."""
-
-    def __call__(self, *args, **kwargs):
-        return self.__func__(*args, **kwargs)
-
-
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
+# NOTE it is crucial that the values matches table C.3 in the plutus core spec
+# https://ci.iog.io/build/1230997/download/1/plutus-core-specification.pdf
 class BuiltInFun(Enum):
-    @callable_staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        return count
-
-    AddInteger = auto()
-    SubtractInteger = auto()
-    MultiplyInteger = auto()
-    DivideInteger = auto()
-    QuotientInteger = auto()
-    RemainderInteger = auto()
-    ModInteger = auto()
-    EqualsInteger = auto()
-    LessThanInteger = auto()
-    LessThanEqualsInteger = auto()
-    AppendByteString = auto()
-    ConsByteString = auto()
-    SliceByteString = auto()
-    LengthOfByteString = auto()
-    IndexByteString = auto()
-    EqualsByteString = auto()
-    LessThanByteString = auto()
-    LessThanEqualsByteString = auto()
-    Sha2_256 = auto()
-    Sha3_256 = auto()
-    Blake2b_256 = auto()
-    # VerifySignature = auto()
-    VerifyEd25519Signature = auto()
-    AppendString = auto()
-    EqualsString = auto()
-    EncodeUtf8 = auto()
-    DecodeUtf8 = auto()
-    IfThenElse = auto()
-    ChooseUnit = auto()
-    Trace = auto()
-    FstPair = auto()
-    SndPair = auto()
-    ChooseList = auto()
-    MkCons = auto()
-    HeadList = auto()
-    TailList = auto()
-    NullList = auto()
-    ChooseData = auto()
-    ConstrData = auto()
-    MapData = auto()
-    ListData = auto()
-    IData = auto()
-    BData = auto()
-    UnConstrData = auto()
-    UnMapData = auto()
-    UnListData = auto()
-    UnIData = auto()
-    UnBData = auto()
-    EqualsData = auto()
-    MkPairData = auto()
-    MkNilData = auto()
-    MkNilPairData = auto()
-    SerialiseData = auto()
-    VerifyEcdsaSecp256k1Signature = auto()
-    VerifySchnorrSecp256k1Signature = auto()
+    # Integers
+    AddInteger = 0
+    SubtractInteger = 1
+    MultiplyInteger = 2
+    DivideInteger = 3
+    QuotientInteger = 4
+    RemainderInteger = 5
+    ModInteger = 6
+    EqualsInteger = 7
+    LessThanInteger = 8
+    LessThanEqualsInteger = 9
+    # Bytestrings
+    AppendByteString = 10
+    ConsByteString = 11
+    SliceByteString = 12
+    LengthOfByteString = 13
+    IndexByteString = 14
+    EqualsByteString = 15
+    LessThanByteString = 16
+    LessThanEqualsByteString = 17
+    # Cryptography and hashes
+    Sha2_256 = 18
+    Sha3_256 = 19
+    Blake2b_256 = 20
+    # Keccak_256 = 71
+    # Blake2b_224 = 72
+    VerifyEd25519Signature = 21  # formerly verifySignature
+    VerifyEcdsaSecp256k1Signature = 52
+    VerifySchnorrSecp256k1Signature = 53
+    # Strings
+    AppendString = 22
+    EqualsString = 23
+    EncodeUtf8 = 24
+    DecodeUtf8 = 25
+    # Bool
+    IfThenElse = 26
+    # Unit
+    ChooseUnit = 27
+    # Tracing
+    Trace = 28
+    # Pairs
+    FstPair = 29
+    SndPair = 30
+    # Lists
+    ChooseList = 31
+    MkCons = 32
+    HeadList = 33
+    TailList = 34
+    NullList = 35
+    # Data
+    ChooseData = 36
+    ConstrData = 37
+    MapData = 38
+    ListData = 39
+    IData = 40
+    BData = 41
+    UnConstrData = 42
+    UnMapData = 43
+    UnListData = 44
+    UnIData = 45
+    UnBData = 46
+    EqualsData = 47
+    SerialiseData = 51
+    # Misc monomorphized constructors
+    MkPairData = 48
+    MkNilData = 49
+    MkNilPairData = 50
+    # BLS Builtins
+    # Bls12_381_G1_Add = 54
+    # Bls12_381_G1_Neg = 55
+    # Bls12_381_G1_ScalarMul = 56
+    # Bls12_381_G1_Equal = 57
+    # Bls12_381_G1_Compress = 58
+    # Bls12_381_G1_Uncompress = 59
+    # Bls12_381_G1_HashToGroup = 60
+    # Bls12_381_G2_Add = 61
+    # Bls12_381_G2_Neg = 62
+    # Bls12_381_G2_ScalarMul = 63
+    # Bls12_381_G2_Equal = 64
+    # Bls12_381_G2_Compress = 65
+    # Bls12_381_G2_Uncompress = 66
+    # Bls12_381_G2_HashToGroup = 67
+    # Bls12_381_MillerLoop = 68
+    # Bls12_381_MulMlResult = 69
+    # Bls12_381_FinalVerify = 70
 
 
 def typechecked(*typs):
@@ -839,7 +906,7 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.IfThenElse: _IfThenElse,
     BuiltInFun.ChooseUnit: typechecked(BuiltinUnit, AST)(lambda x, y: y),
-    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: print(x.value) or y),
+    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: y),
     BuiltInFun.FstPair: typechecked(BuiltinPair)(lambda x: x[0]),
     BuiltInFun.SndPair: typechecked(BuiltinPair)(lambda x: x[1]),
     BuiltInFun.ChooseList: typechecked(BuiltinList, AST, AST)(
@@ -923,15 +990,6 @@ class Program(AST):
 class Variable(AST):
     name: str
 
-    def eval(self, context, state):
-        try:
-            return Return(context, state[self.name])
-        except KeyError as e:
-            _LOGGER.error(
-                f"Access to uninitialized variable {self.name} in {self.dumps()}"
-            )
-            raise e
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return self.name
 
@@ -943,17 +1001,14 @@ class BoundStateLambda(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(
-            context,
-            BoundStateLambda(self.var_name, self.term, self.state | state),
-        )
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
@@ -971,14 +1026,14 @@ class BoundStateDelay(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(context, BoundStateDelay(self.term, self.state | state))
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         s = f"(delay {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
@@ -994,15 +1049,6 @@ class Force(AST):
     term: AST
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Compute(
-            FrameForce(
-                context,
-            ),
-            state,
-            self.term,
-        )
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(force {self.term.dumps(dialect=dialect)})"
 
@@ -1012,9 +1058,6 @@ class ForcedBuiltIn(AST):
     builtin: BuiltInFun
     applied_forces: int
     bound_arguments: List[AST]
-
-    def eval(self, context, state):
-        return Return(context, self)
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         if len(self.bound_arguments):
@@ -1032,6 +1075,9 @@ class ForcedBuiltIn(AST):
             ).dumps(dialect=dialect)
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass
 class BuiltIn(ForcedBuiltIn):
@@ -1042,9 +1088,6 @@ class BuiltIn(ForcedBuiltIn):
 
 @dataclass
 class Error(AST):
-    def eval(self, context, state):
-        raise RuntimeError(f"Execution called Error")
-
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"(error)"
 
@@ -1054,17 +1097,6 @@ class Apply(AST):
     f: AST
     x: AST
     _fields = ["f", "x"]
-
-    def eval(self, context, state):
-        return Compute(
-            FrameApplyArg(
-                state,
-                self.x,
-                context,
-            ),
-            state,
-            self.f,
-        )
 
     def dumps(self, dialect=UPLCDialect.Aiken) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"

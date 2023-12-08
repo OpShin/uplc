@@ -1,0 +1,5 @@
+{
+  "result": "(lam n (delay (lam z (lam f [ f [ [ (force n) z ] f ] ]))))",
+  "cpu": 23100,
+  "mem": 200
+}

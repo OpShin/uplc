@@ -1,0 +1,5 @@
+{
+  "result": "(con string \"xyz\")",
+  "cpu": 23100,
+  "mem": 200
+}
