@@ -606,8 +606,8 @@ class ConstantType(Enum):
 
 
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
-# NOTE it is crucial that the values matches
-# https://github.com/aiken-lang/aiken/blob/825e65d7a305296486d91e1cb7916b9158897691/crates/uplc/src/builtins.rs#L12
+# NOTE it is crucial that the values matches table C.3 in the plutus core spec
+# https://ci.iog.io/build/1230997/download/1/plutus-core-specification.pdf
 class BuiltInFun(Enum):
 
     # Integers
