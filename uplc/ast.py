@@ -609,7 +609,6 @@ class ConstantType(Enum):
 # NOTE it is crucial that the values matches table C.3 in the plutus core spec
 # https://ci.iog.io/build/1230997/download/1/plutus-core-specification.pdf
 class BuiltInFun(Enum):
-
     # Integers
     AddInteger = 0
     SubtractInteger = 1
