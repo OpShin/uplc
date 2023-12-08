@@ -55,7 +55,12 @@ def main():
     a.add_argument(
         "--from-cbor",
         action="store_true",
-        help="Read hex representation of flattened UPLC.",
+        help="Read hex representation of flattened UPLC, wrapped in cbor.",
+    )
+    a.add_argument(
+        "--from-hex",
+        action="store_true",
+        help="Read hex representation of flattened UPLC, not wrapped in cbor.",
     )
     a.add_argument(
         "args",
@@ -78,6 +83,8 @@ def main():
 
     if args.from_cbor:
         code = unflatten(bytes.fromhex(source_code))
+    elif args.from_hex:
+        code = unflatten(cbor2.dumps(bytes.fromhex(source_code)))
     else:
         code: Program = parse(
             source_code,
@@ -95,7 +102,7 @@ def main():
     code: AST = code.term
     # Apply CLI parameters to code (i.e. to parameterize a parameterized contract)
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, reversed(args.args)):
+    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args):
         code: AST = Apply(code, d)
     code = Program(version, code)
 

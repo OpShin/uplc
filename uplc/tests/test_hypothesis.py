@@ -60,9 +60,7 @@ uplc_data = hst.recursive(
 uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
-uplc_builtin_string = hst.builds(
-    BuiltinString, hst.from_regex(r'([^\n\r"]|\\")*', fullmatch=True)
-)
+uplc_builtin_string = hst.builds(BuiltinString, hst.text())
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
 
@@ -354,7 +352,17 @@ class HypothesisTests(unittest.TestCase):
             term=PlutusInteger(2**64 + 2),
         )
     )
-    # @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
+    @hypothesis.example(
+        Program(
+            version=(0, 0, 0),
+            term=BuiltinString("\x00"),
+        )
+    )
+    # @hypothesis.example(
+    #     Program((0, 0, 0), BuiltinPair(BuiltinUnit(), BuiltinString('\x00')))
+    # )
+    @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
+    @hypothesis.example(Program((0, 0, 0), BuiltinList([BuiltinString("\x00")])))
     def test_flat_encode_pyaiken(self, p):
         flattened = flatten(p)
         unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())

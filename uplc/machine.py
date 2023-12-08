@@ -197,7 +197,7 @@ class Machine:
                     self.spend_budget(cost)
                     if function.builtin == BuiltInFun.Trace:
                         # Hack to add this side effect to the machine
-                        self.logs.append(arguments[0])
+                        self.logs.append(arguments[0].value)
                     res = eval_fun(*arguments)
                 else:
                     res = ForcedBuiltIn(
