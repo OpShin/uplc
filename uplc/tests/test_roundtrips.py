@@ -367,8 +367,8 @@ class HypothesisTests(unittest.TestCase):
     def test_flat_encode_pyaiken_hypothesis(self, p):
         self.flat_encode_pyaiken_base(p)
 
-    @parameterized.expand(v for v in BuiltInFun)
-    def test_flat_encode_pyaiken_builtins(self, b: BuiltInFun):
+    @parameterized.expand((v.name, v) for v in BuiltInFun)
+    def test_flat_encode_pyaiken_builtins(self, _, b: BuiltInFun):
         self.flat_encode_pyaiken_base(Program(version=(0, 0, 0), term=BuiltIn(b)))
 
     def flat_encode_pyaiken_base(self, p):
