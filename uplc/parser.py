@@ -209,25 +209,24 @@ class Parser:
 
         @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluelist")
         def expression(p):
-            assert p[0].value == "List", f"Invalid plutus bytestring constant {p}"
-            return PlutusList(p[2])
+            if p[0].value == "List":
+                return PlutusList(p[2])
+            elif p[0].value == "Map":
+                assert p[2] == [], f"Invalid plutus map constant"
+                return PlutusMap(dict())
+            raise ValueError(f"Invalid plutus constant {p[0]}")
 
         @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
         def expression(p):
             return [p[0]] + p[2]
 
-        @self.pg.production("plutusvaluelist : plutusvalue plutusvaluelist ")
+        @self.pg.production("plutusvaluelist : plutusvalue BRACK_CLOSE ")
         def expression(p):
-            return [p[0]] + p[1]
+            return [p[0]]
 
         @self.pg.production("plutusvaluelist : BRACK_CLOSE ")
         def expression(p):
             return []
-
-        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluemap")
-        def expression(p):
-            assert p[0].value == "Map", f"Invalid plutus map constant {p}"
-            return PlutusMap(dict(p[2]))
 
         @self.pg.production(
             "plutusvaluepair : PAREN_OPEN plutusvalue COMMA plutusvalue PAREN_CLOSE"
@@ -235,17 +234,20 @@ class Parser:
         def expression(p):
             return (p[1], p[3])
 
-        @self.pg.production("plutusvaluemap : plutusvaluepair COMMA plutusvaluemap ")
+        @self.pg.production(
+            "plutusvaluepairlist : plutusvaluepair COMMA plutusvaluepairlist "
+        )
         def expression(p):
             return [p[0]] + p[2]
 
-        @self.pg.production("plutusvaluemap : plutusvaluepair plutusvaluemap ")
+        @self.pg.production("plutusvaluepairlist : plutusvaluepair BRACK_CLOSE ")
         def expression(p):
-            return [p[0]] + p[1]
+            return [p[0]]
 
-        @self.pg.production("plutusvaluemap : BRACK_CLOSE ")
+        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluepairlist")
         def expression(p):
-            return []
+            assert p[0].value == "Map", f"Invalid plutus map {p[0]} constant"
+            return PlutusMap(dict(p[2]))
 
     def get_parser(self):
         lrparser = self.pg.build()

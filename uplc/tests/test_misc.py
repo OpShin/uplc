@@ -1545,6 +1545,11 @@ class MiscTest(unittest.TestCase):
         p = parse(program)
         self.assertEqual(dumps(p, dialect=UPLCDialect.Plutus), program)
 
+    def test_parse_plutus2(self):
+        program = """(program 1.0.0 (con data (Map [])))"""
+        p = parse(program)
+        self.assertEqual(dumps(p, dialect=UPLCDialect.Plutus), program)
+
     def test_simple_contract_rewrite(self):
         p = SAMPLE_CONTRACT
         # should not raise
