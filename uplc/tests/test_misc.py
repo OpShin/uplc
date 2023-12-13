@@ -1541,10 +1541,9 @@ class MiscTest(unittest.TestCase):
         print(dumps(p))
 
     def test_parse_plutus(self):
-        p = parse(
-            """(program 1.0.0 (con (pair (list integer) bytestring) ([1], #01)))"""
-        )
-        print(dumps(p, dialect=UPLCDialect.Plutus))
+        program = """(program 1.0.0 (con (pair (pair (list integer) bytestring) data) (([1], #01), (Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]]))))"""
+        p = parse(program)
+        self.assertEqual(dumps(p, dialect=UPLCDialect.Plutus), program)
 
     def test_simple_contract_rewrite(self):
         p = SAMPLE_CONTRACT

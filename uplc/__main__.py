@@ -52,7 +52,7 @@ def main():
     )
     a.add_argument(
         "--dialect",
-        default=UPLCDialect.Aiken.value,
+        default=UPLCDialect.LegacyAiken.value,
         help="The dialect for dumping the parsed UPLC.",
         choices=[d.value for d in UPLCDialect],
     )

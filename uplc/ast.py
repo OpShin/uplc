@@ -31,7 +31,7 @@ except (RuntimeError, ImportError):
 
 
 class UPLCDialect(enum.Enum):
-    Aiken = "aiken"
+    LegacyAiken = "legacy-aiken"
     Plutus = "plutus"
 
 
@@ -90,7 +90,7 @@ _LOGGER = logging.getLogger(__name__)
 class AST:
     _fields = []
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         raise NotImplementedError()
 
     def ex_mem(self) -> int:
@@ -100,22 +100,22 @@ class AST:
 
 @dataclass(frozen=True)
 class Constant(AST):
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return f"(con {self.typestring(dialect=dialect)} {self.valuestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         raise NotImplementedError()
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
 class BuiltinUnit(Constant):
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "unit"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return "()"
 
     def ex_mem(self) -> int:
@@ -126,10 +126,10 @@ class BuiltinUnit(Constant):
 class BuiltinBool(Constant):
     value: bool
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "bool"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return str(self.value)
 
     def ex_mem(self) -> int:
@@ -140,10 +140,10 @@ class BuiltinBool(Constant):
 class BuiltinInteger(Constant):
     value: int
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "integer"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return str(self.value)
 
     def ex_mem(self) -> int:
@@ -207,10 +207,10 @@ class BuiltinInteger(Constant):
 class BuiltinByteString(Constant):
     value: bytes
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "bytestring"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return f"#{self.value.hex()}"
 
     def ex_mem(self) -> int:
@@ -259,10 +259,10 @@ class BuiltinByteString(Constant):
 class BuiltinString(Constant):
     value: str
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "string"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return json.dumps(self.value)
 
     def ex_mem(self) -> int:
@@ -287,14 +287,14 @@ class BuiltinPair(Constant):
     l_value: Constant
     r_value: Constant
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"pair<{self.l_value.typestring(dialect=dialect)}, {self.r_value.typestring(dialect=dialect)}>"
         elif dialect == UPLCDialect.Plutus:
             return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
         elif dialect == UPLCDialect.Plutus:
             return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
@@ -327,13 +327,13 @@ class BuiltinList(Constant):
         else:
             object.__setattr__(self, "sample_value", values[0])
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"list<{self.sample_value.typestring(dialect=dialect)}>"
         elif dialect == UPLCDialect.Plutus:
             return f"(list {self.sample_value.typestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
 
     def ex_mem(self) -> int:
@@ -359,13 +359,16 @@ class BuiltinList(Constant):
 
 @dataclass(frozen=True)
 class PlutusData(Constant):
-    pass
+    def valuestring(self, dialect=UPLCDialect.LegacyAiken) -> str:
+        if dialect == UPLCDialect.LegacyAiken:
+            return f"#{plutus_cbor_dumps(self).hex()}"
+        return f"({self.plutus_valuestring()})"
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def plutus_valuestring(self):
+        raise NotImplementedError
+
+    def typestring(self, dialect=UPLCDialect.LegacyAiken):
         return "data"
-
-    def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"#{plutus_cbor_dumps(self).hex()}"
 
     def to_cbor(self) -> Any:
         """Returns a CBOR encodable representation of this object"""
@@ -398,6 +401,9 @@ class PlutusInteger(PlutusAtomic):
     def to_json(self):
         return {"int": self.value}
 
+    def plutus_valuestring(self):
+        return f"I {self.value}"
+
     def d_ex_mem(self) -> int:
         return BuiltinInteger(self.value).ex_mem()
 
@@ -408,6 +414,9 @@ class PlutusByteString(PlutusAtomic):
 
     def to_json(self):
         return {"bytes": self.value.hex()}
+
+    def plutus_valuestring(self):
+        return f"B #{self.value.hex()}"
 
     def d_ex_mem(self) -> int:
         return BuiltinByteString(self.value).ex_mem()
@@ -422,6 +431,9 @@ class PlutusList(PlutusData):
 
     def to_json(self):
         return {"list": [v.to_json() for v in self.value]}
+
+    def plutus_valuestring(self):
+        return f"List [{', '.join(x.plutus_valuestring() for x in self.value)}]"
 
     def d_ex_mem(self) -> int:
         return sum(v.ex_mem() for v in self.value)
@@ -438,6 +450,13 @@ class PlutusMap(PlutusData):
         return {
             "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
         }
+
+    def plutus_valuestring(self):
+        recursive_val_strings = (
+            f"({x.plutus_valuestring()}, {y.plutus_valuestring()})"
+            for x, y in self.value.items()
+        )
+        return f"Map [{', '.join(recursive_val_strings)}]"
 
     def d_ex_mem(self) -> int:
         return sum(v.ex_mem() + k.ex_mem() for k, v in self.value.items())
@@ -464,6 +483,9 @@ class PlutusConstr(PlutusData):
             "constructor": self.constructor,
             "fields": [v.to_json() for v in self.fields],
         }
+
+    def plutus_valuestring(self):
+        return f"Constr {self.constructor} [{', '.join(x.plutus_valuestring() for x in self.fields)}]"
 
     def d_ex_mem(self) -> int:
         return sum(v.ex_mem() for v in self.fields)
@@ -982,7 +1004,7 @@ class Program(AST):
     def eval(self, context, state):
         return self.term.eval(context, state)
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return f"(program {'.'.join(str(x) for x in self.version)} {self.term.dumps(dialect=dialect)})"
 
 
@@ -990,7 +1012,7 @@ class Program(AST):
 class Variable(AST):
     name: str
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return self.name
 
 
@@ -1001,7 +1023,7 @@ class BoundStateLambda(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
@@ -1026,7 +1048,7 @@ class BoundStateDelay(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         s = f"(delay {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
@@ -1049,7 +1071,7 @@ class Force(AST):
     term: AST
     _fields = ["term"]
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return f"(force {self.term.dumps(dialect=dialect)})"
 
 
@@ -1059,7 +1081,7 @@ class ForcedBuiltIn(AST):
     applied_forces: int
     bound_arguments: List[AST]
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         if len(self.bound_arguments):
             return Apply(
                 ForcedBuiltIn(
@@ -1088,7 +1110,7 @@ class BuiltIn(ForcedBuiltIn):
 
 @dataclass
 class Error(AST):
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return f"(error)"
 
 
@@ -1098,5 +1120,5 @@ class Apply(AST):
     x: AST
     _fields = ["f", "x"]
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.LegacyAiken) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"

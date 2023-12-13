@@ -80,8 +80,8 @@ class AcceptanceTests(unittest.TestCase):
         output_parsed_unique = unique_variables.UniqueVariableTransformer().visit(
             output_parsed
         )
-        res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.Aiken)
-        output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.Aiken)
+        res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.LegacyAiken)
+        output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
         cost_file = next(f for f in files if f.endswith("cost"))
         with open(Path(dirpath).joinpath(cost_file)) as f:
