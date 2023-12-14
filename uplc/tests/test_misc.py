@@ -1540,15 +1540,19 @@ class MiscTest(unittest.TestCase):
         )
         print(dumps(p))
 
-    def test_parse_plutus(self):
-        program = """(program 1.0.0 (con (pair (pair (list integer) bytestring) data) (([1], #01), (Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]]))))"""
+    @parameterized.expand(
+        [
+            """(con (pair (pair (list integer) bytestring) data) (([1], #01), (Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]])))""",
+            """(con data (Map []))""",
+            """(con (list data) [I 0, B #])""",
+            """(con (list data) [(I 0), (B #)])""",
+            """(con (pair data data) (I 0, B #))""",
+            """(con (pair data data) ((I 0), (B #)))""",
+        ]
+    )
+    def test_parse_constants(self, program):
+        program = f"(program 1.0.0 {program})"
         p = parse(program)
-        self.assertEqual(dumps(p, dialect=UPLCDialect.Plutus), program)
-
-    def test_parse_plutus2(self):
-        program = """(program 1.0.0 (con data (Map [])))"""
-        p = parse(program)
-        self.assertEqual(dumps(p, dialect=UPLCDialect.Plutus), program)
 
     def test_simple_contract_rewrite(self):
         p = SAMPLE_CONTRACT

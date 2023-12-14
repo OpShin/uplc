@@ -192,6 +192,10 @@ class Parser:
         def expression(p):
             return p[1]
 
+        @self.pg.production("builtinvalue : plutusvalue")
+        def expression(p):
+            return p[0]
+
         @self.pg.production("plutusvalue : NAME HEX")
         def expression(p):
             assert p[0].value == "B", f"Invalid plutus bytestring constant {p}"
