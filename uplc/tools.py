@@ -72,5 +72,5 @@ def eval(
     return m.eval(u)
 
 
-def dumps(u: AST, dialect=UPLCDialect.LegacyAiken):
+def dumps(u: AST, dialect=UPLCDialect.Plutus):
     return u.dumps(dialect)

@@ -1542,15 +1542,26 @@ class MiscTest(unittest.TestCase):
 
     @parameterized.expand(
         [
-            """(con (pair (pair (list integer) bytestring) data) (([1], #01), (Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]])))""",
+            """(con (pair (pair (list integer) bytestring) data) (([1], #01), Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]]))""",
             """(con data (Map []))""",
             """(con (list data) [I 0, B #])""",
-            """(con (list data) [(I 0), (B #)])""",
             """(con (pair data data) (I 0, B #))""",
-            """(con (pair data data) ((I 0), (B #)))""",
         ]
     )
     def test_parse_constants(self, program):
+        program = f"(program 1.0.0 {program})"
+        p = parse(program)
+        self.assertEqual(dumps(p, UPLCDialect.Plutus), program)
+
+    @parameterized.expand(
+        [
+            """(con (pair (pair (list integer) bytestring) data) (([1], #01), (Constr 1 [I 2, B #00, List [I 1, I 2], Map [(I 1, B #01)]])))""",
+            """(con (list data) [(I 0), (B #)])""",
+            """(con (pair data data) ((I 0), (B #)))""",
+        ]
+    )
+    @unittest.expectedFailure
+    def test_reject_constants(self, program):
         program = f"(program 1.0.0 {program})"
         p = parse(program)
 

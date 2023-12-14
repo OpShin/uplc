@@ -290,14 +290,12 @@ class BuiltinPair(Constant):
     def typestring(self, dialect=UPLCDialect.Plutus):
         if dialect == UPLCDialect.LegacyAiken:
             return f"pair<{self.l_value.typestring(dialect=dialect)}, {self.r_value.typestring(dialect=dialect)}>"
-        elif dialect == UPLCDialect.Plutus:
-            return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
+        return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
 
     def valuestring(self, dialect=UPLCDialect.Plutus):
         if dialect == UPLCDialect.LegacyAiken:
             return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
-        elif dialect == UPLCDialect.Plutus:
-            return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
+        return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
 
     def ex_mem(self) -> int:
         return self.l_value.ex_mem() + self.r_value.ex_mem()
@@ -330,8 +328,7 @@ class BuiltinList(Constant):
     def typestring(self, dialect=UPLCDialect.Plutus):
         if dialect == UPLCDialect.LegacyAiken:
             return f"list<{self.sample_value.typestring(dialect=dialect)}>"
-        elif dialect == UPLCDialect.Plutus:
-            return f"(list {self.sample_value.typestring(dialect=dialect)})"
+        return f"(list {self.sample_value.typestring(dialect=dialect)})"
 
     def valuestring(self, dialect=UPLCDialect.Plutus):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
@@ -359,10 +356,16 @@ class BuiltinList(Constant):
 
 @dataclass(frozen=True)
 class PlutusData(Constant):
+    def dumps(self, dialect=UPLCDialect.Plutus):
+        internal_string = self.valuestring(dialect=dialect)
+        if dialect == UPLCDialect.Plutus:
+            internal_string = f"({internal_string})"
+        return f"(con data {internal_string})"
+
     def valuestring(self, dialect=UPLCDialect.Plutus) -> str:
         if dialect == UPLCDialect.LegacyAiken:
             return f"#{plutus_cbor_dumps(self).hex()}"
-        return f"({self.plutus_valuestring()})"
+        return f"{self.plutus_valuestring()}"
 
     def plutus_valuestring(self):
         raise NotImplementedError
