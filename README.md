@@ -34,9 +34,9 @@ This tool may be used to parse, reformat (/dump), evaluate or build contract art
 # Check validity of a source file
 uplc parse examples/fibonacci.uplc
 
-# Dump a source file in either the aiken or the plutus dialect
-uplc dump examples/fibonacci.uplc --dialect aiken
+# Dump a source file in either the official plutus or legacy aiken dialect
 uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
+uplc dump examples/fibonacci.uplc --dialect legacy-aiken
 
 # Evaluate a UPLC program on UPLC input
 uplc eval examples/fibonacci.uplc "(con integer 5)"
