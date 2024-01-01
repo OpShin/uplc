@@ -343,6 +343,7 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(Program(version=(0, 0, 0), term=PlutusConstr(0, [])))
     @hypothesis.example(
         Program(
             version=(0, 0, 0),
