@@ -309,8 +309,6 @@ class HypothesisTests(unittest.TestCase):
                     orig_res = Force(orig_res)
                 orig_res = eval(orig_res)
             orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
-        except unique_variables.FreeVariableError:
-            self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             orig_res = e.__class__
         try:
@@ -327,8 +325,6 @@ class HypothesisTests(unittest.TestCase):
             rewrite_res = unique_variables.UniqueVariableTransformer().visit(
                 rewrite_res
             )
-        except unique_variables.FreeVariableError:
-            self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             rewrite_res = e.__class__
         self.assertEqual(

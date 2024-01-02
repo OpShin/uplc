@@ -7,13 +7,15 @@ import logging
 from dataclasses import dataclass
 
 from .ast import *
+from .transformer.debrujin_variables import DeBrujinVariableTransformer
+from .transformer.unique_variables import UniqueVariableTransformer
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class Machine:
     def __init__(self, program: AST, max_steps=1000000):
-        self.program = program
+        self.program = UniqueVariableTransformer().visit(program)
         self.rem_steps = max_steps
 
     def eval(self):
