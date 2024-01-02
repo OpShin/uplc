@@ -56,6 +56,21 @@ class Budget:
     def __rmul__(self, other: int) -> "Budget":
         return Budget(self.cpu * other, self.memory * other)
 
+    def __ge__(self, other: "Budget") -> bool:
+        return self.cpu >= other.cpu and self.memory >= other.memory
+
+    def __gt__(self, other: "Budget") -> bool:
+        return self.cpu > other.cpu and self.memory > other.memory
+
+    def __lt__(self, other: "Budget") -> bool:
+        return self.cpu < other.cpu and self.memory < other.memory
+
+    def __le__(self, other: "Budget") -> bool:
+        return self.cpu <= other.cpu and self.memory <= other.memory
+
+    def __eq__(self, other: "Budget") -> bool:
+        return self.cpu == other.cpu and self.memory == other.memory
+
     def exhausted(self):
         return self.cpu < 0 or self.memory < 0
 
