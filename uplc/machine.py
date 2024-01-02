@@ -4,6 +4,7 @@ DeBrujin Machine to evaluate UPLC AST
 import copy
 
 from .ast import *
+from .transformer.unique_variables import UniqueVariableTransformer, FreeVariableError
 from .cost_model import CekMachineCostModel, BuiltinCostModel, CekOp, Budget
 
 _LOGGER = logging.getLogger(__name__)
@@ -80,6 +81,14 @@ class Machine:
     # Compute methods
 
     def eval(self, program: Program):
+        try:
+            program = UniqueVariableTransformer().visit(program)
+        except FreeVariableError as e:
+            return ComputationResult(
+                e,
+                [],
+                Budget(0, 0),
+            )
         self.remaining_budget = copy.copy(self.budget)
         self.logs = []
         stack = [

@@ -90,7 +90,15 @@ class AcceptanceTests(unittest.TestCase):
             return
         cost = json.loads(cost_content)
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
-        self.assertEqual(
-            expected_spent_budget, comp_res.cost, "Program evaluated with wrong cost."
-        )
-        # TODO check logs
+        if rewriter == pre_evaluation.PreEvaluationOptimizer:
+            self.assertGreaterEqual(
+                expected_spent_budget,
+                comp_res.cost,
+                "Program cost more after preeval rewrite",
+            )
+        else:
+            self.assertEqual(
+                expected_spent_budget,
+                comp_res.cost,
+                "Program evaluated with wrong cost.",
+            )
