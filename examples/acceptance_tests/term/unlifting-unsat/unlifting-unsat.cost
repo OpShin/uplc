@@ -1,0 +1,5 @@
+{
+  "result": "[ (builtin addInteger) (con unit ()) ]",
+  "cpu": 69100,
+  "mem": 400
+}

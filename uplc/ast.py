@@ -2,6 +2,7 @@ import dataclasses
 import enum
 import json
 import logging
+import math
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -30,7 +31,7 @@ except (RuntimeError, ImportError):
 
 
 class UPLCDialect(enum.Enum):
-    Aiken = "aiken"
+    LegacyAiken = "legacy-aiken"
     Plutus = "plutus"
 
 
@@ -89,57 +90,66 @@ _LOGGER = logging.getLogger(__name__)
 class AST:
     _fields = []
 
-    def eval(self, context: Context, state: frozendict.frozendict):
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         raise NotImplementedError()
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def ex_mem(self) -> int:
+        """The memory consumption of this element"""
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
 class Constant(AST):
-    def eval(self, context, state):
-        return Return(context, self)
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"(con {self.typestring(dialect=dialect)} {self.valuestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         raise NotImplementedError()
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         raise NotImplementedError()
 
 
 @dataclass(frozen=True)
 class BuiltinUnit(Constant):
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "unit"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return "()"
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass(frozen=True)
 class BuiltinBool(Constant):
     value: bool
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "bool"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return str(self.value)
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass(frozen=True)
 class BuiltinInteger(Constant):
     value: int
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "integer"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return str(self.value)
+
+    def ex_mem(self) -> int:
+        if self.value == 0:
+            return 1
+        return (math.ceil(math.log2(abs(self.value))) // 64) + 1
 
     def __add__(self, other):
         assert isinstance(
@@ -197,11 +207,16 @@ class BuiltinInteger(Constant):
 class BuiltinByteString(Constant):
     value: bytes
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "bytestring"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return f"#{self.value.hex()}"
+
+    def ex_mem(self) -> int:
+        if not self.value:
+            return 1
+        return ((len(self.value) - 1) // 8) + 1
 
     def __add__(self, other):
         assert isinstance(
@@ -244,11 +259,14 @@ class BuiltinByteString(Constant):
 class BuiltinString(Constant):
     value: str
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "string"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return json.dumps(self.value)
+
+    def ex_mem(self) -> int:
+        return len(self.value)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinString), "Can only add two bytestrings"
@@ -269,17 +287,18 @@ class BuiltinPair(Constant):
     l_value: Constant
     r_value: Constant
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def typestring(self, dialect=UPLCDialect.Plutus):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"pair<{self.l_value.typestring(dialect=dialect)}, {self.r_value.typestring(dialect=dialect)}>"
-        elif dialect == UPLCDialect.Plutus:
-            return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
+        return f"(pair {self.l_value.typestring(dialect=dialect)} {self.r_value.typestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def valuestring(self, dialect=UPLCDialect.Plutus):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"[{self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)}]"
-        elif dialect == UPLCDialect.Plutus:
-            return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
+        return f"({self.l_value.valuestring(dialect=dialect)}, {self.r_value.valuestring(dialect=dialect)})"
+
+    def ex_mem(self) -> int:
+        return self.l_value.ex_mem() + self.r_value.ex_mem()
 
     def __getitem__(self, item):
         if isinstance(item, int):
@@ -306,14 +325,16 @@ class BuiltinList(Constant):
         else:
             object.__setattr__(self, "sample_value", values[0])
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
-        if dialect == UPLCDialect.Aiken:
+    def typestring(self, dialect=UPLCDialect.Plutus):
+        if dialect == UPLCDialect.LegacyAiken:
             return f"list<{self.sample_value.typestring(dialect=dialect)}>"
-        elif dialect == UPLCDialect.Plutus:
-            return f"(list {self.sample_value.typestring(dialect=dialect)})"
+        return f"(list {self.sample_value.typestring(dialect=dialect)})"
 
-    def valuestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus):
         return f"[{', '.join(v.valuestring(dialect=dialect) for v in self.values)}]"
+
+    def ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.values)
 
     def __add__(self, other):
         assert isinstance(other, BuiltinList), "Can only append two lists"
@@ -335,13 +356,22 @@ class BuiltinList(Constant):
 
 @dataclass(frozen=True)
 class PlutusData(Constant):
-    pass
+    def dumps(self, dialect=UPLCDialect.Plutus):
+        internal_string = self.valuestring(dialect=dialect)
+        if dialect == UPLCDialect.Plutus:
+            internal_string = f"({internal_string})"
+        return f"(con data {internal_string})"
 
-    def typestring(self, dialect=UPLCDialect.Aiken):
+    def valuestring(self, dialect=UPLCDialect.Plutus) -> str:
+        if dialect == UPLCDialect.LegacyAiken:
+            return f"#{plutus_cbor_dumps(self).hex()}"
+        return f"{self.plutus_valuestring()}"
+
+    def plutus_valuestring(self):
+        raise NotImplementedError
+
+    def typestring(self, dialect=UPLCDialect.Plutus):
         return "data"
-
-    def valuestring(self, dialect=UPLCDialect.Aiken):
-        return f"#{plutus_cbor_dumps(self).hex()}"
 
     def to_cbor(self) -> Any:
         """Returns a CBOR encodable representation of this object"""
@@ -350,6 +380,13 @@ class PlutusData(Constant):
     def to_json(self) -> dict:
         """Returns a JSON encodable representation of this object"""
         raise NotImplementedError
+
+    def ex_mem(self) -> int:
+        return 4 + self.d_ex_mem()
+
+    def d_ex_mem(self) -> int:
+        """Ex-Mem without the constant 4 cost for deconstruction"""
+        raise NotImplementedError()
 
 
 @dataclass(frozen=True)
@@ -367,6 +404,12 @@ class PlutusInteger(PlutusAtomic):
     def to_json(self):
         return {"int": self.value}
 
+    def plutus_valuestring(self):
+        return f"I {self.value}"
+
+    def d_ex_mem(self) -> int:
+        return BuiltinInteger(self.value).ex_mem()
+
 
 @dataclass(frozen=True, eq=True)
 class PlutusByteString(PlutusAtomic):
@@ -374,6 +417,12 @@ class PlutusByteString(PlutusAtomic):
 
     def to_json(self):
         return {"bytes": self.value.hex()}
+
+    def plutus_valuestring(self):
+        return f"B #{self.value.hex()}"
+
+    def d_ex_mem(self) -> int:
+        return BuiltinByteString(self.value).ex_mem()
 
 
 @dataclass(frozen=True, eq=True)
@@ -385,6 +434,12 @@ class PlutusList(PlutusData):
 
     def to_json(self):
         return {"list": [v.to_json() for v in self.value]}
+
+    def plutus_valuestring(self):
+        return f"List [{', '.join(x.plutus_valuestring() for x in self.value)}]"
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.value)
 
 
 @dataclass(frozen=True, eq=True)
@@ -398,6 +453,16 @@ class PlutusMap(PlutusData):
         return {
             "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
         }
+
+    def plutus_valuestring(self):
+        recursive_val_strings = (
+            f"({x.plutus_valuestring()}, {y.plutus_valuestring()})"
+            for x, y in self.value.items()
+        )
+        return f"Map [{', '.join(recursive_val_strings)}]"
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() + k.ex_mem() for k, v in self.value.items())
 
 
 @dataclass(frozen=True, eq=True)
@@ -421,6 +486,12 @@ class PlutusConstr(PlutusData):
             "constructor": self.constructor,
             "fields": [v.to_json() for v in self.fields],
         }
+
+    def plutus_valuestring(self):
+        return f"Constr {self.constructor} [{', '.join(x.plutus_valuestring() for x in self.fields)}]"
+
+    def d_ex_mem(self) -> int:
+        return sum(v.ex_mem() for v in self.fields)
 
 
 def _int_to_bytes(x: int):
@@ -559,83 +630,166 @@ class ConstantType(Enum):
     data = auto()
 
 
-class callable_staticmethod(staticmethod):
-    """Callable version of staticmethod."""
-
-    def __call__(self, *args, **kwargs):
-        return self.__func__(*args, **kwargs)
-
-
 # As found in https://plutonomicon.github.io/plutonomicon/builtin-functions
+# NOTE it is crucial that the values matches table C.3 in the plutus core spec
+# https://ci.iog.io/build/1230997/download/1/plutus-core-specification.pdf
 class BuiltInFun(Enum):
-    @callable_staticmethod
-    def _generate_next_value_(name, start, count, last_values):
-        return count
+    # Integers
+    AddInteger = 0
+    SubtractInteger = 1
+    MultiplyInteger = 2
+    DivideInteger = 3
+    QuotientInteger = 4
+    RemainderInteger = 5
+    ModInteger = 6
+    EqualsInteger = 7
+    LessThanInteger = 8
+    LessThanEqualsInteger = 9
+    # Bytestrings
+    AppendByteString = 10
+    ConsByteString = 11
+    SliceByteString = 12
+    LengthOfByteString = 13
+    IndexByteString = 14
+    EqualsByteString = 15
+    LessThanByteString = 16
+    LessThanEqualsByteString = 17
+    # Cryptography and hashes
+    Sha2_256 = 18
+    Sha3_256 = 19
+    Blake2b_256 = 20
+    # Keccak_256 = 71
+    # Blake2b_224 = 72
+    VerifyEd25519Signature = 21  # formerly verifySignature
+    VerifyEcdsaSecp256k1Signature = 52
+    VerifySchnorrSecp256k1Signature = 53
+    # Strings
+    AppendString = 22
+    EqualsString = 23
+    EncodeUtf8 = 24
+    DecodeUtf8 = 25
+    # Bool
+    IfThenElse = 26
+    # Unit
+    ChooseUnit = 27
+    # Tracing
+    Trace = 28
+    # Pairs
+    FstPair = 29
+    SndPair = 30
+    # Lists
+    ChooseList = 31
+    MkCons = 32
+    HeadList = 33
+    TailList = 34
+    NullList = 35
+    # Data
+    ChooseData = 36
+    ConstrData = 37
+    MapData = 38
+    ListData = 39
+    IData = 40
+    BData = 41
+    UnConstrData = 42
+    UnMapData = 43
+    UnListData = 44
+    UnIData = 45
+    UnBData = 46
+    EqualsData = 47
+    SerialiseData = 51
+    # Misc monomorphized constructors
+    MkPairData = 48
+    MkNilData = 49
+    MkNilPairData = 50
+    # BLS Builtins
+    # Bls12_381_G1_Add = 54
+    # Bls12_381_G1_Neg = 55
+    # Bls12_381_G1_ScalarMul = 56
+    # Bls12_381_G1_Equal = 57
+    # Bls12_381_G1_Compress = 58
+    # Bls12_381_G1_Uncompress = 59
+    # Bls12_381_G1_HashToGroup = 60
+    # Bls12_381_G2_Add = 61
+    # Bls12_381_G2_Neg = 62
+    # Bls12_381_G2_ScalarMul = 63
+    # Bls12_381_G2_Equal = 64
+    # Bls12_381_G2_Compress = 65
+    # Bls12_381_G2_Uncompress = 66
+    # Bls12_381_G2_HashToGroup = 67
+    # Bls12_381_MillerLoop = 68
+    # Bls12_381_MulMlResult = 69
+    # Bls12_381_FinalVerify = 70
 
-    AddInteger = auto()
-    SubtractInteger = auto()
-    MultiplyInteger = auto()
-    DivideInteger = auto()
-    QuotientInteger = auto()
-    RemainderInteger = auto()
-    ModInteger = auto()
-    EqualsInteger = auto()
-    LessThanInteger = auto()
-    LessThanEqualsInteger = auto()
-    AppendByteString = auto()
-    ConsByteString = auto()
-    SliceByteString = auto()
-    LengthOfByteString = auto()
-    IndexByteString = auto()
-    EqualsByteString = auto()
-    LessThanByteString = auto()
-    LessThanEqualsByteString = auto()
-    Sha2_256 = auto()
-    Sha3_256 = auto()
-    Blake2b_256 = auto()
-    # VerifySignature = auto()
-    VerifyEd25519Signature = auto()
-    AppendString = auto()
-    EqualsString = auto()
-    EncodeUtf8 = auto()
-    DecodeUtf8 = auto()
-    IfThenElse = auto()
-    ChooseUnit = auto()
-    Trace = auto()
-    FstPair = auto()
-    SndPair = auto()
-    ChooseList = auto()
-    MkCons = auto()
-    HeadList = auto()
-    TailList = auto()
-    NullList = auto()
-    ChooseData = auto()
-    ConstrData = auto()
-    MapData = auto()
-    ListData = auto()
-    IData = auto()
-    BData = auto()
-    UnConstrData = auto()
-    UnMapData = auto()
-    UnListData = auto()
-    UnIData = auto()
-    UnBData = auto()
-    EqualsData = auto()
-    MkPairData = auto()
-    MkNilData = auto()
-    MkNilPairData = auto()
-    SerialiseData = auto()
-    VerifyEcdsaSecp256k1Signature = auto()
-    VerifySchnorrSecp256k1Signature = auto()
+
+def typechecked(*typs):
+    def typecheck_decorator(fun):
+        if len(typs) == 1:
+
+            def wrapped_fun(a1):
+                for i, (arg, typ) in enumerate(zip([a1], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1)
+
+        elif len(typs) == 2:
+
+            def wrapped_fun(a1, a2):
+                for i, (arg, typ) in enumerate(zip([a1, a2], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2)
+
+        elif len(typs) == 3:
+
+            def wrapped_fun(a1, a2, a3):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3)
+
+        elif len(typs) == 4:
+
+            def wrapped_fun(a1, a2, a3, a4):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4)
+
+        elif len(typs) == 5:
+
+            def wrapped_fun(a1, a2, a3, a4, a5):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4, a5], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4, a5)
+
+        elif len(typs) == 6:
+
+            def wrapped_fun(a1, a2, a3, a4, a5, a6):
+                for i, (arg, typ) in enumerate(zip([a1, a2, a3, a4, a5, a6], typs)):
+                    assert isinstance(
+                        arg, typ
+                    ), f"Argument {i} has invalid type, expected type {typ} got {type(arg)} ({arg})"
+                return fun(a1, a2, a3, a4, a5, a6)
+
+        else:
+            raise NotImplementedError("Too many arguments")
+        return wrapped_fun
+
+    return typecheck_decorator
 
 
+@typechecked(BuiltinBool, AST, AST)
 def _IfThenElse(i, t, e):
-    assert isinstance(
-        i, BuiltinBool
-    ), "Trying to compute ifthenelse with non-builtin-bool"
     return t if i.value else e
 
 
+@typechecked(PlutusData, AST, AST, AST, AST, AST)
 def _ChooseData(d, v, w, x, y, z):
     if isinstance(d, PlutusConstr):
         return v
@@ -649,6 +803,7 @@ def _ChooseData(d, v, w, x, y, z):
         return z
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString):
     assert len(pk.value) == 32, "Ed25519S PublicKey should be 32 bytes"
     assert len(s.value) == 64, "Ed25519S Signature should be 64 bytes"
@@ -659,9 +814,11 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
         return BuiltinBool(False)
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    # TODO length checks
     if pysecp256k1 is None:
         _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
         raise RuntimeError("ECDSA not supported")
@@ -671,9 +828,11 @@ def verify_ecdsa_secp256k1(
     return BuiltinBool(res)
 
 
+@typechecked(BuiltinByteString, BuiltinByteString, BuiltinByteString)
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
+    # TODO length checks
     if pysecp256k1 is None:
         _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
         raise RuntimeError("ECDSA not supported")
@@ -691,87 +850,134 @@ def _quot(a, b):
     return a // b if (a * b > BuiltinInteger(0)).value else (a + (-a % b)) // b
 
 
+@typechecked(BuiltinList)
 def _TailList(xs: BuiltinList):
     if xs.values == []:
         raise RuntimeError("Can not tailList on an empty list")
     return xs[1:]
 
 
+def _MkCons(x, xs):
+    assert isinstance(xs, BuiltinList), "Can only cons onto a list"
+    assert isinstance(
+        x, xs.sample_value.__class__
+    ), "Can only cons elements of the same type"
+    return BuiltinList([x]) + xs
+
+
+def _MapData(x):
+    assert isinstance(x, BuiltinList), "Can only map over a list"
+    assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
+    return PlutusMap({p.l_value: p.r_value for p in x.values})
+
+
+two_ints = typechecked(BuiltinInteger, BuiltinInteger)
+two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
+two_strings = typechecked(BuiltinString, BuiltinString)
+single_bytestring = typechecked(BuiltinByteString)
+single_data = typechecked(PlutusData)
+
 BuiltInFunEvalMap = {
-    BuiltInFun.AddInteger: lambda x, y: BuiltinInteger(x.value) + y,
-    BuiltInFun.SubtractInteger: lambda x, y: BuiltinInteger(x.value) - y,
-    BuiltInFun.MultiplyInteger: lambda x, y: BuiltinInteger(x.value) * y,
+    BuiltInFun.AddInteger: two_ints(lambda x, y: x + y),
+    BuiltInFun.SubtractInteger: two_ints(lambda x, y: x - y),
+    BuiltInFun.MultiplyInteger: two_ints(lambda x, y: x * y),
     # round towards -inf
-    BuiltInFun.DivideInteger: lambda x, y: BuiltinInteger(x.value) // y,
+    BuiltInFun.DivideInteger: two_ints(lambda x, y: x // y),
     # round towards 0
-    BuiltInFun.QuotientInteger: _quot,
+    BuiltInFun.QuotientInteger: two_ints(_quot),
     # (x `quot` y)*y + (x `rem` y) == x
-    BuiltInFun.RemainderInteger: lambda x, y: BuiltinInteger(x.value) - _quot(x, y) * y,
+    BuiltInFun.RemainderInteger: two_ints(lambda x, y: x - _quot(x, y) * y),
     # (x `div` y)*y + (x `mod` y) == x
-    BuiltInFun.ModInteger: lambda x, y: BuiltinInteger(x.value) % y,
-    BuiltInFun.EqualsInteger: lambda x, y: BuiltinInteger(x.value) == y,
-    BuiltInFun.LessThanInteger: lambda x, y: BuiltinInteger(x.value) < y,
-    BuiltInFun.LessThanEqualsInteger: lambda x, y: BuiltinInteger(x.value) <= y,
-    BuiltInFun.AppendByteString: lambda x, y: BuiltinByteString(x.value) + y,
-    BuiltInFun.ConsByteString: lambda x, y: BuiltinByteString(bytes([x.value])) + y,
-    BuiltInFun.SliceByteString: lambda x, y, z: BuiltinByteString(
-        z.value[max(x.value, 0) :][: max(y.value, 0)]
+    BuiltInFun.ModInteger: two_ints(lambda x, y: x % y),
+    BuiltInFun.EqualsInteger: two_ints(lambda x, y: x == y),
+    BuiltInFun.LessThanInteger: two_ints(lambda x, y: x < y),
+    BuiltInFun.LessThanEqualsInteger: two_ints(lambda x, y: x <= y),
+    BuiltInFun.AppendByteString: two_bytestrings(lambda x, y: x + y),
+    BuiltInFun.ConsByteString: typechecked(BuiltinInteger, BuiltinByteString)(
+        lambda x, y: BuiltinByteString(bytes([x.value])) + y
     ),
-    BuiltInFun.LengthOfByteString: lambda x: BuiltinInteger(len(x.value)),
-    BuiltInFun.IndexByteString: lambda x, y: BuiltinByteString(x.value)[y],
-    BuiltInFun.EqualsByteString: lambda x, y: BuiltinByteString(x.value) == y,
-    BuiltInFun.LessThanByteString: lambda x, y: BuiltinByteString(x.value) < y,
-    BuiltInFun.LessThanEqualsByteString: lambda x, y: BuiltinByteString(x.value) <= y,
-    BuiltInFun.Sha2_256: lambda x: BuiltinByteString(hashlib.sha256(x.value).digest()),
-    BuiltInFun.Sha3_256: lambda x: BuiltinByteString(
-        hashlib.sha3_256(x.value).digest()
+    BuiltInFun.SliceByteString: typechecked(
+        BuiltinInteger, BuiltinInteger, BuiltinByteString
+    )(lambda x, y, z: BuiltinByteString(z.value[max(x.value, 0) :][: max(y.value, 0)])),
+    BuiltInFun.LengthOfByteString: single_bytestring(
+        lambda x: BuiltinInteger(len(x.value))
     ),
-    BuiltInFun.Blake2b_256: lambda x: BuiltinByteString(
-        hashlib.blake2b(x.value, digest_size=32).digest()
+    BuiltInFun.IndexByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        lambda x, y: x[y]
+    ),
+    BuiltInFun.EqualsByteString: two_bytestrings(lambda x, y: x == y),
+    BuiltInFun.LessThanByteString: two_bytestrings(lambda x, y: x < y),
+    BuiltInFun.LessThanEqualsByteString: two_bytestrings(lambda x, y: x <= y),
+    BuiltInFun.Sha2_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.sha256(x.value).digest())
+    ),
+    BuiltInFun.Sha3_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.sha3_256(x.value).digest())
+    ),
+    BuiltInFun.Blake2b_256: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.blake2b(x.value, digest_size=32).digest())
     ),
     # BuiltInFun.VerifySignature: verify_ed25519,
     BuiltInFun.VerifyEd25519Signature: verify_ed25519,
     BuiltInFun.VerifyEcdsaSecp256k1Signature: verify_ecdsa_secp256k1,
     BuiltInFun.VerifySchnorrSecp256k1Signature: verify_schnorr_secp256k1,
-    BuiltInFun.AppendString: lambda x, y: BuiltinString(x.value) + y,
-    BuiltInFun.EqualsString: lambda x, y: BuiltinString(x.value) == y,
-    BuiltInFun.EncodeUtf8: lambda x: BuiltinByteString(x.value.encode("utf8")),
-    BuiltInFun.DecodeUtf8: lambda x: BuiltinString(x.value.decode("utf8")),
+    BuiltInFun.AppendString: two_strings(lambda x, y: x + y),
+    BuiltInFun.EqualsString: two_strings(lambda x, y: x == y),
+    BuiltInFun.EncodeUtf8: typechecked(BuiltinString)(
+        lambda x: BuiltinByteString(x.value.encode("utf8"))
+    ),
+    BuiltInFun.DecodeUtf8: single_bytestring(
+        lambda x: BuiltinString(x.value.decode("utf8"))
+    ),
     BuiltInFun.IfThenElse: _IfThenElse,
-    BuiltInFun.ChooseUnit: lambda x, y: y,
-    BuiltInFun.Trace: lambda x, y: print(x.value) or y,
-    BuiltInFun.FstPair: lambda x: x[0],
-    BuiltInFun.SndPair: lambda x: x[1],
-    BuiltInFun.ChooseList: lambda l, x, y: x
-    if BuiltinList([], l.sample_value) == l
-    else y,
-    BuiltInFun.MkCons: lambda e, l: BuiltinList([e]) + l,
-    BuiltInFun.HeadList: lambda l: l[0],
+    BuiltInFun.ChooseUnit: typechecked(BuiltinUnit, AST)(lambda x, y: y),
+    BuiltInFun.Trace: typechecked(BuiltinString, AST)(lambda x, y: y),
+    BuiltInFun.FstPair: typechecked(BuiltinPair)(lambda x: x[0]),
+    BuiltInFun.SndPair: typechecked(BuiltinPair)(lambda x: x[1]),
+    BuiltInFun.ChooseList: typechecked(BuiltinList, AST, AST)(
+        lambda l, x, y: x if BuiltinList([], l.sample_value) == l else y
+    ),
+    BuiltInFun.MkCons: _MkCons,
+    BuiltInFun.HeadList: typechecked(BuiltinList)(lambda l: l[0]),
     BuiltInFun.TailList: _TailList,
-    BuiltInFun.NullList: lambda l: BuiltinBool(l == BuiltinList([], l.sample_value)),
+    BuiltInFun.NullList: typechecked(BuiltinList)(
+        lambda l: BuiltinBool(l.values == [])
+    ),
     BuiltInFun.ChooseData: _ChooseData,
-    BuiltInFun.ConstrData: lambda x, y: PlutusConstr(x.value, y.values),
-    BuiltInFun.MapData: lambda x: PlutusMap({p.l_value: p.r_value for p in x.values}),
-    BuiltInFun.ListData: lambda x: PlutusList(x.values),
-    BuiltInFun.IData: lambda x: PlutusInteger(x.value),
-    BuiltInFun.BData: lambda x: PlutusByteString(x.value),
-    BuiltInFun.UnConstrData: lambda x: BuiltinPair(
-        BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+    BuiltInFun.ConstrData: typechecked(BuiltinInteger, BuiltinList)(
+        lambda x, y: PlutusConstr(x.value, y.values)
     ),
-    BuiltInFun.UnMapData: lambda x: BuiltinList(
-        [BuiltinPair(k, v) for k, v in x.value.items()],
-        BuiltinPair(PlutusData(), PlutusData()),
+    BuiltInFun.MapData: _MapData,
+    BuiltInFun.ListData: typechecked(BuiltinList)(lambda x: PlutusList(x.values)),
+    BuiltInFun.IData: typechecked(BuiltinInteger)(lambda x: PlutusInteger(x.value)),
+    BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
+    BuiltInFun.UnConstrData: single_data(
+        lambda x: BuiltinPair(
+            BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+        )
     ),
-    BuiltInFun.UnListData: lambda x: BuiltinList(x.value, PlutusData()),
-    BuiltInFun.UnIData: lambda x: BuiltinInteger(x.value),
-    BuiltInFun.UnBData: lambda x: BuiltinByteString(x.value),
-    BuiltInFun.EqualsData: lambda x, y: BuiltinBool(x == y),
-    BuiltInFun.MkPairData: lambda x, y: BuiltinPair(x, y),
+    BuiltInFun.UnMapData: single_data(
+        lambda x: BuiltinList(
+            [BuiltinPair(k, v) for k, v in x.value.items()],
+            BuiltinPair(PlutusData(), PlutusData()),
+        )
+    ),
+    BuiltInFun.UnListData: single_data(lambda x: BuiltinList(x.value, PlutusData())),
+    BuiltInFun.UnIData: single_data(lambda x: BuiltinInteger(x.value)),
+    BuiltInFun.UnBData: single_data(lambda x: BuiltinByteString(x.value)),
+    BuiltInFun.EqualsData: typechecked(PlutusData, PlutusData)(
+        lambda x, y: BuiltinBool(x == y)
+    ),
+    BuiltInFun.MkPairData: typechecked(Constant, Constant)(
+        lambda x, y: BuiltinPair(x, y)
+    ),
     BuiltInFun.MkNilData: lambda _: BuiltinList([], PlutusData()),
     BuiltInFun.MkNilPairData: lambda _: BuiltinList(
         [], BuiltinPair(PlutusData(), PlutusData())
     ),
-    BuiltInFun.SerialiseData: lambda x: BuiltinByteString(plutus_cbor_dumps(x)),
+    BuiltInFun.SerialiseData: single_data(
+        lambda x: BuiltinByteString(plutus_cbor_dumps(x))
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
@@ -801,7 +1007,7 @@ class Program(AST):
     def eval(self, context, state):
         return self.term.eval(context, state)
 
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"(program {'.'.join(str(x) for x in self.version)} {self.term.dumps(dialect=dialect)})"
 
 
@@ -809,16 +1015,7 @@ class Program(AST):
 class Variable(AST):
     name: str
 
-    def eval(self, context, state):
-        try:
-            return Return(context, state[self.name])
-        except KeyError as e:
-            _LOGGER.error(
-                f"Access to uninitialized variable {self.name} in {self.dumps()}"
-            )
-            raise e
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return self.name
 
 
@@ -829,17 +1026,14 @@ class BoundStateLambda(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(
-            context,
-            BoundStateLambda(self.var_name, self.term, self.state | state),
-        )
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         s = f"(lam {self.var_name} {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
@@ -857,14 +1051,14 @@ class BoundStateDelay(AST):
     state: frozendict.frozendict
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Return(context, BoundStateDelay(self.term, self.state | state))
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         s = f"(delay {self.term.dumps(dialect=dialect)})"
         for k, v in reversed(self.state.items()):
             s = f"[(lam {k} {s}) {v.dumps(dialect=dialect)}]"
         return s
+
+    def ex_mem(self) -> int:
+        return 1
 
 
 @dataclass
@@ -880,16 +1074,7 @@ class Force(AST):
     term: AST
     _fields = ["term"]
 
-    def eval(self, context, state):
-        return Compute(
-            FrameForce(
-                context,
-            ),
-            state,
-            self.term,
-        )
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"(force {self.term.dumps(dialect=dialect)})"
 
 
@@ -899,10 +1084,7 @@ class ForcedBuiltIn(AST):
     applied_forces: int
     bound_arguments: List[AST]
 
-    def eval(self, context, state):
-        return Return(context, self)
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         if len(self.bound_arguments):
             return Apply(
                 ForcedBuiltIn(
@@ -918,6 +1100,9 @@ class ForcedBuiltIn(AST):
             ).dumps(dialect=dialect)
         return f"(builtin {self.builtin.name[0].lower()}{self.builtin.name[1:]})"
 
+    def ex_mem(self) -> int:
+        return 1
+
 
 @dataclass
 class BuiltIn(ForcedBuiltIn):
@@ -928,10 +1113,7 @@ class BuiltIn(ForcedBuiltIn):
 
 @dataclass
 class Error(AST):
-    def eval(self, context, state):
-        raise RuntimeError(f"Execution called Error")
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"(error)"
 
 
@@ -941,16 +1123,5 @@ class Apply(AST):
     x: AST
     _fields = ["f", "x"]
 
-    def eval(self, context, state):
-        return Compute(
-            FrameApplyArg(
-                state,
-                self.x,
-                context,
-            ),
-            state,
-            self.f,
-        )
-
-    def dumps(self, dialect=UPLCDialect.Aiken) -> str:
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"

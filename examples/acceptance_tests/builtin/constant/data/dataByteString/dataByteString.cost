@@ -1,0 +1,5 @@
+{
+  "result": "(con data (B #0123456789abcdef))",
+  "cpu": 23100,
+  "mem": 200
+}

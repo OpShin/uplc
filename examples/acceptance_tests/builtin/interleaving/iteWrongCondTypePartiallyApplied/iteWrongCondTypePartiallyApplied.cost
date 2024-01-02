@@ -1,0 +1,5 @@
+{
+  "result": "[\n  [ (force (builtin ifThenElse)) (con string \"11 <= 22\") ]\n  (con string \"\\\\172(11 <= 22)\")\n]",
+  "cpu": 138100,
+  "mem": 700
+}

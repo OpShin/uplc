@@ -1,0 +1,5 @@
+{
+  "result": "(con data (List [Constr 1 [], I 1234, B #abcdef]))",
+  "cpu": 23100,
+  "mem": 200
+}

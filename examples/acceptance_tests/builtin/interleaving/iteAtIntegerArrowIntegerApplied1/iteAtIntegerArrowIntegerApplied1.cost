@@ -1,0 +1,5 @@
+{
+  "result": "[ (builtin multiplyInteger) (con integer 11) ]",
+  "cpu": 654053,
+  "mem": 1702
+}

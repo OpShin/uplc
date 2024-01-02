@@ -4,6 +4,14 @@ import re
 from rply import ParserGenerator
 import rply
 from . import lexer, ast
+from .ast import (
+    PlutusData,
+    PlutusConstr,
+    PlutusByteString,
+    PlutusInteger,
+    PlutusList,
+    PlutusMap,
+)
 
 
 class Parser:
@@ -72,8 +80,8 @@ class Parser:
         def delay(p):
             return [p[0]] + p[1]
 
-        @self.pg.production("builtintype : NAME")
-        def builtintype(p):
+        @self.pg.production("constanttype : NAME")
+        def constanttype(p):
             name = p[0].value
             if name == "integer":
                 return ast.BuiltinInteger(0)
@@ -89,16 +97,16 @@ class Parser:
                 return ast.PlutusData()
             raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("builtintype : NAME CARET_OPEN builtintype CARET_CLOSE")
-        def builtintype(p):
+        @self.pg.production("constanttype : NAME CARET_OPEN constanttype CARET_CLOSE")
+        def constanttype(p):
             # the Aiken dialect
             name = p[0].value
             if name == "list":
                 return ast.BuiltinList([], p[2])
             raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("builtintype : PAREN_OPEN NAME builtintype PAREN_CLOSE")
-        def builtintype(p):
+        @self.pg.production("constanttype : PAREN_OPEN NAME constanttype PAREN_CLOSE")
+        def constanttype(p):
             # the Plutus dialect
             name = p[1].value
             if name == "list":
@@ -106,9 +114,9 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "builtintype : NAME CARET_OPEN builtintype COMMA builtintype CARET_CLOSE"
+            "constanttype : NAME CARET_OPEN constanttype COMMA constanttype CARET_CLOSE"
         )
-        def builtintype(p):
+        def constanttype(p):
             # the Aiken dialect
             name = p[0].value
             if name == "pair":
@@ -116,9 +124,9 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "builtintype : PAREN_OPEN NAME builtintype builtintype PAREN_CLOSE"
+            "constanttype : PAREN_OPEN NAME constanttype constanttype PAREN_CLOSE"
         )
-        def builtintype(p):
+        def constanttype(p):
             # the Plutus dialect
             name = p[1].value
             if name == "pair":
@@ -126,12 +134,16 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "expression : PAREN_OPEN CON builtintype builtinvalue PAREN_CLOSE"
+            "expression : PAREN_OPEN CON constanttype constantvalue PAREN_CLOSE"
         )
         def constant(p):
             typ = p[2]
             val = p[3]
             return wrap_builtin_type(typ, val)
+
+        @self.pg.production("constantvalue : builtinvalue")
+        def expression(p):
+            return p[0]
 
         @self.pg.production("builtinvalue : HEX")
         def expression(p):
@@ -155,30 +167,103 @@ class Parser:
             assert p[0].value in ("True", "False"), f"Invalid boolean constant {p}"
             return p[0].value == "True"
 
-        @self.pg.production("builtinvaluelist : builtinvalue COMMA builtinvaluelist ")
+        @self.pg.production(
+            "constantvaluelist : nestedconstantvalue COMMA constantvaluelist "
+        )
         def expression(p):
             return [p[0]] + p[2]
 
-        @self.pg.production("builtinvaluelist : builtinvalue builtinvaluelist ")
+        @self.pg.production(
+            "constantvaluelist : nestedconstantvalue constantvaluelist "
+        )
         def expression(p):
             return [p[0]] + p[1]
 
-        @self.pg.production("builtinvaluelist : BRACK_CLOSE ")
+        @self.pg.production("constantvaluelist : BRACK_CLOSE ")
         def expression(p):
             return []
 
-        @self.pg.production("builtinvalue : BRACK_OPEN builtinvaluelist")
+        @self.pg.production("builtinvalue : BRACK_OPEN constantvaluelist")
         def expression(p):
             # the Aiken dialect for pair and list values
             # and the Plutus dialect for list values
             return p[1]
 
         @self.pg.production(
-            "builtinvalue : PAREN_OPEN builtinvalue COMMA builtinvalue PAREN_CLOSE"
+            "builtinvalue : PAREN_OPEN nestedconstantvalue COMMA nestedconstantvalue PAREN_CLOSE"
         )
         def expression(p):
             # and the Plutus dialect for pairs
             return (p[1], p[3])
+
+        @self.pg.production("constantvalue : PAREN_OPEN plutusvalue PAREN_CLOSE")
+        def expression(p):
+            return p[1]
+
+        @self.pg.production("nestedconstantvalue : builtinvalue")
+        def expression(p):
+            return p[0]
+
+        @self.pg.production("nestedconstantvalue : plutusvalue")
+        def expression(p):
+            return p[0]
+
+        @self.pg.production("plutusvalue : NAME HEX")
+        def expression(p):
+            assert p[0].value == "B", f"Invalid plutus bytestring constant {p}"
+            return PlutusByteString(bytes.fromhex(p[1].value[1:]))
+
+        @self.pg.production("plutusvalue : NAME NUMBER")
+        def expression(p):
+            assert p[0].value == "I", f"Invalid plutus integer constant {p}"
+            return PlutusInteger(int(p[1].value))
+
+        @self.pg.production("plutusvalue : NAME NUMBER BRACK_OPEN plutusvaluelist")
+        def expression(p):
+            assert p[0].value == "Constr", f"Invalid plutus list constant {p}"
+            return PlutusConstr(int(p[1].value), p[3])
+
+        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluelist")
+        def expression(p):
+            if p[0].value == "List":
+                return PlutusList(p[2])
+            elif p[0].value == "Map":
+                assert p[2] == [], f"Invalid plutus map constant"
+                return PlutusMap(dict())
+            raise ValueError(f"Invalid plutus constant {p[0]}")
+
+        @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluelist : plutusvalue BRACK_CLOSE ")
+        def expression(p):
+            return [p[0]]
+
+        @self.pg.production("plutusvaluelist : BRACK_CLOSE ")
+        def expression(p):
+            return []
+
+        @self.pg.production(
+            "plutusvaluepair : PAREN_OPEN plutusvalue COMMA plutusvalue PAREN_CLOSE"
+        )
+        def expression(p):
+            return (p[1], p[3])
+
+        @self.pg.production(
+            "plutusvaluepairlist : plutusvaluepair COMMA plutusvaluepairlist "
+        )
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluepairlist : plutusvaluepair BRACK_CLOSE ")
+        def expression(p):
+            return [p[0]]
+
+        @self.pg.production("plutusvalue : NAME BRACK_OPEN plutusvaluepairlist")
+        def expression(p):
+            assert p[0].value == "Map", f"Invalid plutus map {p[0]} constant"
+            return PlutusMap(dict(p[2]))
 
     def get_parser(self):
         lrparser = self.pg.build()
@@ -272,8 +357,11 @@ class LRParserImproved(rply.parser.LRParser):
 def wrap_builtin_type(typ: ast.Constant, val):
     """Hmmmmmmm wraps ...."""
     if isinstance(typ, ast.PlutusData):
-        assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
-        return ast.data_from_cbor(val)
+        if isinstance(val, bytes):
+            return ast.data_from_cbor(val)
+        if isinstance(val, PlutusData):
+            return val
+        raise SyntaxError(f"Invalid plutus data constant {val}")
     if isinstance(typ, ast.BuiltinList):
         assert isinstance(val, list), f"Expected list but found {type(val)}"
         return ast.BuiltinList(

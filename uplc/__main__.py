@@ -10,6 +10,15 @@ import pycardano
 from .tools import *
 from .ast import Program, Apply
 from .transformer import unique_variables
+from .cost_model import (
+    parse_builtin_cost_model,
+    parse_cek_machine_cost_model,
+    Budget,
+    load_network_config,
+    latest_network_config,
+    updated_cek_machine_cost_model_from_network_config,
+    updated_builtin_cost_model_from_network_config,
+)
 
 
 class Command(enum.Enum):
@@ -43,7 +52,7 @@ def main():
     )
     a.add_argument(
         "--dialect",
-        default=UPLCDialect.Aiken.value,
+        default=UPLCDialect.Plutus.value,
         help="The dialect for dumping the parsed UPLC.",
         choices=[d.value for d in UPLCDialect],
     )
@@ -55,7 +64,12 @@ def main():
     a.add_argument(
         "--from-cbor",
         action="store_true",
-        help="Read hex representation of flattened UPLC.",
+        help="Read hex representation of flattened UPLC, wrapped in cbor.",
+    )
+    a.add_argument(
+        "--from-hex",
+        action="store_true",
+        help="Read hex representation of flattened UPLC, not wrapped in cbor.",
     )
     a.add_argument(
         "args",
@@ -69,6 +83,43 @@ def main():
         help="Modify the recursion limit (necessary for larger UPLC programs)",
         type=int,
     )
+    a.add_argument(
+        "--builtin-cost-model-file",
+        default=None,
+        help="Provide a builtin cost-model file for the eval command. You will usually not need this.",
+        type=str,
+    )
+    a.add_argument(
+        "--cek-machine-cost-model-file",
+        default=None,
+        help="Provide a builtin cost-model file for the eval command. You will usually not need this.",
+        type=str,
+    )
+    a.add_argument(
+        "--cost-model-network-config",
+        default=None,
+        help="Provide a network config as propagated by the cardano-node for the eval command.",
+        type=str,
+    )
+    a.add_argument(
+        "--eval-cpu-budget",
+        default=None,
+        help="Provide a CPU budget for the eval command.",
+        type=int,
+    )
+    a.add_argument(
+        "--eval-memory-budget",
+        default=None,
+        help="Provide a Memory budget for the eval command.",
+        type=int,
+    )
+    a.add_argument(
+        "--plutus-version",
+        default=2,
+        help="Plutus version to use.",
+        choices=[1, 2],
+        type=int,
+    )
     args = a.parse_args()
     sys.setrecursionlimit(args.recursion_limit)
     command = Command(args.command)
@@ -78,6 +129,8 @@ def main():
 
     if args.from_cbor:
         code = unflatten(bytes.fromhex(source_code))
+    elif args.from_hex:
+        code = unflatten(cbor2.dumps(bytes.fromhex(source_code)))
     else:
         code: Program = parse(
             source_code,
@@ -95,7 +148,7 @@ def main():
     code: AST = code.term
     # Apply CLI parameters to code (i.e. to parameterize a parameterized contract)
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, reversed(args.args)):
+    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args):
         code: AST = Apply(code, d)
     code = Program(version, code)
 
@@ -151,14 +204,49 @@ def main():
         return
     if command == Command.eval:
         print("Starting execution")
-        print("------------------")
-        try:
-            ret = eval(code).dumps()
-        except Exception as e:
-            print("An exception was raised")
-            ret = e
-        print("------------------")
-        print(ret)
+        if args.builtin_cost_model_file is not None:
+            with open(args.builtin_cost_model_file, "r") as fp:
+                builtin_cost_model = parse_builtin_cost_model(json.load(fp))
+        else:
+            builtin_cost_model = default_builtin_cost_model_plutus_v2()
+        if args.cek_machine_cost_model_file is not None:
+            with open(args.cek_machine_cost_model_file, "r") as fp:
+                cek_machine_cost_model = parse_cek_machine_cost_model(json.load(fp))
+        else:
+            cek_machine_cost_model = default_cek_machine_cost_model_plutus_v2()
+        if args.cost_model_network_config is not None:
+            with open(args.cost_model_network_config, "r") as fp:
+                network_config = load_network_config(json.load(fp))
+        else:
+            network_config = latest_network_config()
+        network_config = network_config[f"PlutusV{args.plutus_version}"]
+        cek_machine_cost_model = updated_cek_machine_cost_model_from_network_config(
+            cek_machine_cost_model, network_config
+        )
+        builtin_cost_model = updated_builtin_cost_model_from_network_config(
+            builtin_cost_model, network_config
+        )
+        budget = default_budget()
+        if args.eval_cpu_budget:
+            budget.cpu = args.eval_cpu_budget
+        if args.eval_memory_budget:
+            budget.memory = args.eval_memory_budget
+        ret = eval(code, budget, cek_machine_cost_model, builtin_cost_model)
+        print("-------LOGS-------")
+        if ret.logs:
+            for line in ret.logs:
+                print(line)
+        else:
+            print("None.")
+        print("-------COST-------")
+        print(f"CPU: {ret.cost.cpu}")
+        print(f"Memory: {ret.cost.memory}")
+        if isinstance(ret.result, Exception):
+            print("-----ERROR-------")
+            print(ret.result)
+        else:
+            print("-----SUCCESS-----")
+            print(ret.result.dumps())
 
 
 if __name__ == "__main__":
