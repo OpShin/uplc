@@ -3,7 +3,7 @@ import unittest
 
 import hypothesis
 from hypothesis import strategies as hst
-import frozenlist as fl
+from frozenlist2 import frozenlist
 import pyaiken
 from parameterized import parameterized
 
@@ -16,12 +16,6 @@ from ..transformer import unique_variables, debrujin_variables, undebrujin_varia
 from ..ast import *
 from .. import lexer
 from ..util import NodeVisitor
-
-
-def frozenlist(l):
-    l = fl.FrozenList(l)
-    l.freeze()
-    return l
 
 
 pos_int = hst.integers(min_value=0, max_value=2**64 - 1)

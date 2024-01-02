@@ -12,7 +12,7 @@ from typing import List, Any, Dict, Union
 
 import cbor2
 import frozendict
-import frozenlist
+from frozenlist2 import frozenlist
 import nacl.exceptions
 from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
@@ -316,9 +316,7 @@ class BuiltinList(Constant):
     sample_value: Constant
 
     def __init__(self, values, sample_value=None):
-        frozen_values = frozenlist.FrozenList(values)
-        frozen_values.freeze()
-        object.__setattr__(self, "values", frozen_values)
+        object.__setattr__(self, "values", frozenlist(values))
         if not values:
             assert (
                 sample_value is not None
@@ -429,12 +427,10 @@ class PlutusByteString(PlutusAtomic):
 
 @dataclass(frozen=True, eq=True)
 class PlutusList(PlutusData):
-    value: Union[List[PlutusData], frozenlist.FrozenList]
+    value: Union[List[PlutusData], frozenlist]
 
     def __post_init__(self):
-        frozen_value = frozenlist.FrozenList(self.value)
-        frozen_value.freeze()
-        object.__setattr__(self, "value", frozen_value)
+        object.__setattr__(self, "value", frozenlist(self.value))
 
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
@@ -479,12 +475,10 @@ class PlutusMap(PlutusData):
 @dataclass(frozen=True, eq=True)
 class PlutusConstr(PlutusData):
     constructor: int
-    fields: Union[List[PlutusData], frozenlist.FrozenList]
+    fields: Union[List[PlutusData], frozenlist]
 
     def __post_init__(self):
-        frozen_value = frozenlist.FrozenList(self.fields)
-        frozen_value.freeze()
-        object.__setattr__(self, "fields", frozen_value)
+        object.__setattr__(self, "fields", frozenlist(self.fields))
 
     def to_cbor(self):
         fields = (
@@ -576,16 +570,14 @@ def data_from_cbortag(cbor) -> PlutusData:
             constructor, fields = cbor.value
         else:
             raise ValueError(f"Invalid cbor with tag {cbor.tag}")
-        fields = frozenlist.FrozenList(list(map(data_from_cbortag, fields)))
-        fields.freeze()
+        fields = frozenlist(list(map(data_from_cbortag, fields)))
         return PlutusConstr(constructor, fields)
     if isinstance(cbor, int):
         return PlutusInteger(cbor)
     if isinstance(cbor, bytes):
         return PlutusByteString(cbor)
     if isinstance(cbor, list):
-        entries = frozenlist.FrozenList(list(map(data_from_cbortag, cbor)))
-        entries.freeze()
+        entries = frozenlist(list(map(data_from_cbortag, cbor)))
         return PlutusList(entries)
     if isinstance(cbor, dict):
         return PlutusMap(
@@ -603,16 +595,14 @@ def data_from_cbor(cbor: bytes) -> PlutusData:
 
 def data_from_json_dict(d: dict) -> PlutusData:
     if "constructor" in d:
-        fields = frozenlist.FrozenList([data_from_json_dict(f) for f in d["fields"]])
-        fields.freeze()
+        fields = frozenlist([data_from_json_dict(f) for f in d["fields"]])
         return PlutusConstr(d["constructor"], fields)
     if "int" in d:
         return PlutusInteger(d["int"])
     if "bytes" in d:
         return PlutusByteString(bytes.fromhex(d["bytes"]))
     if "list" in d:
-        entries = frozenlist.FrozenList(list(map(data_from_json_dict, d["list"])))
-        entries.freeze()
+        entries = frozenlist(list(map(data_from_json_dict, d["list"])))
         return PlutusList(entries)
     if "map" in d:
         return PlutusMap(
