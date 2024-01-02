@@ -316,7 +316,9 @@ class BuiltinList(Constant):
     sample_value: Constant
 
     def __init__(self, values, sample_value=None):
-        object.__setattr__(self, "values", values)
+        frozen_values = frozenlist.FrozenList(values)
+        frozen_values.freeze()
+        object.__setattr__(self, "values", frozen_values)
         if not values:
             assert (
                 sample_value is not None
@@ -429,6 +431,11 @@ class PlutusByteString(PlutusAtomic):
 class PlutusList(PlutusData):
     value: Union[List[PlutusData], frozenlist.FrozenList]
 
+    def __post_init__(self):
+        frozen_value = frozenlist.FrozenList(self.value)
+        frozen_value.freeze()
+        object.__setattr__(self, "value", frozen_value)
+
     def to_cbor(self):
         return [d.to_cbor() for d in self.value]
 
@@ -445,6 +452,10 @@ class PlutusList(PlutusData):
 @dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
     value: Union[Dict[PlutusData, PlutusData], frozendict.frozendict]
+
+    def __post_init__(self):
+        frozen_value = frozendict.frozendict(self.value)
+        object.__setattr__(self, "value", frozen_value)
 
     def to_cbor(self):
         return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
@@ -469,6 +480,11 @@ class PlutusMap(PlutusData):
 class PlutusConstr(PlutusData):
     constructor: int
     fields: Union[List[PlutusData], frozenlist.FrozenList]
+
+    def __post_init__(self):
+        frozen_value = frozenlist.FrozenList(self.fields)
+        frozen_value.freeze()
+        object.__setattr__(self, "fields", frozen_value)
 
     def to_cbor(self):
         fields = (

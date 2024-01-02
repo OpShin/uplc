@@ -299,6 +299,8 @@ class HypothesisTests(unittest.TestCase):
         try:
             orig_res = orig_p
             for _ in range(100):
+                if isinstance(orig_res, Exception):
+                    break
                 if isinstance(orig_res, BoundStateLambda) or isinstance(
                     orig_res, ForcedBuiltIn
                 ):
@@ -307,18 +309,16 @@ class HypothesisTests(unittest.TestCase):
                     orig_res = Apply(orig_res, p)
                 if isinstance(orig_res, BoundStateDelay):
                     orig_res = Force(orig_res)
-                orig_res = eval(orig_res)
-            if not isinstance(orig_res.result, Exception):
-                orig_res = unique_variables.UniqueVariableTransformer().visit(
-                    orig_res.result
-                )
-            else:
-                orig_res = str(orig_res.result)
+                orig_res = eval(orig_res).result
+            if not isinstance(orig_res, Exception):
+                orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
         try:
             rewrite_res = rewrite_p
             for _ in range(100):
+                if isinstance(rewrite_res, Exception):
+                    break
                 if isinstance(rewrite_res, BoundStateLambda) or isinstance(
                     rewrite_res, ForcedBuiltIn
                 ):
@@ -326,23 +326,31 @@ class HypothesisTests(unittest.TestCase):
                     rewrite_res = Apply(rewrite_res, p)
                 if isinstance(rewrite_res, BoundStateDelay):
                     rewrite_res = Force(rewrite_res)
-                rewrite_res = eval(rewrite_res)
-            rewrite_res = unique_variables.UniqueVariableTransformer().visit(
-                rewrite_res
-            )
-            if not isinstance(rewrite_res.result, Exception):
+                rewrite_res = eval(rewrite_res).result
+            if not isinstance(rewrite_res, Exception):
                 rewrite_res = unique_variables.UniqueVariableTransformer().visit(
-                    rewrite_res.result
+                    rewrite_res
                 )
-            else:
-                rewrite_res = str(rewrite_res.result)
         except unique_variables.FreeVariableError:
             self.fail(f"Free variable error occurred after evaluation in {code}")
-        self.assertEqual(
-            orig_res,
-            rewrite_res,
-            f"Two programs evaluate to different results after optimization in {code}",
-        )
+        if not isinstance(rewrite_res, Exception):
+            if isinstance(orig_res, Exception):
+                self.assertIsInstance(
+                    orig_res,
+                    RuntimeError,
+                    "Original code resulted in something different than a runtime error (exceeding budget) and rewritten result is ok",
+                )
+            self.assertEqual(
+                orig_res,
+                rewrite_res,
+                f"Two programs evaluate to different results after optimization in {code}",
+            )
+        else:
+            self.assertIsInstance(
+                orig_res,
+                Exception,
+                "Rewrite result was exception but orig result is not an exception",
+            )
 
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
