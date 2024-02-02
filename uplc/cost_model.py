@@ -1,5 +1,6 @@
 import copy
 import dataclasses
+import datetime
 import enum
 import functools
 import json
@@ -395,12 +396,29 @@ def default_builtin_cost_model_base():
     return parse_builtin_cost_model(d)
 
 
-def load_network_config(config_date: str):
-    latest_network_config_dir = (
-        Path(__file__).parent.joinpath("cost_model_files").joinpath(config_date)
-    )
+NETWORK_CONFIG_DIR = Path(__file__).parent.joinpath("cost_model_files")
+
+
+def load_network_config(config_date: datetime.date):
+    """
+    Loads the network config from the network config directory that was released last before the given date
+    """
+    latest_date = None
+    latest_dir_name = None
+    for dir in NETWORK_CONFIG_DIR.iterdir():
+        if not dir.is_dir():
+            continue
+        if dir.name == "base":
+            continue
+        dir_date = datetime.date.fromisoformat(dir.name)
+        if dir_date > config_date:
+            continue
+        if latest_date is None or dir_date > latest_date:
+            latest_date = dir_date
+            latest_dir_name = dir.name
+    network_config_dir = NETWORK_CONFIG_DIR.joinpath(latest_dir_name)
     file = None
-    for file in latest_network_config_dir.iterdir():
+    for file in network_config_dir.iterdir():
         if file.suffix == "json":
             break
     if file is None:
@@ -410,9 +428,12 @@ def load_network_config(config_date: str):
     return d
 
 
-@functools.lru_cache()
+@functools.lru_cache(maxsize=1)
 def latest_network_config():
-    return load_network_config("latest")
+    """
+    Loads the latest network config from the network config directory that is most recent
+    """
+    return load_network_config(datetime.date.today())
 
 
 def latest_network_config_plutus(plutus_version: PlutusVersion):
