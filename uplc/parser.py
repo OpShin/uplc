@@ -4,6 +4,7 @@ import re
 from rply import ParserGenerator
 import rply
 from . import lexer, ast
+from .ast import PlutusMap, PlutusConstr, PlutusList, PlutusByteString, PlutusInteger
 
 
 class Parser:
@@ -20,13 +21,30 @@ class Parser:
         def version(p):
             return f"{int(p[0].value)}.{int(p[2].value)}.{int(p[4].value)}"
 
+        @self.pg.production("name : NAME_NON_SPECIAL")
+        @self.pg.production("name : I")
+        @self.pg.production("name : B")
+        @self.pg.production("name : LIST")
+        @self.pg.production("name : MAP")
+        @self.pg.production("name : CONSTR")
+        @self.pg.production("name : BOOL")
+        @self.pg.production("name : PROGRAM")
+        @self.pg.production("name : LAMBDA")
+        @self.pg.production("name : FORCE")
+        @self.pg.production("name : DELAY")
+        @self.pg.production("name : BUILTIN")
+        @self.pg.production("name : CON")
+        @self.pg.production("name : ERROR")
+        def name(p):
+            return p[0]
+
         @self.pg.production(
-            "expression : PAREN_OPEN LAMBDA NAME expression PAREN_CLOSE"
+            "expression : PAREN_OPEN LAMBDA name expression PAREN_CLOSE"
         )
         def expression(p):
             return ast.Lambda(p[2].value, p[3])
 
-        @self.pg.production("expression : NAME")
+        @self.pg.production("expression : name")
         def expression(p):
             return ast.Variable(p[0].value)
 
@@ -42,7 +60,7 @@ class Parser:
         def error(p):
             return ast.Error()
 
-        @self.pg.production("expression : PAREN_OPEN BUILTIN NAME PAREN_CLOSE")
+        @self.pg.production("expression : PAREN_OPEN BUILTIN name PAREN_CLOSE")
         def builtin(p):
             bfn = p[2].value.lower()
             correct_bfn = None
@@ -72,8 +90,8 @@ class Parser:
         def delay(p):
             return [p[0]] + p[1]
 
-        @self.pg.production("builtintype : NAME")
-        def builtintype(p):
+        @self.pg.production("constanttype : name")
+        def constanttype(p):
             name = p[0].value
             if name == "integer":
                 return ast.BuiltinInteger(0)
@@ -89,16 +107,16 @@ class Parser:
                 return ast.PlutusData()
             raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("builtintype : NAME CARET_OPEN builtintype CARET_CLOSE")
-        def builtintype(p):
+        @self.pg.production("constanttype : name CARET_OPEN constanttype CARET_CLOSE")
+        def constanttype(p):
             # the Aiken dialect
             name = p[0].value
             if name == "list":
                 return ast.BuiltinList([], p[2])
             raise SyntaxError(f"Unknown builtin type {name}")
 
-        @self.pg.production("builtintype : PAREN_OPEN NAME builtintype PAREN_CLOSE")
-        def builtintype(p):
+        @self.pg.production("constanttype : PAREN_OPEN name constanttype PAREN_CLOSE")
+        def constanttype(p):
             # the Plutus dialect
             name = p[1].value
             if name == "list":
@@ -106,7 +124,7 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "builtintype : NAME CARET_OPEN builtintype COMMA builtintype CARET_CLOSE"
+            "constanttype : name CARET_OPEN constanttype COMMA constanttype CARET_CLOSE"
         )
         def builtintype(p):
             # the Aiken dialect
@@ -116,7 +134,7 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "builtintype : PAREN_OPEN NAME builtintype builtintype PAREN_CLOSE"
+            "constanttype : PAREN_OPEN name constanttype constanttype PAREN_CLOSE"
         )
         def builtintype(p):
             # the Plutus dialect
@@ -126,7 +144,7 @@ class Parser:
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production(
-            "expression : PAREN_OPEN CON builtintype builtinvalue PAREN_CLOSE"
+            "expression : PAREN_OPEN CON constanttype builtinvalue PAREN_CLOSE"
         )
         def constant(p):
             typ = p[2]
@@ -150,7 +168,7 @@ class Parser:
         def expression(p):
             return None
 
-        @self.pg.production("builtinvalue : NAME")
+        @self.pg.production("builtinvalue : BOOL")
         def expression(p):
             assert p[0].value in ("True", "False"), f"Invalid boolean constant {p}"
             return p[0].value == "True"
@@ -179,6 +197,74 @@ class Parser:
         def expression(p):
             # and the Plutus dialect for pairs
             return (p[1], p[3])
+
+        @self.pg.production("constantvalue : PAREN_OPEN plutusvalue PAREN_CLOSE")
+        def expression(p):
+            return p[1]
+
+        @self.pg.production("nestedconstantvalue : builtinvalue")
+        def expression(p):
+            return p[0]
+
+        @self.pg.production("nestedconstantvalue : plutusvalue")
+        def expression(p):
+            return p[0]
+
+        @self.pg.production("plutusvalue : B HEX")
+        def expression(p):
+            assert p[0].value == "B", f"Invalid plutus bytestring constant {p}"
+            return PlutusByteString(bytes.fromhex(p[1].value[1:]))
+
+        @self.pg.production("plutusvalue : I NUMBER")
+        def expression(p):
+            return PlutusInteger(int(p[1].value))
+
+        @self.pg.production("plutusvalue : CONSTR NUMBER BRACK_OPEN plutusvaluelist")
+        def expression(p):
+            return PlutusConstr(int(p[1].value), p[3])
+
+        @self.pg.production("plutusvalue : LIST BRACK_OPEN plutusvaluelist")
+        @self.pg.production("plutusvalue : MAP BRACK_OPEN plutusvaluelist")
+        def expression(p):
+            if p[0].value == "List":
+                return PlutusList(p[2])
+            elif p[0].value == "Map":
+                assert p[2] == [], f"Invalid plutus map constant"
+                return PlutusMap(dict())
+            raise ValueError(f"Invalid plutus constant {p[0]}")
+
+        @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluelist : plutusvalue BRACK_CLOSE ")
+        def expression(p):
+            return [p[0]]
+
+        @self.pg.production("plutusvaluelist : BRACK_CLOSE ")
+        def expression(p):
+            return []
+
+        @self.pg.production(
+            "plutusvaluepair : PAREN_OPEN plutusvalue COMMA plutusvalue PAREN_CLOSE"
+        )
+        def expression(p):
+            return (p[1], p[3])
+
+        @self.pg.production(
+            "plutusvaluepairlist : plutusvaluepair COMMA plutusvaluepairlist "
+        )
+        def expression(p):
+            return [p[0]] + p[2]
+
+        @self.pg.production("plutusvaluepairlist : plutusvaluepair BRACK_CLOSE ")
+        def expression(p):
+            return [p[0]]
+
+        @self.pg.production("plutusvalue : MAP BRACK_OPEN plutusvaluepairlist")
+        def expression(p):
+            assert p[0].value == "Map", f"Invalid plutus map {p[0]} constant"
+            return PlutusMap(dict(p[2]))
 
     def get_parser(self):
         lrparser = self.pg.build()
