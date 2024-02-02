@@ -27,7 +27,13 @@ TOKENS = {
     "COMMA": r",",
     "DOT": r"\.",
     "NUMBER": r"[-\+]?\d+",
-    "NAME": r"[\w_~'][\w\d_~'!#]*",
+    "BOOL": r"\b(True|False)\b",
+    "I": r"\bI\b",
+    "B": r"\bB\b",
+    "LIST": r"\bList\b",
+    "MAP": r"\bMap\b",
+    "CONSTR": r"\bConstr\b",
+    "NAME_NON_SPECIAL": r"[\w_~'][\w\d_~'!#]*",
     "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*",
 }
 
