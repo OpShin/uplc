@@ -408,9 +408,10 @@ def load_network_config(config_date: datetime.date):
     for dir in NETWORK_CONFIG_DIR.iterdir():
         if not dir.is_dir():
             continue
-        if dir.name == "base":
+        try:
+            dir_date = datetime.date.fromisoformat(dir.name)
+        except ValueError:
             continue
-        dir_date = datetime.date.fromisoformat(dir.name)
         if dir_date > config_date:
             continue
         if latest_date is None or dir_date > latest_date:
