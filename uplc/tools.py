@@ -12,6 +12,7 @@ from .cost_model import (
 )
 from .lexer import strip_comments, Lexer
 from .optimizer.pre_evaluation import PreEvaluationOptimizer
+from .optimizer.remove_traces import TraceRemover
 from .parser import Parser
 from .machine import Machine
 from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString
@@ -91,7 +92,11 @@ def compile(
     """
     for step in [
         UniqueVariableTransformer() if config.unique_variable_names else NoOp(),
-        PreEvaluationOptimizer() if config.constant_folding else NoOp(),
+        TraceRemover() if config.remove_traces else NoOp(),
+        PreEvaluationOptimizer(skip_traces=not config.remove_traces)
+        if config.constant_folding
+        else NoOp(),
+        TraceRemover() if config.remove_traces else NoOp(),
     ]:
         x = step.visit(x)
     x = x.compile()

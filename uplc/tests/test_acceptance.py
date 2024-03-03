@@ -9,7 +9,7 @@ from .. import parse, dumps, UPLCDialect, eval
 from ..cost_model import Budget
 from ..util import NodeTransformer
 from ..transformer import unique_variables
-from ..optimizer import pre_evaluation
+from ..optimizer import pre_evaluation, remove_traces
 
 acceptance_test_path = Path("examples/acceptance_tests")
 
@@ -31,6 +31,8 @@ rewriters = [
     unique_variables.UniqueVariableTransformer,
     # Pre-evaluating subterms - here it will always evaluate the whole expression as there are no missing variables
     pre_evaluation.PreEvaluationOptimizer,
+    # Trace removal
+    remove_traces.TraceRemover,
 ]
 
 
@@ -90,11 +92,14 @@ class AcceptanceTests(unittest.TestCase):
             return
         cost = json.loads(cost_content)
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
-        if rewriter == pre_evaluation.PreEvaluationOptimizer:
+        if rewriter in (
+            pre_evaluation.PreEvaluationOptimizer,
+            remove_traces.TraceRemover,
+        ):
             self.assertGreaterEqual(
                 expected_spent_budget,
                 comp_res.cost,
-                "Program cost more after preeval rewrite",
+                "Program cost more after preeval/trace removal rewrite",
             )
         else:
             self.assertEqual(

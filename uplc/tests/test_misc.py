@@ -5,7 +5,7 @@ from parameterized import parameterized
 
 from .. import *
 from ..transformer import unique_variables
-from ..optimizer import pre_evaluation
+from ..optimizer import pre_evaluation, remove_traces
 from ..lexer import strip_comments
 from ..ast import *
 
@@ -1644,6 +1644,30 @@ class MiscTest(unittest.TestCase):
         self.assertIn(x, r.logs, "Trace did not produce a log for first message.")
         self.assertIn(y, r.logs, "Trace did not produce a log for second message.")
         self.assertEqual(r.logs, [x, y], "Trace did log in correct order.")
+        self.assertEqual(
+            r.result, BuiltinUnit(), "Trace did not return second argument"
+        )
+
+    def test_trace_removal(self):
+        x = "Hello, world!"
+        y = "Hello, world 2!"
+        p = Program(
+            (1, 0, 0),
+            Apply(
+                Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=y)),
+                Apply(
+                    Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=x)),
+                    BuiltinUnit(),
+                ),
+            ),
+        )
+        p = remove_traces.TraceRemover().visit(p)
+        r = eval(p)
+        self.assertNotIn(
+            x, r.logs, "Trace was produced even though rewrite should have removed it"
+        )
+        self.assertNotIn(y, r.logs, "Trace did not produce a log for second message.")
+        self.assertEqual(r.logs, [], "Trace did log.")
         self.assertEqual(
             r.result, BuiltinUnit(), "Trace did not return second argument"
         )

@@ -1,5 +1,5 @@
 from ..util import NodeTransformer
-from ..ast import Apply, ForcedBuiltIn, BuiltInFun
+from ..ast import Apply, ForcedBuiltIn, BuiltInFun, Lambda, Delay, Variable
 
 """
 Removes traces from the AST, as traces have only side-effects and no value
@@ -7,7 +7,10 @@ Removes traces from the AST, as traces have only side-effects and no value
 
 
 class TraceRemover(NodeTransformer):
-    def visit_Apply(self, node: Apply):
-        if isinstance(node.f, ForcedBuiltIn) and node.f.builtin == BuiltInFun.Trace:
-            return self.visit(node.x)
-        return Apply(f=self.visit(node.f), x=self.visit(node.x))
+    def visit_BuiltIn(self, node: Apply):
+        return self.visit_ForcedBuiltIn(node)
+
+    def visit_ForcedBuiltIn(self, node: ForcedBuiltIn):
+        if node.builtin == BuiltInFun.Trace:
+            return Delay(term=Lambda("y", Lambda("x", Variable("x"))))
+        return node
