@@ -7,6 +7,12 @@ import sys
 import cbor2
 import pycardano
 
+from uplc.compiler_config import (
+    DEFAULT_CONFIG,
+    OPT_CONFIGS,
+    ARGPARSE_ARGS,
+    CompilationConfig,
+)
 from .tools import *
 from .ast import Program, Apply
 from .transformer import unique_variables
@@ -28,7 +34,7 @@ class Command(enum.Enum):
     dump = "dump"
 
 
-def main():
+def get_args():
     a = argparse.ArgumentParser(
         description="An evaluator and compiler for UPLC written in python."
     )
@@ -55,11 +61,6 @@ def main():
         default=UPLCDialect.Plutus.value,
         help="The dialect for dumping the parsed UPLC.",
         choices=[d.value for d in UPLCDialect],
-    )
-    a.add_argument(
-        "--unique-varnames",
-        action="store_true",
-        help="Assign variables a unique name.",
     )
     a.add_argument(
         "--from-cbor",
@@ -120,8 +121,39 @@ def main():
         choices=[1, 2],
         type=int,
     )
-    args = a.parse_args()
+    for k, v in ARGPARSE_ARGS.items():
+        alts = v.pop("__alts__", [])
+        a.add_argument(
+            f"-f{k.replace('_', '-')}",
+            *alts,
+            **v,
+            action="store_true",
+            dest=k,
+            default=None,
+        )
+        a.add_argument(
+            f"-fno-{k.replace('_', '-')}",
+            action="store_false",
+            help=argparse.SUPPRESS,
+            dest=k,
+            default=None,
+        )
+    return a.parse_args()
+
+
+def main():
+    args = get_args()
     sys.setrecursionlimit(args.recursion_limit)
+
+    # generate the compiler config
+    compiler_config = DEFAULT_CONFIG
+    compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
+    overrides = {}
+    for k in ARGPARSE_ARGS.keys():
+        if getattr(args, k) is not None:
+            overrides[k] = getattr(args, k)
+    compiler_config = compiler_config.update(CompilationConfig(**overrides))
+
     command = Command(args.command)
     input_file = pathlib.Path(args.input_file) if args.input_file != "-" else sys.stdin
     with open(input_file, "r") as f:
@@ -141,8 +173,7 @@ def main():
         print("Parsed successfully.")
         return
 
-    if args.unique_varnames:
-        code = unique_variables.UniqueVariableTransformer().visit(code)
+    code = compile(code, compiler_config)
 
     version = code.version
     code: AST = code.term

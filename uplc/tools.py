@@ -1,6 +1,7 @@
 import cbor2
 import rply.errors
 
+from .compiler_config import DEFAULT_CONFIG
 from .cost_model import (
     default_budget,
     Budget,
@@ -10,6 +11,7 @@ from .cost_model import (
     default_builtin_cost_model_plutus_v2,
 )
 from .lexer import strip_comments, Lexer
+from .optimizer.pre_evaluation import PreEvaluationOptimizer
 from .parser import Parser
 from .machine import Machine
 from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString
@@ -17,6 +19,8 @@ from .flat_encoder import FlatEncodingVisitor
 from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
 from .transformer.undebrujin_variables import UnDeBrujinVariableTransformer
+from .transformer.unique_variables import UniqueVariableTransformer
+from .util import NoOp
 
 
 def flatten(x: Program) -> bytes:
@@ -74,3 +78,21 @@ def eval(
 
 def dumps(u: AST, dialect=UPLCDialect.Plutus):
     return u.dumps(dialect)
+
+
+def compile(
+    x: Program,
+    config=DEFAULT_CONFIG,
+) -> Program:
+    """
+    Returns compiled UPLC code in... UPLC
+    This is useful for applying low-level optimizations to the program
+    :param x: the program to compile
+    """
+    for step in [
+        UniqueVariableTransformer() if config.unique_variable_names else NoOp(),
+        PreEvaluationOptimizer() if config.constant_folding else NoOp(),
+    ]:
+        x = step.visit(x)
+    x = x.compile()
+    return x
