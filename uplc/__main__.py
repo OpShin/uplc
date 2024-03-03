@@ -147,7 +147,6 @@ def main():
 
     # generate the compiler config
     compiler_config = DEFAULT_CONFIG
-    compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
     overrides = {}
     for k in ARGPARSE_ARGS.keys():
         if getattr(args, k) is not None:

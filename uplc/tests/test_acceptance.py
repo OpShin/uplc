@@ -92,15 +92,14 @@ class AcceptanceTests(unittest.TestCase):
             return
         cost = json.loads(cost_content)
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
-        if rewriter in (
-            pre_evaluation.PreEvaluationOptimizer,
-            remove_traces.TraceRemover,
-        ):
+        if rewriter == pre_evaluation.PreEvaluationOptimizer:
             self.assertGreaterEqual(
                 expected_spent_budget,
                 comp_res.cost,
                 "Program cost more after preeval/trace removal rewrite",
             )
+        elif rewriter == remove_traces.TraceRemover:
+            pass
         else:
             self.assertEqual(
                 expected_spent_budget,

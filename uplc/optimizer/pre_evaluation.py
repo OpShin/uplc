@@ -1,5 +1,5 @@
 from ..util import NodeTransformer, NodeVisitor
-from ..ast import Program, AST, ForcedBuiltIn, BuiltInFun
+from ..ast import *
 
 """
 Optimizes code by pre-evaluating each subterm
@@ -10,6 +10,9 @@ If it throws an error, assume it is not safe to pre-evaluate and don't replace, 
 class TraceFinder(NodeVisitor):
     found = False
 
+    def visit_BuiltIn(self, node: BuiltIn):
+        return self.visit_ForcedBuiltIn(node)
+
     def visit_ForcedBuiltIn(self, node: ForcedBuiltIn):
         if node.builtin == BuiltInFun.Trace:
             self.found = True
@@ -19,6 +22,13 @@ class TraceFinder(NodeVisitor):
     def contains_trace(self, node: AST) -> bool:
         self.visit(node)
         return self.found
+
+
+_CONSTANT_FINAL_RESULTS = (
+    Constant,
+    Variable,
+    Error,
+)
 
 
 class PreEvaluationOptimizer(NodeTransformer):
@@ -39,6 +49,8 @@ class PreEvaluationOptimizer(NodeTransformer):
         except Exception as e:
             nc = node
         else:
-            if isinstance(nc, Exception):
+            if isinstance(nc, Exception) or not any(
+                isinstance(nc, cfr) for cfr in _CONSTANT_FINAL_RESULTS
+            ):
                 nc = node
         return super().generic_visit(nc)

@@ -90,14 +90,20 @@ def compile(
     This is useful for applying low-level optimizations to the program
     :param x: the program to compile
     """
+    prev_dump = None
+    new_dump = x.dumps(UPLCDialect.Plutus)
+    while prev_dump != new_dump:
+        for step in [
+            PreEvaluationOptimizer(skip_traces=not config.remove_traces)
+            if config.constant_folding
+            else NoOp(),
+            TraceRemover() if config.remove_traces else NoOp(),
+        ]:
+            x = step.visit(x)
+        prev_dump = new_dump
+        new_dump = x.dumps(UPLCDialect.Plutus)
     for step in [
         UniqueVariableTransformer() if config.unique_variable_names else NoOp(),
-        TraceRemover() if config.remove_traces else NoOp(),
-        PreEvaluationOptimizer(skip_traces=not config.remove_traces)
-        if config.constant_folding
-        else NoOp(),
-        TraceRemover() if config.remove_traces else NoOp(),
     ]:
         x = step.visit(x)
-    x = x.compile()
     return x
