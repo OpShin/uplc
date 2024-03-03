@@ -7,6 +7,7 @@ class CompilationConfig:
     constant_folding: Optional[bool] = None
     unique_variable_names: Optional[bool] = None
     remove_traces: Optional[bool] = None
+    remove_force_delay: Optional[bool] = None
 
     def update(
         self, other: Optional["CompilationConfig"] = None, **kwargs
@@ -23,7 +24,7 @@ class CompilationConfig:
 
 # The default configuration for the compiler
 OPT_O0_CONFIG = CompilationConfig()
-OPT_O1_CONFIG = OPT_O0_CONFIG.update()
+OPT_O1_CONFIG = OPT_O0_CONFIG.update(remove_force_delay=True)
 OPT_O2_CONFIG = OPT_O1_CONFIG.update(constant_folding=True)
 OPT_O3_CONFIG = OPT_O2_CONFIG.update(remove_traces=True)
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
@@ -41,6 +42,10 @@ ARGPARSE_ARGS = {
     "constant_folding": {
         "__alts__": ["--cf"],
         "help": "Enables experimental constant folding, including propagation and code execution.",
+    },
+    "remove_force_delay": {
+        "__alts__": ["--rfd"],
+        "help": "Removes delayed terms that are immediately forced.",
     },
 }
 for k in ARGPARSE_ARGS:

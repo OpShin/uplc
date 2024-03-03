@@ -12,10 +12,11 @@ from .cost_model import (
 )
 from .lexer import strip_comments, Lexer
 from .optimizer.pre_evaluation import PreEvaluationOptimizer
+from .optimizer.remove_force_delay import ForceDelayRemover
 from .optimizer.remove_traces import TraceRemover
 from .parser import Parser
 from .machine import Machine
-from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString
+from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString, Apply
 from .flat_encoder import FlatEncodingVisitor
 from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
@@ -98,6 +99,7 @@ def compile(
             if config.constant_folding
             else NoOp(),
             TraceRemover() if config.remove_traces else NoOp(),
+            ForceDelayRemover() if config.remove_force_delay else NoOp(),
         ]:
             x = step.visit(x)
         prev_dump = new_dump
@@ -107,3 +109,12 @@ def compile(
     ]:
         x = step.visit(x)
     return x
+
+
+def apply(code: Program, *args: AST):
+    version = code.version
+    code: AST = code.term
+    for d in args:
+        code: AST = Apply(code, d)
+    code = Program(version, code)
+    return code

@@ -27,6 +27,11 @@ script:
 - coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
 - coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-traces
 - coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
+- coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
 - coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
 after_success:
 - coverage report

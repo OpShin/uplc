@@ -138,6 +138,14 @@ def get_args():
             dest=k,
             default=None,
         )
+    a.add_argument(
+        "-O",
+        default=1,
+        type=int,
+        help="The optimization level to use. Choose between 0 (nothing) and 3 (aggressive, semantics changing). Defaults to 1.",
+        choices=range(len(OPT_CONFIGS)),
+        dest="opt_level",
+    )
     return a.parse_args()
 
 
@@ -147,6 +155,7 @@ def main():
 
     # generate the compiler config
     compiler_config = DEFAULT_CONFIG
+    compiler_config = compiler_config.update(OPT_CONFIGS[args.opt_level])
     overrides = {}
     for k in ARGPARSE_ARGS.keys():
         if getattr(args, k) is not None:
