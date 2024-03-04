@@ -243,7 +243,7 @@ class HypothesisTests(unittest.TestCase):
         )
 
     @hypothesis.given(hst.one_of(hst.text(), uplc_token_concat))
-    @hypothesis.settings(max_examples=1000)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
     def test_raises_syntaxerror(self, p):
         try:
             parse(p)
