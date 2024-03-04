@@ -47,6 +47,9 @@ uplc build examples/fibonacci.uplc
 # This package can also be used to analyze built contracts (output from any Smart Contract Language)
 uplc dump build/fibonacci/script.cbor --from-cbor
 
+# You can also apply additional parameters to a script using the build command
+uplc build script.cbor --from-cbor "(con integer 5)"
+
 # Show all options
 uplc --help
 ```
