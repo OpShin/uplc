@@ -183,13 +183,9 @@ def main():
 
     code = compile(code, compiler_config)
 
-    version = code.version
-    code: AST = code.term
     # Apply CLI parameters to code (i.e. to parameterize a parameterized contract)
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    for d in map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args):
-        code: AST = Apply(code, d)
-    code = Program(version, code)
+    code = apply(code, *map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args))
 
     if command == Command.dump:
         print(dumps(code, UPLCDialect(args.dialect)))
@@ -270,7 +266,12 @@ def main():
             budget.cpu = args.eval_cpu_budget
         if args.eval_memory_budget:
             budget.memory = args.eval_memory_budget
-        ret = eval(code, budget, cek_machine_cost_model, builtin_cost_model)
+        ret = eval(
+            code,
+            budget,
+            cek_machine_cost_model=cek_machine_cost_model,
+            builtin_cost_model=builtin_cost_model,
+        )
         print("-------LOGS-------")
         if ret.logs:
             for line in ret.logs:

@@ -13,7 +13,7 @@ __license__ = "MIT"
 __url__ = "https://github.com/opshin/uplc"
 
 try:
-    from .tools import parse, eval, dumps, UPLCDialect, flatten, unflatten
+    from .tools import parse, eval, dumps, UPLCDialect, flatten, unflatten, apply
 
 except ImportError as e:
     logging.error(

@@ -1734,8 +1734,8 @@ class MiscTest(unittest.TestCase):
             p1.dumps(), p2.dumps(), "Compiler options did not change the program."
         )
         for i in range(5):
-            r1 = eval(apply(p1, BuiltinInteger(i)))
-            r2 = eval(apply(p2, BuiltinInteger(i)))
+            r1 = eval(p1, BuiltinInteger(i))
+            r2 = eval(p2, BuiltinInteger(i))
             self.assertEqual(
                 r1.result,
                 r2.result,

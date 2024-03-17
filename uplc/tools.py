@@ -45,6 +45,9 @@ def unflatten(x_cbor: bytes) -> Program:
 
 
 def parse(s: str, filename=None):
+    """
+    Parses the given UPLC program and returns the AST
+    """
     s = strip_comments(s)
     l = Lexer().get_lexer()
     p = Parser().get_parser()
@@ -66,19 +69,39 @@ def parse(s: str, filename=None):
     return program
 
 
+def apply(code: Program, *args: AST) -> Program:
+    """
+    Applies the given arguments to the given code and returns the program
+    """
+    version = code.version
+    code = code.term
+    for d in args:
+        code = Apply(code, d)
+    code = Program(version, code)
+    return code
+
+
 def eval(
     u: AST,
+    *args: AST,
     budget: Budget = default_budget(),
     cek_machine_cost_model: CekMachineCostModel = default_cek_machine_cost_model_plutus_v2(),
     builtin_cost_model: BuiltinCostModel = default_builtin_cost_model_plutus_v2(),
 ):
+    """
+    Evaluates the given UPLC program and returns the result
+    """
     m = Machine(budget, cek_machine_cost_model, builtin_cost_model)
     if not isinstance(u, Program):
         u = Program((1, 0, 0), u)
+    u = apply(u, *args)
     return m.eval(u)
 
 
 def dumps(u: AST, dialect=UPLCDialect.Plutus):
+    """
+    Print the AST as UPLC code
+    """
     return u.dumps(dialect)
 
 
@@ -109,12 +132,3 @@ def compile(
     ]:
         x = step.visit(x)
     return x
-
-
-def apply(code: Program, *args: AST):
-    version = code.version
-    code: AST = code.term
-    for d in args:
-        code: AST = Apply(code, d)
-    code = Program(version, code)
-    return code
