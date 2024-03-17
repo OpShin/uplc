@@ -268,7 +268,7 @@ def main():
             budget.memory = args.eval_memory_budget
         ret = eval(
             code,
-            budget,
+            budget=budget,
             cek_machine_cost_model=cek_machine_cost_model,
             builtin_cost_model=builtin_cost_model,
         )
