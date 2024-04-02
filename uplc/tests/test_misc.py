@@ -1741,3 +1741,10 @@ class MiscTest(unittest.TestCase):
                 r2.result,
                 "Compiler options did not produce the same result.",
             )
+
+    def test_invalid_map(self):
+        code = "(program 1.0.0 (con data (Map [(I 1, B #01), (I 1, B #01)])))"
+        program = parse(code)
+        assert isinstance(program, Program)
+        assert isinstance(program.term, PlutusMap)
+        assert len(program.term.value.keys()) == 2
