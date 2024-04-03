@@ -3,12 +3,11 @@ import enum
 import json
 import logging
 import math
-import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
 import hashlib
-from typing import List, Any, Dict, Union
+from typing import List, Any, Union, Tuple
 
 import cbor2
 import frozendict
@@ -447,29 +446,32 @@ class PlutusList(PlutusData):
 
 @dataclass(frozen=True, eq=True)
 class PlutusMap(PlutusData):
-    value: Union[Dict[PlutusData, PlutusData], frozendict.frozendict]
+    value: Union[List[Tuple[PlutusData, PlutusData]], frozenlist]
 
     def __post_init__(self):
-        frozen_value = frozendict.frozendict(self.value)
+        frozen_value = frozenlist(self.value)
         object.__setattr__(self, "value", frozen_value)
 
     def to_cbor(self):
-        return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
+        # NOTE: in case of duplicate keys, this will not be accurate
+        keys = [k for k, _ in self.value]
+        assert len(keys) == len(
+            set(keys)
+        ), "Duplicate keys in map, cbor representation is inaccurate"
+        return {k.to_cbor(): v.to_cbor() for k, v in self.value}
 
     def to_json(self):
-        return {
-            "map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value.items()]
-        }
+        return {"map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value]}
 
     def plutus_valuestring(self):
         recursive_val_strings = (
             f"({x.plutus_valuestring()}, {y.plutus_valuestring()})"
-            for x, y in self.value.items()
+            for x, y in self.value
         )
         return f"Map [{', '.join(recursive_val_strings)}]"
 
     def d_ex_mem(self) -> int:
-        return sum(v.ex_mem() + k.ex_mem() for k, v in self.value.items())
+        return sum(v.ex_mem() + k.ex_mem() for k, v in self.value)
 
 
 @dataclass(frozen=True, eq=True)
@@ -581,9 +583,7 @@ def data_from_cbortag(cbor) -> PlutusData:
         return PlutusList(entries)
     if isinstance(cbor, dict):
         return PlutusMap(
-            frozendict.frozendict(
-                {data_from_cbortag(k): data_from_cbortag(v) for k, v in cbor.items()}
-            )
+            [(data_from_cbortag(k), data_from_cbortag(v)) for k, v in cbor.items()]
         )
     raise NotImplementedError(f"Unknown cbor type notation in {cbor}")
 
@@ -606,12 +606,10 @@ def data_from_json_dict(d: dict) -> PlutusData:
         return PlutusList(entries)
     if "map" in d:
         return PlutusMap(
-            frozendict.frozendict(
-                {
-                    data_from_json_dict(m["k"]): data_from_json_dict(m["v"])
-                    for m in d["map"]
-                }
-            )
+            [
+                (data_from_json_dict(m["k"]), data_from_json_dict(m["v"]))
+                for m in d["map"]
+            ]
         )
     raise NotImplementedError(f"Unknown json notation in {d}")
 
@@ -874,7 +872,7 @@ def _MkCons(x, xs):
 def _MapData(x):
     assert isinstance(x, BuiltinList), "Can only map over a list"
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
-    return PlutusMap({p.l_value: p.r_value for p in x.values})
+    return PlutusMap([(p.l_value, p.r_value) for p in x.values])
 
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
@@ -964,7 +962,7 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.UnMapData: single_data(
         lambda x: BuiltinList(
-            [BuiltinPair(k, v) for k, v in x.value.items()],
+            [BuiltinPair(k, v) for k, v in x.value],
             BuiltinPair(PlutusData(), PlutusData()),
         )
     ),
@@ -1006,7 +1004,7 @@ BuiltInFunForceMap.update(
 
 @dataclass
 class Program(AST):
-    version: typing.Tuple[int, int, int]
+    version: Tuple[int, int, int]
     term: AST
     _fields = ["term"]
 

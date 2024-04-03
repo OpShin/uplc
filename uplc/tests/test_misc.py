@@ -1747,4 +1747,4 @@ class MiscTest(unittest.TestCase):
         program = parse(code)
         assert isinstance(program, Program)
         assert isinstance(program.term, PlutusMap)
-        assert len(program.term.value.keys()) == 2
+        assert len(program.term.value) == 2

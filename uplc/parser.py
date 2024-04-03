@@ -245,7 +245,7 @@ class Parser:
                 return PlutusList(p[2])
             elif p[0].value == "Map":
                 assert p[2] == [], f"Invalid plutus map constant"
-                return PlutusMap(dict())
+                return PlutusMap([])
             raise ValueError(f"Invalid plutus constant {p[0]}")
 
         @self.pg.production("plutusvaluelist : plutusvalue COMMA plutusvaluelist ")
@@ -279,7 +279,7 @@ class Parser:
         @self.pg.production("plutusvalue : MAP BRACK_OPEN plutusvaluepairlist")
         def expression(p):
             assert p[0].value == "Map", f"Invalid plutus map {p[0]} constant"
-            return PlutusMap(dict(p[2]))
+            return PlutusMap(p[2])
 
     def get_parser(self):
         lrparser = self.pg.build()

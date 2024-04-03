@@ -36,12 +36,13 @@ def rec_data_strategies(uplc_data):
     )
     uplc_data_map = hst.builds(
         PlutusMap,
-        hst.dictionaries(
-            hst.one_of(
-                uplc_data_integer, uplc_data_bytestring
-            ),  # TODO technically constr is legal too, but causes hashing error
-            uplc_data,
-            dict_class=frozendict.frozendict,
+        hst.lists(
+            hst.tuples(
+                hst.one_of(
+                    uplc_data_integer, uplc_data_bytestring
+                ),  # TODO technically constr is legal too, but causes hashing error
+                uplc_data,
+            )
         ),
     )
     return hst.one_of(uplc_data_map, uplc_data_list, uplc_data_constr)
@@ -415,9 +416,7 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    @hypothesis.example(
-        Program(version=(0, 0, 0), term=PlutusMap(value=frozendict.frozendict({})))
-    )
+    @hypothesis.example(Program(version=(0, 0, 0), term=PlutusMap(value=[])))
     @hypothesis.example(
         Program(version=(0, 0, 0), term=Lambda(var_name="_", term=Variable(name="_")))
     )

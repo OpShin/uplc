@@ -1,4 +1,6 @@
 from ast import NodeVisitor
+from typing import Optional
+
 from .ast import *
 
 
@@ -156,7 +158,7 @@ def pad_zeroes(bits, n):
 
 
 class FlatEncodingVisitor(NodeVisitor):
-    def __init__(self, bw: typing.Optional[BitWriter] = None):
+    def __init__(self, bw: Optional[BitWriter] = None):
         self.bit_writer = BitWriter() if bw is None else bw
 
     def visit_Program(self, n: Program):
@@ -243,7 +245,7 @@ class FlatEncodingVisitor(NodeVisitor):
 
 
 class ConstantValueFlatEncodingVisitor(NodeVisitor):
-    def __init__(self, bw: typing.Optional[BitWriter] = None):
+    def __init__(self, bw: Optional[BitWriter] = None):
         self.bit_writer = BitWriter() if bw is None else bw
 
     def visit_BuiltinUnit(self, n: BuiltinUnit):
@@ -291,7 +293,7 @@ class ConstantValueFlatEncodingVisitor(NodeVisitor):
 
 
 class ConstantTypeFlatEncodingVisitor(NodeVisitor):
-    def __init__(self, bw: typing.Optional[BitWriter] = None):
+    def __init__(self, bw: Optional[BitWriter] = None):
         self.bit_writer = BitWriter() if bw is None else bw
 
     def visit_BuiltinUnit(self, n: BuiltinUnit):
