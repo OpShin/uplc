@@ -13,7 +13,7 @@ import cbor2
 import frozendict
 from frozenlist2 import frozenlist
 import nacl.exceptions
-from _cbor2 import CBOREncoder
+from cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano import IndefiniteList
 
@@ -453,12 +453,8 @@ class PlutusMap(PlutusData):
         object.__setattr__(self, "value", frozen_value)
 
     def to_cbor(self):
-        # NOTE: in case of duplicate keys, this will not be accurate
-        keys = [k for k, _ in self.value]
-        assert len(keys) == len(
-            set(keys)
-        ), "Duplicate keys in map, cbor representation is inaccurate"
-        return {k.to_cbor(): v.to_cbor() for k, v in self.value}
+        transformed_list = [(k.to_cbor(), v.to_cbor()) for k, v in self.value]
+        return DuplicateKeyMap(transformed_list)
 
     def to_json(self):
         return {"map": [{"k": k.to_json(), "v": v.to_json()} for k, v in self.value]}
@@ -508,6 +504,15 @@ class PlutusConstr(PlutusData):
 
 def _int_to_bytes(x: int):
     return x.to_bytes((x.bit_length() + 7) // 8, byteorder="big")
+
+
+class DuplicateKeyMap(dict):
+    def __init__(self, items):
+        super().__init__([])
+        self.__items = items
+
+    def items(self):
+        return self.__items
 
 
 def default_encoder(encoder: CBOREncoder, value: Union[PlutusData, IndefiniteList]):

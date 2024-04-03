@@ -1748,3 +1748,12 @@ class MiscTest(unittest.TestCase):
         assert isinstance(program, Program)
         assert isinstance(program.term, PlutusMap)
         assert len(program.term.value) == 2
+
+    def test_invalid_map_encode(self):
+        map = PlutusMap(
+            value=[
+                (PlutusInteger(1), PlutusInteger(2)),
+                (PlutusInteger(1), PlutusInteger(2)),
+            ]
+        )
+        assert plutus_cbor_dumps(map) == bytes.fromhex("a201020102")
