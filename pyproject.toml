@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uplc"
-version = "1.0.5"
+version = "1.0.6"
 description = "Python implementation of untyped plutus language core"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
