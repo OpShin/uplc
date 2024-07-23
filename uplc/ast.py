@@ -865,8 +865,8 @@ def _TailList(xs: BuiltinList):
 
 def _MkCons(x, xs):
     assert isinstance(xs, BuiltinList), "Can only cons onto a list"
-    assert isinstance(
-        x, xs.sample_value.__class__
+    assert isinstance(x, xs.sample_value.__class__) or (
+        isinstance(x, PlutusData) and (isinstance(xs.sample_value, PlutusData))
     ), "Can only cons elements of the same type"
     return BuiltinList([x]) + xs
 
@@ -882,6 +882,11 @@ two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
 two_strings = typechecked(BuiltinString, BuiltinString)
 single_bytestring = typechecked(BuiltinByteString)
 single_data = typechecked(PlutusData)
+single_data_int = typechecked(PlutusInteger)
+single_data_bytes = typechecked(PlutusByteString)
+single_data_list = typechecked(PlutusList)
+single_data_map = typechecked(PlutusMap)
+single_data_constr = typechecked(PlutusConstr)
 
 BuiltInFunEvalMap = {
     BuiltInFun.AddInteger: two_ints(lambda x, y: x + y),
@@ -957,20 +962,22 @@ BuiltInFunEvalMap = {
     BuiltInFun.ListData: typechecked(BuiltinList)(lambda x: PlutusList(x.values)),
     BuiltInFun.IData: typechecked(BuiltinInteger)(lambda x: PlutusInteger(x.value)),
     BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
-    BuiltInFun.UnConstrData: single_data(
+    BuiltInFun.UnConstrData: single_data_constr(
         lambda x: BuiltinPair(
             BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
         )
     ),
-    BuiltInFun.UnMapData: single_data(
+    BuiltInFun.UnMapData: single_data_map(
         lambda x: BuiltinList(
             [BuiltinPair(k, v) for k, v in x.value.items()],
             BuiltinPair(PlutusData(), PlutusData()),
         )
     ),
-    BuiltInFun.UnListData: single_data(lambda x: BuiltinList(x.value, PlutusData())),
-    BuiltInFun.UnIData: single_data(lambda x: BuiltinInteger(x.value)),
-    BuiltInFun.UnBData: single_data(lambda x: BuiltinByteString(x.value)),
+    BuiltInFun.UnListData: single_data_list(
+        lambda x: BuiltinList(x.value, PlutusData())
+    ),
+    BuiltInFun.UnIData: single_data_int(lambda x: BuiltinInteger(x.value)),
+    BuiltInFun.UnBData: single_data_bytes(lambda x: BuiltinByteString(x.value)),
     BuiltInFun.EqualsData: typechecked(PlutusData, PlutusData)(
         lambda x, y: BuiltinBool(x == y)
     ),

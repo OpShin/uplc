@@ -1,4 +1,5 @@
 import unittest
+from pathlib import Path
 
 import rply.parser
 from parameterized import parameterized
@@ -1741,3 +1742,13 @@ class MiscTest(unittest.TestCase):
                 r2.result,
                 "Compiler options did not produce the same result.",
             )
+
+    def test_append_plutusdata_list(self):
+        with open(Path(__file__).parent / "constr.uplc", "r") as f:
+            program = f.read()
+        p = parse(program)
+        r = eval(p)
+        self.assertEqual(
+            r.result,
+            PlutusConstr(0, []),
+        )
