@@ -10,7 +10,7 @@ This is a basic library to support creating and manipulating programs written in
 
 ## Installation
 
-Install anything between python 3.8 and 3.10.
+Install anything between python 3.8 and 3.11.
 Then run
 
 ```bash
