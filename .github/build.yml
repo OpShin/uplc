@@ -1,0 +1,58 @@
+name: CI/CD
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+      fail-fast: true
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install secp256k1
+      run: |
+        bash install_secp256k1.sh
+        echo "/usr/local/lib" >> $GITHUB_PATH
+    
+    - name: Install dependencies
+      run: |
+        pip install poetry
+        poetry install
+    
+    - name: Run tests and coverage
+      run: |
+        black --check .
+        coverage run --source=uplc -m pytest uplc/tests
+        coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
+        coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
+        coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
+        coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-traces
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
+        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
+        coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
+    
+    - name: Upload coverage reports to Codecov
+      uses: codecov/codecov-action@v3
+    
+    - name: Publish to PyPI
+      if: github.event_name == 'release' && matrix.python-version == '3.10'
+      env:
+        PYPI_USERNAME: __token__
+        PYPI_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+      run: |
+        poetry config pypi-token.pypi $PYPI_PASSWORD
+        poetry build
+        poetry publish
