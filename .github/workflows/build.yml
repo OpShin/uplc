@@ -30,7 +30,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install poetry
+        pip install poetry black
         poetry install
     
     - name: Run tests and coverage
