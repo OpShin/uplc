@@ -1,6 +1,6 @@
 Untyped Plutus Language Core 
 ==================================================
-[![Build Status](https://app.travis-ci.com/OpShin/uplc.svg?branch=master)](https://app.travis-ci.com/OpShin/uplc)
+[![CI/CD](https://github.com/OpShin/uplc/actions/workflows/build.yml/badge.svg)](https://github.com/OpShin/uplc/actions/workflows/build.yml)
  [![PyPI version](https://badge.fury.io/py/uplc.svg)](https://pypi.org/project/uplc/)
  ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/uplc.svg)
  [![PyPI - Status](https://img.shields.io/pypi/status/uplc.svg)](https://pypi.org/project/uplc/)
