@@ -30,8 +30,8 @@ jobs:
     
     - name: Install dependencies
       run: |
-        pip install poetry black
-        poetry install
+        pip install -U poetry
+        poetry install --with dev
     
     - name: Run tests and coverage
       run: |
