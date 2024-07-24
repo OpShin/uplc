@@ -1,6 +1,13 @@
 name: CI/CD
 
+on:
+  push:
+  pull_request:
+  release:
+    types: [created]
+
 jobs:
+
   build:
     runs-on: ubuntu-latest
     strategy:
