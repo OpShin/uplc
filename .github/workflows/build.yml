@@ -35,7 +35,7 @@ jobs:
     
     - name: Run tests and coverage
       run: |
-        black --check .
+        python3 -m black --check .
         coverage run --source=uplc -m pytest uplc/tests
         coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
         coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
