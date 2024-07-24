@@ -35,21 +35,21 @@ jobs:
     
     - name: Run tests and coverage
       run: |
-        python3 -m black --check .
-        coverage run --source=uplc -m pytest uplc/tests
-        coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
-        coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
-        coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
-        coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-traces
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
-        coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
-        coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
+        poetry run black --check .
+        poetry run coverage run --source=uplc -m pytest uplc/tests
+        poetry run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
+        poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
+        poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
+        poetry run coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-traces
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
+        poetry run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
     
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
