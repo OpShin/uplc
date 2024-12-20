@@ -944,6 +944,22 @@ def _rotate_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
     return BuiltinByteString(shifted_bytes)
 
 
+def _count_set_bits(bytestring: BuiltinByteString):
+    # Convert bytes to a binary string and count '1's
+    return BuiltinInteger(sum(byte.bit_count() for byte in bytestring.value))
+
+
+def _find_first_set_bit(bytestring: BuiltinByteString):
+    for byte_index, byte in enumerate(reversed(bytestring.value)):
+        # Check each bit in the byte
+        for bit_index in range(8):
+            if byte & (1 << bit_index):
+                # Return the position of the first set bit
+                return BuiltinInteger(byte_index * 8 + bit_index)
+    # If no set bit is found, return -1
+    return BuiltinInteger(-1)
+
+
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
 two_strings = typechecked(BuiltinString, BuiltinString)
@@ -1076,6 +1092,8 @@ BuiltInFunEvalMap = {
     BuiltInFun.RotateByteString: typechecked(BuiltinByteString, BuiltinInteger)(
         _rotate_bytes
     ),
+    BuiltInFun.CountSetBits: typechecked(BuiltinByteString)(_count_set_bits),
+    BuiltInFun.FindFirstSetBit: typechecked(BuiltinByteString)(_find_first_set_bit),
 }
 
 BuiltInFunForceMap = defaultdict(int)
