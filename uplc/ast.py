@@ -11,6 +11,7 @@ import hashlib
 from itertools import zip_longest
 from typing import List, Any, Dict, Union
 
+import bitarray
 import cbor2
 import frozendict
 from asn1crypto.core import BitString
@@ -946,7 +947,7 @@ def _rotate_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
 
 def _count_set_bits(bytestring: BuiltinByteString):
     # Convert bytes to a binary string and count '1's
-    return BuiltinInteger(sum(byte.bit_count() for byte in bytestring.value))
+    return BuiltinInteger(BitArray(bytestring.value).count(1))
 
 
 def _find_first_set_bit(bytestring: BuiltinByteString):
@@ -958,6 +959,37 @@ def _find_first_set_bit(bytestring: BuiltinByteString):
                 return BuiltinInteger(byte_index * 8 + bit_index)
     # If no set bit is found, return -1
     return BuiltinInteger(-1)
+
+
+def _read_bit(bytestring: BuiltinByteString, pos: BuiltinInteger):
+    bits = bitarray.bitarray()
+    bits.frombytes(bytestring.value)
+    if not 0 <= pos.value < len(bits):
+        raise RuntimeError("Invalid index")
+    return BuiltinBool(bool(bits[len(bits) - pos.value - 1]))
+
+
+def _write_bits(bytestring: BuiltinByteString, poss: BuiltinList, val: BuiltinBool):
+    bits = bitarray.bitarray()
+    bits.frombytes(bytestring.value)
+    for i, pos in enumerate(poss.values):
+        assert isinstance(pos, BuiltinInteger), "Invalid type of index"
+        if not 0 <= pos.value < len(bits):
+            raise RuntimeError(f"{i}th index invalid: {pos.value}")
+        bits[len(bits) - pos.value - 1] = val.value
+    return BuiltinByteString(bits.tobytes())
+
+
+def _replicate_bytes(length: BuiltinInteger, val: BuiltinInteger):
+    if not 0 <= length.value <= 8192:
+        raise RuntimeError(
+            "Invalid length of requested bytestring (must be between 0 and 8192)"
+        )
+    if not 0 <= val.value <= 255:
+        raise RuntimeError(
+            "Invalid byte value to fill into bytestring (must be between 0 and 255)"
+        )
+    return BuiltinByteString(bytes([val.value] * length.value))
 
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
@@ -1094,6 +1126,13 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.CountSetBits: typechecked(BuiltinByteString)(_count_set_bits),
     BuiltInFun.FindFirstSetBit: typechecked(BuiltinByteString)(_find_first_set_bit),
+    BuiltInFun.ReadBit: typechecked(BuiltinByteString, BuiltinInteger)(_read_bit),
+    BuiltInFun.WriteBits: typechecked(BuiltinByteString, BuiltinList, BuiltinBool)(
+        _write_bits
+    ),
+    BuiltInFun.ReplicateByte: typechecked(BuiltinInteger, BuiltinInteger)(
+        _replicate_bytes
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
