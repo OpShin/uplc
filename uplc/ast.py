@@ -14,7 +14,7 @@ from typing import List, Any, Dict, Union
 import bitarray
 import cbor2
 import frozendict
-from asn1crypto.core import BitString
+from ripemd.ripemd160 import ripemd160
 from bitstring import BitArray
 from frozenlist2 import frozenlist
 import nacl.exceptions
@@ -1132,6 +1132,9 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.ReplicateByte: typechecked(BuiltinInteger, BuiltinInteger)(
         _replicate_bytes
+    ),
+    BuiltInFun.Ripemd_160: typechecked(BuiltinByteString)(
+        lambda x: BuiltinByteString(ripemd160(x.value))
     ),
 }
 
