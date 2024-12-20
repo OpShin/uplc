@@ -9,7 +9,6 @@ from uplc.cost_model import Budget
 from uplc.transformer import unique_variables
 
 
-
 def acceptance_test_dirs(root):
     res = []
     for dirpath, dirs, files in sorted(os.walk(root, topdown=True)):
@@ -18,7 +17,6 @@ def acceptance_test_dirs(root):
             continue
         res.append(dirpath)
     return res
-
 
 
 def run_acceptance_test(dirpath, log=False):
@@ -54,7 +52,10 @@ def run_acceptance_test(dirpath, log=False):
     if isinstance(res, Exception):
         assert output == "evaluation failure", "Machine failed but should not fail."
         return
-    assert output not in ("parse error", "evaluation failure"), "Program parsed and evaluated but should have thrown error"
+    assert output not in (
+        "parse error",
+        "evaluation failure",
+    ), "Program parsed and evaluated but should have thrown error"
     output_parsed = parse(output, filename=output_file_path).term
     res_parsed_unique = unique_variables.UniqueVariableTransformer().visit(res)
     output_parsed_unique = unique_variables.UniqueVariableTransformer().visit(
@@ -71,9 +72,12 @@ def run_acceptance_test(dirpath, log=False):
             return
         cost = json.loads(cost_content)
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
-        assert expected_spent_budget == comp_res.cost, "Program evaluated with wrong cost."
+        assert (
+            expected_spent_budget == comp_res.cost
+        ), "Program evaluated with wrong cost."
     except StopIteration:
         pass
+
 
 def main(test_root: str):
     for path in acceptance_test_dirs(test_root):
@@ -87,6 +91,6 @@ def main(test_root: str):
             run_acceptance_test(path, log=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     path = sys.argv[1]
     main(path)

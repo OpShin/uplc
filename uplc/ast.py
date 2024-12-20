@@ -741,6 +741,7 @@ class BuiltInFun(Enum):
     FindFirstSetBit = 85
     Ripemd_160 = 86
 
+
 def typechecked(*typs):
     def typecheck_decorator(fun):
         if len(typs) == 1:
@@ -890,17 +891,20 @@ def _MapData(x):
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
     return PlutusMap({p.l_value: p.r_value for p in x.values})
 
+
 def _map_bytes_trunc(foo, fill):
     # implements the extending/truncating of and/or/xor
     def ext_trunc_logic(switch, x, y):
         x, y = x.value, y.value
         if switch.value:
-            res = bytes(foo(xi,yi) for xi, yi in zip_longest(x, y, fillvalue=fill))
+            res = bytes(foo(xi, yi) for xi, yi in zip_longest(x, y, fillvalue=fill))
         else:
             # perform operation on bytes individually truncated to shorter sequence
-            res = bytes(foo(xi,yi) for xi, yi in zip(x, y))
+            res = bytes(foo(xi, yi) for xi, yi in zip(x, y))
         return BuiltinByteString(res)
+
     return ext_trunc_logic
+
 
 def _shift_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
     # library allows bitops and preserves original len
@@ -919,6 +923,26 @@ def _shift_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
     shifted_bytes = shifted_value.bytes
 
     return BuiltinByteString(shifted_bytes)
+
+
+def _rotate_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
+    # library allows bitops and preserves original len
+    data = BitArray(raw_data.value)
+    if not data:
+        # shifting empty bitstring results in empty bitstring
+        return raw_data
+
+    # Perform the left shift if shift > 0
+    if shift_amount.value >= 0:
+        data.rol(shift_amount.value)
+    else:
+        data.ror(-shift_amount.value)
+
+    # Convert the shifted integer back to bytes
+    shifted_bytes = data.bytes
+
+    return BuiltinByteString(shifted_bytes)
+
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
@@ -1034,21 +1058,24 @@ BuiltInFunEvalMap = {
     BuiltInFun.SerialiseData: single_data(
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
     ),
-    BuiltInFun.AndByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_bytes_trunc(lambda x, y: x & y, 255)
-    ),
-    BuiltInFun.OrByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_bytes_trunc(lambda x, y: x | y, 0)
-    ),
-    BuiltInFun.XorByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_bytes_trunc(lambda x, y: x ^ y, 0)
-    ),
+    BuiltInFun.AndByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x & y, 255)),
+    BuiltInFun.OrByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x | y, 0)),
+    BuiltInFun.XorByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x ^ y, 0)),
     BuiltInFun.ComplementByteString: typechecked(BuiltinByteString)(
-        lambda xs: BuiltinByteString(bytes(~x%256 for x in xs.value))
+        lambda xs: BuiltinByteString(bytes(~x % 256 for x in xs.value))
     ),
     BuiltInFun.ShiftByteString: typechecked(BuiltinByteString, BuiltinInteger)(
         _shift_bytes
-    )
+    ),
+    BuiltInFun.RotateByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        _rotate_bytes
+    ),
 }
 
 BuiltInFunForceMap = defaultdict(int)
