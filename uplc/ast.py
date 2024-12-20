@@ -8,6 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
 import hashlib
+from itertools import zip_longest
 from typing import List, Any, Dict, Union
 
 import cbor2
@@ -725,7 +726,18 @@ class BuiltInFun(Enum):
     # Bls12_381_MillerLoop = 68
     # Bls12_381_MulMlResult = 69
     # Bls12_381_FinalVerify = 70
-
+    AndByteString = 75
+    OrByteString = 76
+    XorByteString = 77
+    ComplementByteString = 78
+    ReadBit = 79
+    WriteBits = 80
+    ReplicateByte = 81
+    ShiftByteString = 82
+    RotateByteString = 83
+    CountSetBits = 84
+    FindFirstSetBit = 85
+    Ripemd_160 = 86
 
 def typechecked(*typs):
     def typecheck_decorator(fun):
@@ -876,6 +888,18 @@ def _MapData(x):
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
     return PlutusMap({p.l_value: p.r_value for p in x.values})
 
+def _map_trunc(foo, fill):
+    # implements the extending/truncating of and/or/xor
+    def ext_trunc_logic(switch, x, y):
+        x, y = x.value, y.value
+        if switch.value:
+            res = bytes(foo(xi,yi) for xi, yi in zip_longest(x, y, fillvalue=fill))
+        else:
+            # perform operation on bytes individually truncated to shorter sequence
+            res = bytes(foo(xi,yi) for xi, yi in zip(x, y))
+        return BuiltinByteString(res)
+    return ext_trunc_logic
+
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
@@ -990,6 +1014,15 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.SerialiseData: single_data(
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
+    ),
+    BuiltInFun.AndByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
+        _map_trunc(lambda x, y: x & y, 255)
+    ),
+    BuiltInFun.OrByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
+        _map_trunc(lambda x, y: x | y, 0)
+    ),
+    BuiltInFun.XorByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
+        _map_trunc(lambda x, y: x ^ y, 0)
     ),
 }
 
