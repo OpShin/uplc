@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 
 from uplc import parse, dumps, UPLCDialect, eval
+from uplc.ast import AST
 from uplc.cost_model import Budget
 from uplc.transformer import unique_variables
 
@@ -46,7 +47,10 @@ def run_acceptance_test(dirpath, log=False):
     res = comp_res.result
     if log:
         print("----- Actual output -------")
-        print(dumps(res))
+        if isinstance(res, AST):
+            print(dumps(res))
+        else:
+            print(res)
     if isinstance(res, Exception):
         assert output == "evaluation failure", "Machine failed but should not fail."
         return

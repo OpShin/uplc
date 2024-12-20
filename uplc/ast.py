@@ -1024,6 +1024,9 @@ BuiltInFunEvalMap = {
     BuiltInFun.XorByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
         _map_trunc(lambda x, y: x ^ y, 0)
     ),
+    BuiltInFun.ComplementByteString: typechecked(BuiltinByteString)(
+        lambda xs: BuiltinByteString(bytes(~x%256 for x in xs.value))
+    )
 }
 
 BuiltInFunForceMap = defaultdict(int)
