@@ -5,11 +5,11 @@ import os
 from parameterized import parameterized
 import unittest
 
-from .. import parse, dumps, UPLCDialect, eval
-from ..cost_model import Budget
-from ..util import NodeTransformer
-from ..transformer import unique_variables
-from ..optimizer import pre_evaluation, remove_traces, remove_force_delay
+from uplc import parse, dumps, UPLCDialect, eval
+from uplc.cost_model import Budget
+from uplc.util import NodeTransformer
+from uplc.transformer import unique_variables
+from uplc.optimizer import pre_evaluation, remove_traces, remove_force_delay
 
 acceptance_test_path = Path("examples/acceptance_tests")
 

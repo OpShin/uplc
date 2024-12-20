@@ -7,15 +7,15 @@ from frozenlist2 import frozenlist
 import pyaiken
 from parameterized import parameterized
 
-from .. import *
-from ..flat_decoder import unzigzag
-from ..flat_encoder import zigzag
-from ..optimizer import pre_evaluation
-from ..tools import unflatten
-from ..transformer import unique_variables, debrujin_variables, undebrujin_variables
-from ..ast import *
-from .. import lexer
-from ..util import NodeVisitor
+from uplc import *
+from uplc.flat_decoder import unzigzag
+from uplc.flat_encoder import zigzag
+from uplc.optimizer import pre_evaluation
+from uplc.tools import unflatten
+from uplc.transformer import unique_variables, debrujin_variables, undebrujin_variables
+from uplc.ast import *
+from uplc import lexer
+from uplc.util import NodeVisitor
 
 
 pos_int = hst.integers(min_value=0, max_value=2**64 - 1)

@@ -4,13 +4,13 @@ from pathlib import Path
 import rply.parser
 from parameterized import parameterized
 
-from .. import *
-from .. import compiler_config
-from ..tools import apply
-from ..transformer import unique_variables
-from ..optimizer import pre_evaluation, remove_traces, remove_force_delay
-from ..lexer import strip_comments
-from ..ast import *
+from uplc import *
+from uplc import compiler_config
+from uplc.tools import apply
+from uplc.transformer import unique_variables
+from uplc.optimizer import pre_evaluation, remove_traces, remove_force_delay
+from uplc.lexer import strip_comments
+from uplc.ast import *
 
 SAMPLE_CONTRACT = p = Program(
     version=(0, 0, 1),

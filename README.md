@@ -54,6 +54,13 @@ uplc build script.cbor --from-cbor "(con integer 5)"
 uplc --help
 ```
 
+## Running tests
+
+To run the testsuite of UPLC, use `pytest`.
+```
+pytest
+```
+
 
 ## Scope and Contributions
 This is a side product of the development of a pythonic smart contract language for the Cardano blockchain
