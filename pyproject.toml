@@ -27,6 +27,7 @@ frozenlist2 = "^1.0.0"
 rply = "^0.7.8"
 pycardano = ">=0.9.0, <0.13.0"
 python-secp256k1-cardano = "^0.2.3"
+bitstring = "^4.2.3"
 
 [tool.poetry.group.dev.dependencies]
 pyaiken = "^0.5.5"

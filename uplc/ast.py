@@ -13,6 +13,8 @@ from typing import List, Any, Dict, Union
 
 import cbor2
 import frozendict
+from asn1crypto.core import BitString
+from bitstring import BitArray
 from frozenlist2 import frozenlist
 import nacl.exceptions
 from _cbor2 import CBOREncoder
@@ -888,7 +890,7 @@ def _MapData(x):
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
     return PlutusMap({p.l_value: p.r_value for p in x.values})
 
-def _map_trunc(foo, fill):
+def _map_bytes_trunc(foo, fill):
     # implements the extending/truncating of and/or/xor
     def ext_trunc_logic(switch, x, y):
         x, y = x.value, y.value
@@ -900,6 +902,23 @@ def _map_trunc(foo, fill):
         return BuiltinByteString(res)
     return ext_trunc_logic
 
+def _shift_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
+    # library allows bitops and preserves original len
+    data = BitArray(raw_data.value)
+    if not data:
+        # shifting empty bitstring results in empty bitstring
+        return raw_data
+
+    # Perform the left shift if shift > 0
+    if shift_amount.value >= 0:
+        shifted_value = data << shift_amount.value
+    else:
+        shifted_value = data >> -shift_amount.value
+
+    # Convert the shifted integer back to bytes
+    shifted_bytes = shifted_value.bytes
+
+    return BuiltinByteString(shifted_bytes)
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
@@ -1016,16 +1035,19 @@ BuiltInFunEvalMap = {
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
     ),
     BuiltInFun.AndByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_trunc(lambda x, y: x & y, 255)
+        _map_bytes_trunc(lambda x, y: x & y, 255)
     ),
     BuiltInFun.OrByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_trunc(lambda x, y: x | y, 0)
+        _map_bytes_trunc(lambda x, y: x | y, 0)
     ),
     BuiltInFun.XorByteString: typechecked(BuiltinBool, BuiltinByteString, BuiltinByteString)(
-        _map_trunc(lambda x, y: x ^ y, 0)
+        _map_bytes_trunc(lambda x, y: x ^ y, 0)
     ),
     BuiltInFun.ComplementByteString: typechecked(BuiltinByteString)(
         lambda xs: BuiltinByteString(bytes(~x%256 for x in xs.value))
+    ),
+    BuiltInFun.ShiftByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        _shift_bytes
     )
 }
 
