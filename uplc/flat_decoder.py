@@ -106,6 +106,8 @@ class UplcDeserializer:
             return Error()
         elif tag == 7:
             return self.read_builtin()
+        elif tag == 8:
+            return self.read_constr()
         else:
             raise ValueError(f"term tag {tag} unhandled")
 
@@ -294,6 +296,14 @@ class UplcDeserializer:
         id = self.read_tag("builtin")
 
         builtin = self.built_in_fun(id)
+
+        return BuiltIn(builtin)
+
+    def read_constr(self) -> Constr:
+        # in theory limited to 64 bits
+        id = self.read_integer(signed=False)
+
+        builtin = self.read_integer()
 
         return BuiltIn(builtin)
 

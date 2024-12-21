@@ -10,7 +10,7 @@ from .ast import (
     PlutusByteString,
     PlutusInteger,
     PlutusList,
-    PlutusMap,
+    PlutusMap, Constr, BuiltinInteger, Case,
 )
 
 
@@ -42,6 +42,8 @@ class Parser:
         @self.pg.production("name : BUILTIN")
         @self.pg.production("name : CON")
         @self.pg.production("name : ERROR")
+        @self.pg.production("name : CONSTRT")
+        @self.pg.production("name : CASE")
         def name(p):
             return p[0]
 
@@ -83,19 +85,40 @@ class Parser:
         @self.pg.production(
             "expression : BRACK_OPEN expression expression_list BRACK_CLOSE"
         )
-        def delay(p):
+        def expression(p):
             res = p[1]
             for e in p[2]:
                 res = ast.Apply(res, e)
             return res
 
         @self.pg.production("expression_list : expression")
-        def delay(p):
+        def expression_list_head(p):
             return [p[0]]
 
         @self.pg.production("expression_list : expression expression_list")
-        def delay(p):
+        def expression_list_cons(p):
             return [p[0]] + p[1]
+
+        @self.pg.production("empty_expression_list : | expression_list")
+        def expression_list_head(p):
+            if not p:
+                return []
+            return p[0]
+
+        @self.pg.production("expression : PAREN_OPEN CONSTRT constantvalue empty_expression_list PAREN_CLOSE")
+        def constr_term(p):
+            assert isinstance(p[2], int), "First value in constr must be an integer"
+            return Constr(
+                p[2],
+                p[3],
+            )
+
+        @self.pg.production("expression : PAREN_OPEN CASE expression empty_expression_list PAREN_CLOSE")
+        def case_term(p):
+            return Case(
+                p[2],
+                p[3],
+            )
 
         @self.pg.production("constanttype : name")
         def constanttype(p):

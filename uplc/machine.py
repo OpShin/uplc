@@ -39,6 +39,8 @@ AST_TO_CEK_OP_MAP = {
     BoundStateDelay: CekOp.Delay,
     Force: CekOp.Force,
     Apply: CekOp.Apply,
+    Constr: CekOp.Constr,
+    Case: CekOp.Case,
 }
 
 
@@ -127,7 +129,7 @@ class Machine:
         if isinstance(term, Error):
             raise RuntimeError(f"Execution called Error")
         self.step_and_maybe_spend(term)
-        if isinstance(term, Constant):
+        if isinstance(term, Constant) or isinstance(term, Constr):
             return Return(context, term)
         elif isinstance(term, BoundStateLambda):
             return Return(

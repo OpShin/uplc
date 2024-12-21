@@ -1319,3 +1319,45 @@ class Apply(AST):
 
     def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"
+
+@dataclass
+class Constr(AST):
+    i: int
+    fs: List[AST]
+
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
+        return f"(constr {self.i} {' '.join(l.dumps(dialect=dialect) for l in self.fs)})"
+
+    @property
+    def _fields(self):
+        return [f"fs_{i}" for i in range(len(self.fs))]
+
+    def __getattr__(self, item):
+        try:
+            if item.startswith("fs_"):
+                index = int(item.split("_")[1])
+                return self.fs[index]
+        except:
+            pass
+        return object.__getattribute__(self, item)
+
+@dataclass
+class Case(AST):
+    scrutinee: AST
+    fs: List[AST]
+
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
+        return f"(case {self.scrutinee.dumps(dialect=dialect)} {' '.join(l.dumps(dialect=dialect) for l in self.fs)})"
+
+    @property
+    def _fields(self):
+        return [f"fs_{i}" for i in range(len(self.fs))]
+
+    def __getattr__(self, item):
+        try:
+            if item.startswith("fs_"):
+                index = int(item.split("_")[1])
+                return self.fs[index]
+        except:
+            pass
+        return super().__getattr__(item)
