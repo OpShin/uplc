@@ -2,6 +2,7 @@
 DeBrujin Machine to evaluate UPLC AST
 """
 import copy
+from dataclasses import replace
 
 from .ast import *
 from .transformer.unique_variables import UniqueVariableTransformer, FreeVariableError
@@ -129,7 +130,7 @@ class Machine:
         if isinstance(term, Error):
             raise RuntimeError(f"Execution called Error")
         self.step_and_maybe_spend(term)
-        if isinstance(term, Constant) or isinstance(term, Constr):
+        if isinstance(term, Constant):
             return Return(context, term)
         elif isinstance(term, BoundStateLambda):
             return Return(
@@ -166,6 +167,24 @@ class Machine:
                     f"Access to uninitialized variable {term.name} in {term.dumps()}"
                 )
                 raise e
+        elif isinstance(term, Constr):
+            if term.fields:
+                return Compute(
+                    FrameConstr(
+                        state,
+                        term.tag,
+                        term.fields[1:],
+                        [],
+                        context,
+                    ),
+                    state,
+                    term.fields[0],
+                )
+            else:
+                return Return(
+                    context,
+                    term,
+                )
         raise NotImplementedError(f"Invalid term to compute: {term}")
 
     def return_compute(self, context, value):
@@ -185,6 +204,23 @@ class Machine:
         elif isinstance(context, NoFrame):
             term = value
             return Done(term)
+        elif isinstance(context, FrameConstr):
+            resolved_fields = context.resolved_fields + [value]
+            if context.fields:
+                return Compute(
+                    replace(
+                        context,
+                        fields=context.fields[1:],
+                        resolved_fields=resolved_fields,
+                    ),
+                    context.env,
+                    context.fields[0],
+                )
+            else:
+                return Return(
+                    context.ctx,
+                    Constr(context.tag, resolved_fields),
+                )
         raise NotImplementedError(f"Invalid context to return compute: {context}")
 
     def apply_evaluate(self, context, function, argument):

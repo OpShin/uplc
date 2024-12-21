@@ -13,6 +13,9 @@ from .ast import (
     PlutusMap, Constr, BuiltinInteger, Case,
 )
 
+PLUTUS_V2 = (1,0,0)
+PLUTUS_V3 = (1,1,0)
+PLUTUS_VERSIONS = {PLUTUS_V2, PLUTUS_V3}
 
 class Parser:
     def __init__(self):
@@ -22,7 +25,9 @@ class Parser:
             "program : PAREN_OPEN PROGRAM version expression PAREN_CLOSE"
         )
         def program(p):
-            return ast.Program(tuple(map(int, p[2].split("."))), p[3])
+            version = tuple(map(int, p[2].split(".")))
+            assert version in PLUTUS_VERSIONS, "Invalid plutus version (must be 1.0.0 or 1.1.0)"
+            return ast.Program(version, p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
         def version(p):

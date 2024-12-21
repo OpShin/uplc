@@ -68,6 +68,14 @@ class FrameForce(Context):
 class NoFrame(Context):
     pass
 
+@dataclass
+class FrameConstr(Context):
+    env: frozendict.frozendict
+    tag: int
+    fields: List["AST"]
+    resolved_fields: List["AST"]
+    ctx: Context
+
 
 class Step:
     pass
@@ -1322,21 +1330,21 @@ class Apply(AST):
 
 @dataclass
 class Constr(AST):
-    i: int
-    fs: List[AST]
+    tag: int
+    fields: List[AST]
 
     def dumps(self, dialect=UPLCDialect.Plutus) -> str:
-        return f"(constr {self.i} {' '.join(l.dumps(dialect=dialect) for l in self.fs)})"
+        return f"(constr {self.tag} {' '.join(l.dumps(dialect=dialect) for l in self.fields)})"
 
     @property
     def _fields(self):
-        return [f"fs_{i}" for i in range(len(self.fs))]
+        return [f"fields_{i}" for i in range(len(self.fields))]
 
     def __getattr__(self, item):
         try:
-            if item.startswith("fs_"):
+            if item.startswith("fields_"):
                 index = int(item.split("_")[1])
-                return self.fs[index]
+                return self.fields[index]
         except:
             pass
         return object.__getattribute__(self, item)
@@ -1344,20 +1352,20 @@ class Constr(AST):
 @dataclass
 class Case(AST):
     scrutinee: AST
-    fs: List[AST]
+    branches: List[AST]
 
     def dumps(self, dialect=UPLCDialect.Plutus) -> str:
-        return f"(case {self.scrutinee.dumps(dialect=dialect)} {' '.join(l.dumps(dialect=dialect) for l in self.fs)})"
+        return f"(case {self.scrutinee.dumps(dialect=dialect)} {' '.join(l.dumps(dialect=dialect) for l in self.branches)})"
 
     @property
     def _fields(self):
-        return [f"fs_{i}" for i in range(len(self.fs))]
+        return [f"branches_{i}" for i in range(len(self.branches))]
 
     def __getattr__(self, item):
         try:
-            if item.startswith("fs_"):
+            if item.startswith("branches_"):
                 index = int(item.split("_")[1])
-                return self.fs[index]
+                return self.branches[index]
         except:
             pass
         return super().__getattr__(item)
