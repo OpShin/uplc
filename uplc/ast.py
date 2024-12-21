@@ -21,6 +21,7 @@ import nacl.exceptions
 from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano import IndefiniteList
+from Crypto.Hash import keccak
 
 try:
     import pysecp256k1
@@ -712,23 +713,27 @@ class BuiltInFun(Enum):
     MkNilData = 49
     MkNilPairData = 50
     # BLS Builtins
-    # Bls12_381_G1_Add = 54
-    # Bls12_381_G1_Neg = 55
-    # Bls12_381_G1_ScalarMul = 56
-    # Bls12_381_G1_Equal = 57
-    # Bls12_381_G1_Compress = 58
-    # Bls12_381_G1_Uncompress = 59
-    # Bls12_381_G1_HashToGroup = 60
-    # Bls12_381_G2_Add = 61
-    # Bls12_381_G2_Neg = 62
-    # Bls12_381_G2_ScalarMul = 63
-    # Bls12_381_G2_Equal = 64
-    # Bls12_381_G2_Compress = 65
-    # Bls12_381_G2_Uncompress = 66
-    # Bls12_381_G2_HashToGroup = 67
-    # Bls12_381_MillerLoop = 68
-    # Bls12_381_MulMlResult = 69
-    # Bls12_381_FinalVerify = 70
+    Bls12_381_G1_Add = 54
+    Bls12_381_G1_Neg = 55
+    Bls12_381_G1_ScalarMul = 56
+    Bls12_381_G1_Equal = 57
+    Bls12_381_G1_Compress = 58
+    Bls12_381_G1_Uncompress = 59
+    Bls12_381_G1_HashToGroup = 60
+    Bls12_381_G2_Add = 61
+    Bls12_381_G2_Neg = 62
+    Bls12_381_G2_ScalarMul = 63
+    Bls12_381_G2_Equal = 64
+    Bls12_381_G2_Compress = 65
+    Bls12_381_G2_Uncompress = 66
+    Bls12_381_G2_HashToGroup = 67
+    Bls12_381_MillerLoop = 68
+    Bls12_381_MulMlResult = 69
+    Bls12_381_FinalVerify = 70
+    Keccak_256 = 71
+    Blake2b_224 = 72
+    IntegerToByteString = 73
+    ByteStringToInteger = 74
     AndByteString = 75
     OrByteString = 76
     XorByteString = 77
@@ -1105,6 +1110,12 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.SerialiseData: single_data(
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
+    ),
+    BuiltInFun.Keccak_256: single_bytestring(
+        lambda x: BuiltinByteString(keccak.new(digest_bits=256).update(x.value).digest())
+    ),
+    BuiltInFun.Blake2b_224: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.blake2b(x.value, digest_size=28).digest())
     ),
     BuiltInFun.AndByteString: typechecked(
         BuiltinBool, BuiltinByteString, BuiltinByteString
