@@ -3,6 +3,7 @@ import enum
 import json
 import logging
 import math
+import sys
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ try:
 except (RuntimeError, ImportError):
     schnorrsig = None
 
+sys.set_int_max_str_digits(32000)
 
 class UPLCDialect(enum.Enum):
     LegacyAiken = "legacy-aiken"
@@ -897,6 +899,19 @@ def _MapData(x):
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
     return PlutusMap({p.l_value: p.r_value for p in x.values})
 
+def _int_to_bytestring_endianness(endianness: BuiltinBool, width: BuiltinInteger, integer: BuiltinInteger):
+    width = width.value
+    if not 0 <= width <= 8192:
+        raise RuntimeError(f"Invalid width {width} (0 <= w < 8192)")
+    integer = integer.value
+    if not 0 <= integer < 256**8192:
+        raise RuntimeError(f"Too large value to convert {integer} (0 <= integer < 256**8192)")
+    if width == 0:
+        width = (integer.bit_length() + 7) // 8
+    endianness = "big" if endianness.value else "little"
+    return BuiltinByteString(integer.to_bytes(width, endianness))
+
+
 
 def _map_bytes_trunc(foo, fill):
     # implements the extending/truncating of and/or/xor
@@ -1112,10 +1127,15 @@ BuiltInFunEvalMap = {
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
     ),
     BuiltInFun.Keccak_256: single_bytestring(
-        lambda x: BuiltinByteString(keccak.new(digest_bits=256).update(x.value).digest())
+        lambda x: BuiltinByteString(
+            keccak.new(digest_bits=256).update(x.value).digest()
+        )
     ),
     BuiltInFun.Blake2b_224: single_bytestring(
         lambda x: BuiltinByteString(hashlib.blake2b(x.value, digest_size=28).digest())
+    ),
+    BuiltInFun.IntegerToByteString: typechecked(BuiltinBool, BuiltinInteger, BuiltinInteger)(
+        _int_to_bytestring_endianness
     ),
     BuiltInFun.AndByteString: typechecked(
         BuiltinBool, BuiltinByteString, BuiltinByteString
