@@ -48,7 +48,7 @@ class Context:
 
 @dataclass
 class FrameApplyFun(Context):
-    val: Any
+    fun: Any
     ctx: Context
 
 
@@ -58,6 +58,10 @@ class FrameApplyArg(Context):
     term: "AST"
     ctx: Context
 
+@dataclass
+class FrameApplyFunArg(Context):
+    arg: Any
+    ctx: Context
 
 @dataclass
 class FrameForce(Context):
@@ -76,6 +80,11 @@ class FrameConstr(Context):
     resolved_fields: List["AST"]
     ctx: Context
 
+@dataclass
+class FrameCases(Context):
+    env: frozendict.frozendict
+    branches: List["AST"]
+    ctx: Context
 
 class Step:
     pass
@@ -1109,7 +1118,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
     BuiltInFun.UnConstrData: single_data_constr(
         lambda x: BuiltinPair(
-            BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+            BuiltinInteger(x.constructor), BuiltinList(x.branches, PlutusData())
         )
     ),
     BuiltInFun.UnMapData: single_data_map(
