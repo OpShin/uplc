@@ -909,9 +909,11 @@ def _int_to_bytestring_endianness(endianness: BuiltinBool, width: BuiltinInteger
     if width == 0:
         width = (integer.bit_length() + 7) // 8
     endianness = "big" if endianness.value else "little"
-    return BuiltinByteString(integer.to_bytes(width, endianness))
+    return BuiltinByteString(integer.to_bytes(width, byteorder=endianness))
 
-
+def _bytestring_to_int_endianness(endianness: BuiltinBool, bytestring: BuiltinByteString):
+    endianness = "big" if endianness.value else "little"
+    return BuiltinInteger(int.from_bytes(bytestring.value, byteorder=endianness))
 
 def _map_bytes_trunc(foo, fill):
     # implements the extending/truncating of and/or/xor
@@ -1136,6 +1138,9 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.IntegerToByteString: typechecked(BuiltinBool, BuiltinInteger, BuiltinInteger)(
         _int_to_bytestring_endianness
+    ),
+    BuiltInFun.ByteStringToInteger: typechecked(BuiltinBool, BuiltinByteString)(
+        _bytestring_to_int_endianness
     ),
     BuiltInFun.AndByteString: typechecked(
         BuiltinBool, BuiltinByteString, BuiltinByteString
