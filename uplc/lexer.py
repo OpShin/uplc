@@ -15,6 +15,8 @@ TOKENS = {
     "BUILTIN": r"\bbuiltin\b",
     "CON": r"\bcon\b",
     "ERROR": r"\berror\b",
+    "CONSTRT": r"\bconstr\b",
+    "CASE": r"\bcase\b",
     "PAREN_OPEN": r"\(",
     "PAREN_CLOSE": r"\)",
     "BRACK_OPEN": r"\[",

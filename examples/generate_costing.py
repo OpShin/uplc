@@ -2,7 +2,7 @@ import os
 import subprocess
 from pathlib import Path
 
-from uplc.tests.test_acceptance import acceptance_test_dirs
+from tests.test_acceptance import acceptance_test_dirs
 
 for dirpath in acceptance_test_dirs():
     files = os.listdir(dirpath)

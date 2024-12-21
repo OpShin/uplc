@@ -3,20 +3,26 @@ import enum
 import json
 import logging
 import math
+import sys
 import typing
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import Enum, auto
 import hashlib
+from itertools import zip_longest
 from typing import List, Any, Dict, Union
 
+import bitarray
 import cbor2
 import frozendict
+from bitstring import BitArray
 from frozenlist2 import frozenlist
 import nacl.exceptions
 from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano import IndefiniteList
+from Crypto.Hash import keccak
+from Crypto.Hash.RIPEMD160 import RIPEMD160Hash
 
 try:
     import pysecp256k1
@@ -29,6 +35,7 @@ try:
 except (RuntimeError, ImportError):
     schnorrsig = None
 
+sys.set_int_max_str_digits(32000)
 
 class UPLCDialect(enum.Enum):
     LegacyAiken = "legacy-aiken"
@@ -41,7 +48,7 @@ class Context:
 
 @dataclass
 class FrameApplyFun(Context):
-    val: Any
+    fun: Any
     ctx: Context
 
 
@@ -51,6 +58,10 @@ class FrameApplyArg(Context):
     term: "AST"
     ctx: Context
 
+@dataclass
+class FrameApplyFunArg(Context):
+    arg: Any
+    ctx: Context
 
 @dataclass
 class FrameForce(Context):
@@ -61,6 +72,19 @@ class FrameForce(Context):
 class NoFrame(Context):
     pass
 
+@dataclass
+class FrameConstr(Context):
+    env: frozendict.frozendict
+    tag: int
+    fields: List["AST"]
+    resolved_fields: List["AST"]
+    ctx: Context
+
+@dataclass
+class FrameCases(Context):
+    env: frozendict.frozendict
+    branches: List["AST"]
+    ctx: Context
 
 class Step:
     pass
@@ -708,23 +732,39 @@ class BuiltInFun(Enum):
     MkNilData = 49
     MkNilPairData = 50
     # BLS Builtins
-    # Bls12_381_G1_Add = 54
-    # Bls12_381_G1_Neg = 55
-    # Bls12_381_G1_ScalarMul = 56
-    # Bls12_381_G1_Equal = 57
-    # Bls12_381_G1_Compress = 58
-    # Bls12_381_G1_Uncompress = 59
-    # Bls12_381_G1_HashToGroup = 60
-    # Bls12_381_G2_Add = 61
-    # Bls12_381_G2_Neg = 62
-    # Bls12_381_G2_ScalarMul = 63
-    # Bls12_381_G2_Equal = 64
-    # Bls12_381_G2_Compress = 65
-    # Bls12_381_G2_Uncompress = 66
-    # Bls12_381_G2_HashToGroup = 67
-    # Bls12_381_MillerLoop = 68
-    # Bls12_381_MulMlResult = 69
-    # Bls12_381_FinalVerify = 70
+    Bls12_381_G1_Add = 54
+    Bls12_381_G1_Neg = 55
+    Bls12_381_G1_ScalarMul = 56
+    Bls12_381_G1_Equal = 57
+    Bls12_381_G1_Compress = 58
+    Bls12_381_G1_Uncompress = 59
+    Bls12_381_G1_HashToGroup = 60
+    Bls12_381_G2_Add = 61
+    Bls12_381_G2_Neg = 62
+    Bls12_381_G2_ScalarMul = 63
+    Bls12_381_G2_Equal = 64
+    Bls12_381_G2_Compress = 65
+    Bls12_381_G2_Uncompress = 66
+    Bls12_381_G2_HashToGroup = 67
+    Bls12_381_MillerLoop = 68
+    Bls12_381_MulMlResult = 69
+    Bls12_381_FinalVerify = 70
+    Keccak_256 = 71
+    Blake2b_224 = 72
+    IntegerToByteString = 73
+    ByteStringToInteger = 74
+    AndByteString = 75
+    OrByteString = 76
+    XorByteString = 77
+    ComplementByteString = 78
+    ReadBit = 79
+    WriteBits = 80
+    ReplicateByte = 81
+    ShiftByteString = 82
+    RotateByteString = 83
+    CountSetBits = 84
+    FindFirstSetBit = 85
+    Ripemd_160 = 86
 
 
 def typechecked(*typs):
@@ -876,6 +916,120 @@ def _MapData(x):
     assert isinstance(x.sample_value, BuiltinPair), "Can only map over a list of pairs"
     return PlutusMap({p.l_value: p.r_value for p in x.values})
 
+def _int_to_bytestring_endianness(endianness: BuiltinBool, width: BuiltinInteger, integer: BuiltinInteger):
+    width = width.value
+    if not 0 <= width <= 8192:
+        raise RuntimeError(f"Invalid width {width} (0 <= w < 8192)")
+    integer = integer.value
+    if not 0 <= integer < 256**8192:
+        raise RuntimeError(f"Too large value to convert {integer} (0 <= integer < 256**8192)")
+    if width == 0:
+        width = (integer.bit_length() + 7) // 8
+    endianness = "big" if endianness.value else "little"
+    return BuiltinByteString(integer.to_bytes(width, byteorder=endianness))
+
+def _bytestring_to_int_endianness(endianness: BuiltinBool, bytestring: BuiltinByteString):
+    endianness = "big" if endianness.value else "little"
+    return BuiltinInteger(int.from_bytes(bytestring.value, byteorder=endianness))
+
+def _map_bytes_trunc(foo, fill):
+    # implements the extending/truncating of and/or/xor
+    def ext_trunc_logic(switch, x, y):
+        x, y = x.value, y.value
+        if switch.value:
+            res = bytes(foo(xi, yi) for xi, yi in zip_longest(x, y, fillvalue=fill))
+        else:
+            # perform operation on bytes individually truncated to shorter sequence
+            res = bytes(foo(xi, yi) for xi, yi in zip(x, y))
+        return BuiltinByteString(res)
+
+    return ext_trunc_logic
+
+
+def _shift_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
+    # library allows bitops and preserves original len
+    data = BitArray(raw_data.value)
+    if not data:
+        # shifting empty bitstring results in empty bitstring
+        return raw_data
+
+    # Perform the left shift if shift > 0
+    if shift_amount.value >= 0:
+        shifted_value = data << shift_amount.value
+    else:
+        shifted_value = data >> -shift_amount.value
+
+    # Convert the shifted integer back to bytes
+    shifted_bytes = shifted_value.bytes
+
+    return BuiltinByteString(shifted_bytes)
+
+
+def _rotate_bytes(raw_data: BuiltinByteString, shift_amount: BuiltinInteger):
+    # library allows bitops and preserves original len
+    data = BitArray(raw_data.value)
+    if not data:
+        # shifting empty bitstring results in empty bitstring
+        return raw_data
+
+    # Perform the left shift if shift > 0
+    if shift_amount.value >= 0:
+        data.rol(shift_amount.value)
+    else:
+        data.ror(-shift_amount.value)
+
+    # Convert the shifted integer back to bytes
+    shifted_bytes = data.bytes
+
+    return BuiltinByteString(shifted_bytes)
+
+
+def _count_set_bits(bytestring: BuiltinByteString):
+    # Convert bytes to a binary string and count '1's
+    return BuiltinInteger(BitArray(bytestring.value).count(1))
+
+
+def _find_first_set_bit(bytestring: BuiltinByteString):
+    for byte_index, byte in enumerate(reversed(bytestring.value)):
+        # Check each bit in the byte
+        for bit_index in range(8):
+            if byte & (1 << bit_index):
+                # Return the position of the first set bit
+                return BuiltinInteger(byte_index * 8 + bit_index)
+    # If no set bit is found, return -1
+    return BuiltinInteger(-1)
+
+
+def _read_bit(bytestring: BuiltinByteString, pos: BuiltinInteger):
+    bits = bitarray.bitarray()
+    bits.frombytes(bytestring.value)
+    if not 0 <= pos.value < len(bits):
+        raise RuntimeError("Invalid index")
+    return BuiltinBool(bool(bits[len(bits) - pos.value - 1]))
+
+
+def _write_bits(bytestring: BuiltinByteString, poss: BuiltinList, val: BuiltinBool):
+    bits = bitarray.bitarray()
+    bits.frombytes(bytestring.value)
+    for i, pos in enumerate(poss.values):
+        assert isinstance(pos, BuiltinInteger), "Invalid type of index"
+        if not 0 <= pos.value < len(bits):
+            raise RuntimeError(f"{i}th index invalid: {pos.value}")
+        bits[len(bits) - pos.value - 1] = val.value
+    return BuiltinByteString(bits.tobytes())
+
+
+def _replicate_bytes(length: BuiltinInteger, val: BuiltinInteger):
+    if not 0 <= length.value <= 8192:
+        raise RuntimeError(
+            "Invalid length of requested bytestring (must be between 0 and 8192)"
+        )
+    if not 0 <= val.value <= 255:
+        raise RuntimeError(
+            "Invalid byte value to fill into bytestring (must be between 0 and 255)"
+        )
+    return BuiltinByteString(bytes([val.value] * length.value))
+
 
 two_ints = typechecked(BuiltinInteger, BuiltinInteger)
 two_bytestrings = typechecked(BuiltinByteString, BuiltinByteString)
@@ -964,7 +1118,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
     BuiltInFun.UnConstrData: single_data_constr(
         lambda x: BuiltinPair(
-            BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
+            BuiltinInteger(x.constructor), BuiltinList(x.branches, PlutusData())
         )
     ),
     BuiltInFun.UnMapData: single_data_map(
@@ -990,6 +1144,50 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.SerialiseData: single_data(
         lambda x: BuiltinByteString(plutus_cbor_dumps(x))
+    ),
+    BuiltInFun.Keccak_256: single_bytestring(
+        lambda x: BuiltinByteString(
+            keccak.new(digest_bits=256).update(x.value).digest()
+        )
+    ),
+    BuiltInFun.Blake2b_224: single_bytestring(
+        lambda x: BuiltinByteString(hashlib.blake2b(x.value, digest_size=28).digest())
+    ),
+    BuiltInFun.IntegerToByteString: typechecked(BuiltinBool, BuiltinInteger, BuiltinInteger)(
+        _int_to_bytestring_endianness
+    ),
+    BuiltInFun.ByteStringToInteger: typechecked(BuiltinBool, BuiltinByteString)(
+        _bytestring_to_int_endianness
+    ),
+    BuiltInFun.AndByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x & y, 255)),
+    BuiltInFun.OrByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x | y, 0)),
+    BuiltInFun.XorByteString: typechecked(
+        BuiltinBool, BuiltinByteString, BuiltinByteString
+    )(_map_bytes_trunc(lambda x, y: x ^ y, 0)),
+    BuiltInFun.ComplementByteString: typechecked(BuiltinByteString)(
+        lambda xs: BuiltinByteString(bytes(~x % 256 for x in xs.value))
+    ),
+    BuiltInFun.ShiftByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        _shift_bytes
+    ),
+    BuiltInFun.RotateByteString: typechecked(BuiltinByteString, BuiltinInteger)(
+        _rotate_bytes
+    ),
+    BuiltInFun.CountSetBits: typechecked(BuiltinByteString)(_count_set_bits),
+    BuiltInFun.FindFirstSetBit: typechecked(BuiltinByteString)(_find_first_set_bit),
+    BuiltInFun.ReadBit: typechecked(BuiltinByteString, BuiltinInteger)(_read_bit),
+    BuiltInFun.WriteBits: typechecked(BuiltinByteString, BuiltinList, BuiltinBool)(
+        _write_bits
+    ),
+    BuiltInFun.ReplicateByte: typechecked(BuiltinInteger, BuiltinInteger)(
+        _replicate_bytes
+    ),
+    BuiltInFun.Ripemd_160: typechecked(BuiltinByteString)(
+        lambda x: BuiltinByteString(RIPEMD160Hash(x.value).digest())
     ),
 }
 
@@ -1138,3 +1336,45 @@ class Apply(AST):
 
     def dumps(self, dialect=UPLCDialect.Plutus) -> str:
         return f"[{self.f.dumps(dialect=dialect)} {self.x.dumps(dialect=dialect)}]"
+
+@dataclass
+class Constr(AST):
+    tag: int
+    fields: List[AST]
+
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
+        return f"(constr {self.tag} {' '.join(l.dumps(dialect=dialect) for l in self.fields)})"
+
+    @property
+    def _fields(self):
+        return [f"fields_{i}" for i in range(len(self.fields))]
+
+    def __getattr__(self, item):
+        try:
+            if item.startswith("fields_"):
+                index = int(item.split("_")[1])
+                return self.fields[index]
+        except:
+            pass
+        return object.__getattribute__(self, item)
+
+@dataclass
+class Case(AST):
+    scrutinee: AST
+    branches: List[AST]
+
+    def dumps(self, dialect=UPLCDialect.Plutus) -> str:
+        return f"(case {self.scrutinee.dumps(dialect=dialect)} {' '.join(l.dumps(dialect=dialect) for l in self.branches)})"
+
+    @property
+    def _fields(self):
+        return [f"branches_{i}" for i in range(len(self.branches))]
+
+    def __getattr__(self, item):
+        try:
+            if item.startswith("branches_"):
+                index = int(item.split("_")[1])
+                return self.branches[index]
+        except:
+            pass
+        return super().__getattr__(item)
