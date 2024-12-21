@@ -11,7 +11,7 @@ from uplc.util import NodeTransformer
 from uplc.transformer import unique_variables
 from uplc.optimizer import pre_evaluation, remove_traces, remove_force_delay
 
-acceptance_test_path = Path("examples/acceptance_tests")
+acceptance_test_path = Path(__file__).parent.parent / "examples/acceptance_tests"
 
 
 def acceptance_test_dirs():
