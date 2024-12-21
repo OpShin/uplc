@@ -15,7 +15,6 @@ from typing import List, Any, Dict, Union
 import bitarray
 import cbor2
 import frozendict
-from ripemd.ripemd160 import ripemd160
 from bitstring import BitArray
 from frozenlist2 import frozenlist
 import nacl.exceptions
@@ -23,6 +22,7 @@ from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano import IndefiniteList
 from Crypto.Hash import keccak
+from Crypto.Hash.RIPEMD160 import RIPEMD160Hash
 
 try:
     import pysecp256k1
@@ -1170,7 +1170,7 @@ BuiltInFunEvalMap = {
         _replicate_bytes
     ),
     BuiltInFun.Ripemd_160: typechecked(BuiltinByteString)(
-        lambda x: BuiltinByteString(ripemd160(x.value))
+        lambda x: BuiltinByteString(RIPEMD160Hash(x.value).digest())
     ),
 }
 
