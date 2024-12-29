@@ -22,12 +22,13 @@ def budget_cost_of_op_on_model(
     model: Union[BuiltinCostModel, CekMachineCostModel],
     op: Union[BuiltInFun, CekOp],
     *args: int,
+    values=[],
 ):
     if op not in model.cpu or op not in model.memory:
         return Budget(0, 0)
     return Budget(
-        cpu=model.cpu[op].cost(*args),
-        memory=model.memory[op].cost(*args),
+        cpu=model.cpu[op].cost(*args, values=values),
+        memory=model.memory[op].cost(*args, values=values),
     )
 
 
@@ -269,6 +270,7 @@ class Machine:
                         self.builtin_cost_model,
                         function.builtin,
                         *(arg.ex_mem() for arg in arguments),
+                        values=arguments,
                     )
                     self.spend_budget(cost)
                     if function.builtin == BuiltInFun.Trace:

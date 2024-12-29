@@ -380,7 +380,7 @@ class LiteralInYOrLinearInZ(CostingFun):
     slope: int = 0
 
     def cost(self, *memories: int, values=[]) -> int:
-        y = values[1]
+        y = values[1].value
         if y == 0:
             return self.intercept + self.slope * memories[2]
         # "+ 7" for ceil
