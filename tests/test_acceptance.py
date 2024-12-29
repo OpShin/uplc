@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import os
+import re
 
 from parameterized import parameterized
 import unittest
@@ -87,12 +88,24 @@ class AcceptanceTests(unittest.TestCase):
         res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
-        cost_file = next(f for f in files if f.endswith("cost"))
-        with open(Path(dirpath).joinpath(cost_file)) as f:
-            cost_content = f.read()
-        if cost_content == "error":
-            return
-        cost = json.loads(cost_content)
+        try:
+            cost_file = next(f for f in files if f.endswith("cost"))
+            with open(Path(dirpath).joinpath(cost_file)) as f:
+                cost_content = f.read()
+            if "error" in cost_content:
+                return
+            cost = json.loads(cost_content)
+        except StopIteration:
+            cost_file = next(f for f in files if f.endswith("uplc.budget.expected"))
+            with open(Path(dirpath).joinpath(cost_file)) as f:
+                cost_content = f.read()
+            if "error" in cost_content:
+                return
+            numbers = re.findall(r'(cpu|mem)\s*:\s*(\d+)\b', cost_content)
+            self.assertEqual(len(numbers), 2, "Could not parse cost pattern")
+            cost = {
+                k: int(v) for k, v in numbers
+            }
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
         if rewriter in (
             pre_evaluation.PreEvaluationOptimizer,

@@ -13,7 +13,7 @@ from uplc.lexer import strip_comments
 from uplc.ast import *
 
 SAMPLE_CONTRACT = p = Program(
-    version=(0, 0, 1),
+    version=(1, 0, 0),
     term=Apply(
         Apply(
             Apply(
@@ -1434,7 +1434,7 @@ class MiscTest(unittest.TestCase):
 
     def test_unpack_plutus_data(self):
         p = Program(
-            (0, 0, 1),
+            (1, 0, 0),
             Apply(
                 BuiltIn(BuiltInFun.UnConstrData),
                 data_from_cbor(

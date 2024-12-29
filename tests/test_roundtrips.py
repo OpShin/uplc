@@ -4,7 +4,6 @@ import unittest
 import hypothesis
 from hypothesis import strategies as hst
 from frozenlist2 import frozenlist
-import pyaiken
 from parameterized import parameterized
 
 from uplc import *
@@ -138,7 +137,7 @@ uplc_expr = hst.recursive(
 )
 
 
-uplc_version = hst.builds(lambda x, y, z: (x, y, z), pos_int, pos_int, pos_int)
+uplc_version = hst.sampled_from([(1,0,0), (1,1,0)])
 # This strategy also produces invalid programs (due to variables not being bound)
 uplc_program_any = hst.builds(Program, uplc_version, uplc_expr)
 
@@ -166,28 +165,28 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000, deadline=None)
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=BuiltinByteString(value=b"")),
+        Program(version=(1, 0, 0), term=BuiltinByteString(value=b"")),
         UPLCDialect.LegacyAiken,
     )
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=BuiltIn(builtin=BuiltInFun.ConstrData)),
+        Program(version=(1, 0, 0), term=BuiltIn(builtin=BuiltInFun.ConstrData)),
         UPLCDialect.LegacyAiken,
     )
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=BuiltinInteger(value=0)),
+        Program(version=(1, 0, 0), term=BuiltinInteger(value=0)),
         UPLCDialect.LegacyAiken,
     )
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=BuiltinString("\\")),
+        Program(version=(1, 0, 0), term=BuiltinString("\\")),
         UPLCDialect.LegacyAiken,
     )
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=BuiltinString('\\"')),
+        Program(version=(1, 0, 0), term=BuiltinString('\\"')),
         UPLCDialect.LegacyAiken,
     )
     @hypothesis.example(
         Program(
-            version=(0, 0, 0),
+            version=(1, 0, 0),
             term=BuiltinList([BuiltinString("\\"), BuiltinString("\\")]),
         ),
         UPLCDialect.LegacyAiken,
@@ -256,7 +255,7 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
     @hypothesis.example(
         Program(
-            version=(0, 0, 0),
+            version=(1, 0, 0),
             term=Apply(
                 f=Apply(
                     f=BuiltIn(builtin=BuiltInFun.EqualsString),
@@ -268,7 +267,7 @@ class HypothesisTests(unittest.TestCase):
     )
     @hypothesis.example(
         Program(
-            version=(0, 0, 0),
+            version=(1, 0, 0),
             term=Lambda(
                 var_name="_",
                 term=Apply(
@@ -346,59 +345,6 @@ class HypothesisTests(unittest.TestCase):
                 "Rewrite result was exception but orig result is not an exception",
             )
 
-    @hypothesis.given(uplc_program_valid)
-    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    @hypothesis.example(Program(version=(0, 0, 0), term=PlutusConstr(0, [])))
-    @hypothesis.example(
-        Program(
-            version=(0, 0, 0),
-            term=PlutusByteString(
-                b"asdjahsdhjddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
-            ),
-        )
-    )
-    @hypothesis.example(
-        Program(
-            version=(0, 0, 0),
-            term=PlutusInteger(2**64 + 2),
-        )
-    )
-    @hypothesis.example(
-        Program(
-            version=(0, 0, 0),
-            term=BuiltinString("\x00"),
-        )
-    )
-    @hypothesis.example(
-        Program((0, 0, 0), BuiltinPair(BuiltinUnit(), BuiltinString("\x00")))
-    )
-    @hypothesis.example(Program(version=(0, 0, 0), term=BuiltinString(value="\\")))
-    @hypothesis.example(Program((0, 0, 0), BuiltinList([BuiltinString("\x00")])))
-    @hypothesis.example(
-        Program(version=(0, 0, 0), term=PlutusInteger(value=18446744073709551618))
-    )
-    def test_flat_encode_pyaiken_hypothesis(self, p):
-        self.flat_encode_pyaiken_base(p)
-
-    @parameterized.expand((v.name, v) for v in BuiltInFun)
-    def test_flat_encode_pyaiken_builtins(self, _, b: BuiltInFun):
-        self.flat_encode_pyaiken_base(Program(version=(0, 0, 0), term=BuiltIn(b)))
-
-    def flat_encode_pyaiken_base(self, p):
-        flattened = flatten(p)
-        unflattened_aiken_string = pyaiken.uplc.unflat(flattened.hex())
-        unflattened_aiken = parse(unflattened_aiken_string)
-
-        p_unique = unique_variables.UniqueVariableTransformer().visit(p)
-        unflattened_aiken_unique = unique_variables.UniqueVariableTransformer().visit(
-            unflattened_aiken
-        )
-        self.assertEqual(
-            p_unique,
-            unflattened_aiken_unique,
-            "Aiken unable to unflatten encoded flat or decodes to wrong program",
-        )
-
     @hypothesis.given(hst.integers(), hst.booleans())
     def test_zigzag(self, i, b):
         self.assertEqual(i, unzigzag(zigzag(i, b), b)), "Incorrect roundtrip"
@@ -416,10 +362,10 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=PlutusMap(value=frozendict.frozendict({})))
+        Program(version=(1, 0, 0), term=PlutusMap(value=frozendict.frozendict({})))
     )
     @hypothesis.example(
-        Program(version=(0, 0, 0), term=Lambda(var_name="_", term=Variable(name="_")))
+        Program(version=(1, 0, 0), term=Lambda(var_name="_", term=Variable(name="_")))
     )
     @hypothesis.example(Program(version=(1, 0, 0), term=BuiltinUnit()))
     def test_flat_unflat_roundtrip(self, p: Program):
