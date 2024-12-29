@@ -132,6 +132,10 @@ class Parser:
                 return ast.BuiltinInteger(0)
             if name == "bytestring":
                 return ast.BuiltinByteString(b"")
+            if name == "bls12_381_G1_element":
+                return ast.BuiltinBLS12381G1Element(ast.BlstP1Element())
+            if name == "bls12_381_G2_element":
+                return ast.BuiltinBLS12381G2Element(ast.BlstP2Element())
             if name == "string":
                 return ast.BuiltinString("")
             if name == "bool":
@@ -193,6 +197,14 @@ class Parser:
         @self.pg.production("builtinvalue : HEX")
         def expression(p):
             return bytes.fromhex(p[0].value[1:])
+
+        @self.pg.production("builtinvalue : HEX_BLS_G1")
+        def expression(p):
+            return ast.BlstP1Element.uncompress(bytes.fromhex(p[0].value[2:]))
+
+        @self.pg.production("builtinvalue : HEX_BLS_G2")
+        def expression(p):
+            return ast.BlstP2Element.uncompress(bytes.fromhex(p[0].value[2:]))
 
         @self.pg.production("builtinvalue : NUMBER")
         def expression(p):
@@ -424,6 +436,12 @@ def wrap_builtin_type(typ: ast.Constant, val):
         return ast.BuiltinUnit()
     if isinstance(typ, ast.BuiltinByteString):
         assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
+    if isinstance(typ, ast.BuiltinBLS12381G1Element):
+        assert isinstance(val, ast.BlstP1Element), f"Expected BLS12-381 G1 element (compressed form 0x...) but found {type(val)}"
+        val = val.compress()
+    if isinstance(typ, ast.BuiltinBLS12381G2Element):
+        assert isinstance(val, ast.BlstP2Element), f"Expected BLS12-381 G2 element (compressed form 0x...) but found {type(val)}"
+        val = val.compress()
     if isinstance(typ, ast.BuiltinString):
         assert isinstance(val, str), f"Expected str but found {type(val)}"
     if isinstance(typ, ast.BuiltinInteger):

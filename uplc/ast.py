@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import functools
 import json
 import logging
 import math
@@ -34,6 +35,19 @@ try:
     import pysecp256k1.schnorrsig as schnorrsig
 except (RuntimeError, ImportError):
     schnorrsig = None
+
+try:
+    from pyblst import BlstP1Element, BlstP2Element, BlstFP12Element
+except ImportError:
+    BlstP1Element, BlstP2Element, BlstFP12Element = type("BlstP1Element"), type("BlstP2Element"), type("BlstFP12Element")
+
+@functools.lru_cache()
+def pyblst():
+    try:
+        import pyblst
+    except ImportError:
+        raise RuntimeError("BLS extensions not installed. Install uplc[bls] or pyblst for bls primitive support.")
+    return pyblst
 
 sys.set_int_max_str_digits(32000)
 
@@ -305,6 +319,48 @@ class BuiltinString(Constant):
     def encode(self, *args):
         return BuiltinByteString(self.value.encode())
 
+@dataclass(frozen=True)
+class BuiltinBLS12381G1Element(Constant):
+    value: bytes
+
+    def typestring(self, dialect=UPLCDialect.Plutus):
+        return "bls12_381_G1_element"
+
+    def valuestring(self, dialect=UPLCDialect.Plutus):
+        return f"0x{self.value.hex()}"
+
+    def ex_mem(self) -> int:
+        #TODO
+        return len(self.value)
+
+
+@dataclass(frozen=True)
+class BuiltinBLS12381G2Element(Constant):
+    value: BlstP2Element
+
+    def typestring(self, dialect=UPLCDialect.Plutus):
+        return "bls12_381_G2_element"
+
+    def valuestring(self, dialect=UPLCDialect.Plutus):
+        return f"0x{self.value.hex()}"
+
+    def ex_mem(self) -> int:
+        #TODO
+        return len(self.value)
+
+@dataclass(frozen=True)
+class BuiltinBLS12381Mlresult(Constant):
+    value: BlstFP12Element
+
+    def typestring(self, dialect=UPLCDialect.Plutus):
+        return "bls12_381_mlresult"
+
+    def valuestring(self, dialect=UPLCDialect.Plutus):
+        return "<opaque>"
+
+    def ex_mem(self) -> int:
+        #TODO
+        return len(self.value)
 
 @dataclass(frozen=True)
 class BuiltinPair(Constant):
@@ -1188,6 +1244,9 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.Ripemd_160: typechecked(BuiltinByteString)(
         lambda x: BuiltinByteString(RIPEMD160Hash(x.value).digest())
+    ),
+    BuiltInFun.Bls12_381_G1_Uncompress: typechecked(BuiltinByteString)(
+        lambda x: BuiltinBLS12381G1Element(pyblst().BlstP1Element.uncompress(x.value).compress())
     ),
 }
 

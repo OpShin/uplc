@@ -30,6 +30,10 @@ python-secp256k1-cardano = "^0.2.3"
 bitstring = "^4.2.3"
 pycryptodome = "^3.21.0"
 
+[tool.poetry.extras]
+bls = ["pyblst"]
+
+
 [tool.poetry.group.dev.dependencies]
 pyaiken = "^0.5.5"
 hypothesis = "^6.75.0"

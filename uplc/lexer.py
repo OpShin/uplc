@@ -28,15 +28,17 @@ TOKENS = {
     "TEXT": r'"(([^\n\r"]|(?<!\\)(\\\\)*\\")*(?<!\\)(\\\\)*)"',
     "COMMA": r",",
     "DOT": r"\.",
-    "NUMBER": r"[-\+]?\d+",
+    "NUMBER": r"[-\+]?\d+\b",
     "BOOL": r"\b(True|False)\b",
     "I": r"\bI\b",
     "B": r"\bB\b",
     "LIST": r"\bList\b",
     "MAP": r"\bMap\b",
     "CONSTR": r"\bConstr\b",
+    "HEX_BLS_G1": r"\b0[Xx][\dabcdefABCDEF]{96}\b",
+    "HEX_BLS_G2": r"\b0[Xx][\dabcdefABCDEF]{192}\b",
+    "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*\b",
     "NAME_NON_SPECIAL": r"[\w_~'][\w\d_~'!#]*",
-    "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*",
 }
 
 
