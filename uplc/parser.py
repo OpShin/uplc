@@ -438,10 +438,8 @@ def wrap_builtin_type(typ: ast.Constant, val):
         assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
     if isinstance(typ, ast.BuiltinBLS12381G1Element):
         assert isinstance(val, ast.BlstP1Element), f"Expected BLS12-381 G1 element (compressed form 0x...) but found {type(val)}"
-        val = val.compress()
     if isinstance(typ, ast.BuiltinBLS12381G2Element):
         assert isinstance(val, ast.BlstP2Element), f"Expected BLS12-381 G2 element (compressed form 0x...) but found {type(val)}"
-        val = val.compress()
     if isinstance(typ, ast.BuiltinString):
         assert isinstance(val, str), f"Expected str but found {type(val)}"
     if isinstance(typ, ast.BuiltinInteger):

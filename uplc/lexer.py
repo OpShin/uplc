@@ -37,7 +37,7 @@ TOKENS = {
     "CONSTR": r"\bConstr\b",
     "HEX_BLS_G1": r"\b0[Xx][\dabcdefABCDEF]{96}\b",
     "HEX_BLS_G2": r"\b0[Xx][\dabcdefABCDEF]{192}\b",
-    "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*\b",
+    "HEX": r"#([\dabcdefABCDEF][\dabcdefABCDEF])*",
     "NAME_NON_SPECIAL": r"[\w_~'][\w\d_~'!#]*",
 }
 

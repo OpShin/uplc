@@ -321,17 +321,23 @@ class BuiltinString(Constant):
 
 @dataclass(frozen=True)
 class BuiltinBLS12381G1Element(Constant):
-    value: bytes
+    value: BlstP1Element
 
     def typestring(self, dialect=UPLCDialect.Plutus):
         return "bls12_381_G1_element"
 
     def valuestring(self, dialect=UPLCDialect.Plutus):
-        return f"0x{self.value.hex()}"
+        return f"0x{self.value.compress().hex()}"
+
+    def __getstate__(self):
+        return self.value.compress()
+
+    def __setstate__(self, state):
+        object.__setattr__(self, "value", BlstP1Element.uncompress(state))
 
     def ex_mem(self) -> int:
         #TODO
-        return len(self.value)
+        return len(self.value.compress())
 
 
 @dataclass(frozen=True)
@@ -346,7 +352,7 @@ class BuiltinBLS12381G2Element(Constant):
 
     def ex_mem(self) -> int:
         #TODO
-        return len(self.value)
+        return len(self.value.compress())
 
 @dataclass(frozen=True)
 class BuiltinBLS12381Mlresult(Constant):
@@ -1246,7 +1252,25 @@ BuiltInFunEvalMap = {
         lambda x: BuiltinByteString(RIPEMD160Hash(x.value).digest())
     ),
     BuiltInFun.Bls12_381_G1_Uncompress: typechecked(BuiltinByteString)(
-        lambda x: BuiltinBLS12381G1Element(pyblst().BlstP1Element.uncompress(x.value).compress())
+        lambda x: BuiltinBLS12381G1Element(pyblst().BlstP1Element.uncompress(x.value))
+    ),
+    BuiltInFun.Bls12_381_G1_Compress: typechecked(BuiltinBLS12381G1Element)(
+        lambda x: BuiltinByteString(x.value.compress())
+    ),
+    BuiltInFun.Bls12_381_G1_Add: typechecked(BuiltinBLS12381G1Element, BuiltinBLS12381G1Element)(
+        lambda x, y: BuiltinBLS12381G1Element(x.value + y.value)
+    ),
+    BuiltInFun.Bls12_381_G1_Neg: typechecked(BuiltinBLS12381G1Element)(
+        lambda x: BuiltinBLS12381G1Element(-x.value)
+    ),
+    BuiltInFun.Bls12_381_G1_ScalarMul: typechecked(BuiltinInteger, BuiltinBLS12381G1Element)(
+        lambda x, y: BuiltinBLS12381G1Element(y.value.scalar_mul(x.value))
+    ),
+    BuiltInFun.Bls12_381_G1_HashToGroup: typechecked(BuiltinByteString, BuiltinByteString)(
+        lambda x, y: BuiltinBLS12381G1Element(pyblst().BlstP1Element.hash_to_group(x.value, y.value))
+    ),
+    BuiltInFun.Bls12_381_G1_Equal: typechecked(BuiltinBLS12381G1Element, BuiltinBLS12381G1Element)(
+        lambda x, y: BuiltinBool(x.value == y.value),
     ),
 }
 
