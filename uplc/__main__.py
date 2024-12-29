@@ -116,9 +116,9 @@ def get_args():
     )
     a.add_argument(
         "--plutus-version",
-        default=2,
+        default=3,
         help="Plutus version to use.",
-        choices=[1, 2],
+        choices=[1, 2, 3],
         type=int,
     )
     for k, v in ARGPARSE_ARGS.items():
