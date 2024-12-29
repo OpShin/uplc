@@ -519,7 +519,7 @@ class PlutusList(PlutusData):
         object.__setattr__(self, "value", frozenlist(self.value))
 
     def to_cbor(self):
-        return [d.to_cbor() for d in self.value]
+        return frozenlist([d.to_cbor() for d in self.value])
 
     def to_json(self):
         return {"list": [v.to_json() for v in self.value]}
@@ -540,7 +540,7 @@ class PlutusMap(PlutusData):
         object.__setattr__(self, "value", frozen_value)
 
     def to_cbor(self):
-        return {k.to_cbor(): v.to_cbor() for k, v in self.value.items()}
+        return frozendict.frozendict({k.to_cbor(): v.to_cbor() for k, v in self.value.items()})
 
     def to_json(self):
         return {

@@ -84,7 +84,7 @@ def main(test_root: str):
         failed = False
         try:
             run_acceptance_test(path)
-        except AssertionError:
+        except Exception:
             failed = True
         if failed:
             print(path)
