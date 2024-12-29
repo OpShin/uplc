@@ -348,7 +348,7 @@ class BuiltinBLS12381G2Element(Constant):
         return "bls12_381_G2_element"
 
     def valuestring(self, dialect=UPLCDialect.Plutus):
-        return f"0x{self.value.hex()}"
+        return f"0x{self.value.compress().hex()}"
 
     def ex_mem(self) -> int:
         #TODO
@@ -366,7 +366,7 @@ class BuiltinBLS12381Mlresult(Constant):
 
     def ex_mem(self) -> int:
         #TODO
-        return len(self.value)
+        return 0
 
 @dataclass(frozen=True)
 class BuiltinPair(Constant):
@@ -1271,6 +1271,36 @@ BuiltInFunEvalMap = {
     ),
     BuiltInFun.Bls12_381_G1_Equal: typechecked(BuiltinBLS12381G1Element, BuiltinBLS12381G1Element)(
         lambda x, y: BuiltinBool(x.value == y.value),
+    ),
+    BuiltInFun.Bls12_381_G2_Uncompress: typechecked(BuiltinByteString)(
+        lambda x: BuiltinBLS12381G2Element(pyblst().BlstP2Element.uncompress(x.value))
+    ),
+    BuiltInFun.Bls12_381_G2_Compress: typechecked(BuiltinBLS12381G2Element)(
+        lambda x: BuiltinByteString(x.value.compress())
+    ),
+    BuiltInFun.Bls12_381_G2_Add: typechecked(BuiltinBLS12381G2Element, BuiltinBLS12381G2Element)(
+        lambda x, y: BuiltinBLS12381G2Element(x.value + y.value)
+    ),
+    BuiltInFun.Bls12_381_G2_Neg: typechecked(BuiltinBLS12381G2Element)(
+        lambda x: BuiltinBLS12381G2Element(-x.value)
+    ),
+    BuiltInFun.Bls12_381_G2_ScalarMul: typechecked(BuiltinInteger, BuiltinBLS12381G2Element)(
+        lambda x, y: BuiltinBLS12381G2Element(y.value.scalar_mul(x.value))
+    ),
+    BuiltInFun.Bls12_381_G2_HashToGroup: typechecked(BuiltinByteString, BuiltinByteString)(
+        lambda x, y: BuiltinBLS12381G2Element(pyblst().BlstP2Element.hash_to_group(x.value, y.value))
+    ),
+    BuiltInFun.Bls12_381_G2_Equal: typechecked(BuiltinBLS12381G2Element, BuiltinBLS12381G2Element)(
+        lambda x, y: BuiltinBool(x.value == y.value),
+    ),
+    BuiltInFun.Bls12_381_MillerLoop: typechecked(BuiltinBLS12381G1Element, BuiltinBLS12381G2Element)(
+        lambda x, y: BuiltinBLS12381Mlresult(pyblst().miller_loop(x.value, y.value))
+    ),
+    BuiltInFun.Bls12_381_MulMlResult: typechecked(BuiltinBLS12381Mlresult, BuiltinBLS12381Mlresult)(
+        lambda x, y: BuiltinBLS12381Mlresult(x.value * y.value)
+    ),
+    BuiltInFun.Bls12_381_FinalVerify: typechecked(BuiltinBLS12381Mlresult, BuiltinBLS12381Mlresult)(
+        lambda x, y: BuiltinBool(pyblst().final_verify(x.value, y.value))
     ),
 }
 
