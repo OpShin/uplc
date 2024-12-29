@@ -1,4 +1,4 @@
-(program 0.0.0 [[[(builtin verifyEcdsaSecp256k1Signature)
+(program 1.0.0 [[[(builtin verifyEcdsaSecp256k1Signature)
  (con bytestring #02c66e7d8966b5c555af5805989da9fbf8db95e15631ce358c3a1710c962679063)]
  (con bytestring #aadf7de782034fbe3d3db2cb13c0cd91bf41cb08fac7bd61d54453cf6e82b450)]
  (con bytestring #dc4dc264a9fef17a3f253449cf8c397ab6f16fb3d63d86940b5586823dfd02ae3b461bb4336b5ecbaefd6627aa922efc048fec0c881c10c4c9428fca69c132a2)])

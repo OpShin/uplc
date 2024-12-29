@@ -197,21 +197,21 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
-    @hypothesis.example(parse("(program 0.0.0 [(lam a (delay a)) (lam c c)])"))
+    @hypothesis.example(parse("(program 1.0.0 [(lam a (delay a)) (lam c c)])"))
     @hypothesis.example(
-        parse("(program 0.0.0 [(lam a (lam b (error))) (lam _ (error))])")
+        parse("(program 1.0.0 [(lam a (lam b (error))) (lam _ (error))])")
     )
     @hypothesis.example(
-        parse("(program 0.0.0 [(force (builtin mkCons)) (lam _ (error))])")
+        parse("(program 1.0.0 [(force (builtin mkCons)) (lam _ (error))])")
     )
     @hypothesis.example(
-        parse("(program 0.0.0 (lam _ [(builtin mkPairData) (lam ' _)]))")
+        parse("(program 1.0.0 (lam _ [(builtin mkPairData) (lam ' _)]))")
     )
-    @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
-    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
+    @hypothesis.example(parse("(program 1.0.0 (lam _ _))"))
+    @hypothesis.example(parse("(program 1.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 1.0.0 [(lam _ (delay _)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 1.0.0 (lam _ '))"))
+    @hypothesis.example(parse("(program 1.0.0 (delay _))"))
     def test_rewrite_no_semantic_change(self, p):
         code = dumps(p)
         try:
