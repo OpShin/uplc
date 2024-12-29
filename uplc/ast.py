@@ -1180,7 +1180,7 @@ BuiltInFunEvalMap = {
     BuiltInFun.BData: single_bytestring(lambda x: PlutusByteString(x.value)),
     BuiltInFun.UnConstrData: single_data_constr(
         lambda x: BuiltinPair(
-            BuiltinInteger(x.constructor), BuiltinList(x.branches, PlutusData())
+            BuiltinInteger(x.constructor), BuiltinList(x.fields, PlutusData())
         )
     ),
     BuiltInFun.UnMapData: single_data_map(
