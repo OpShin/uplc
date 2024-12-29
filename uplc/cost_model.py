@@ -356,7 +356,7 @@ def parse_costing_fun(model: dict):
 def parse_builtin_cost_model(model: dict):
     cost_model = BuiltinCostModel({}, {})
     for fun, d in model.items():
-        builtin_fun_name = fun[:1].capitalize() + fun[1:]
+        builtin_fun_name = "_".join(x[:1].capitalize() + x[1:] for x in fun.split("_"))
         builtin_fun = BuiltInFun.__dict__[builtin_fun_name]
         cost_model.memory[builtin_fun] = parse_costing_fun(d["memory"])
         cost_model.cpu[builtin_fun] = parse_costing_fun(d["cpu"])
@@ -490,7 +490,8 @@ def updated_cek_machine_cost_model_from_network_config(
     ):
         for cek_op, cost_model in cost_fun_dicts.items():
             cek_op_name = f"cek{cek_op.name}Cost"
-            cost_model.constant = network_config[f"{cek_op_name}-exBudget{mode}"]
+            # 30000000 appears to be default (see https://github.com/aiken-lang/aiken/blob/e1d46fa8f063445da8c0372e3c031c8a11ad0b14/crates/uplc/src/machine/cost_model.rs#L3376)
+            cost_model.constant = network_config.get(f"{cek_op_name}-exBudget{mode}", 30000000000)
     return cek_machine_cost_model
 
 

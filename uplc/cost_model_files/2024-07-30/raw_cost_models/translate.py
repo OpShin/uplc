@@ -660,6 +660,34 @@ def translate(version, costs) -> Dict[str, int]:
             )
         return ret
 
+
+def snake_case_to_camel_case(s: str) -> str:
+    """
+    Convert snake_case to camelCase.
+
+    Parameters:
+    s (str): A string in snake_case format.
+
+    Returns:
+    str: The string converted to camelCase format.
+    """
+    # Split the string by underscores
+    words = s.split('_')
+
+    # Capitalize the first letter of each word except the first one
+    camel_case = words[0] + ''.join(word.capitalize() for word in words[1:])
+
+    return camel_case
+
+def only_before(char: str, f, x: str):
+    """
+    Apply f on x only before the first character char
+    """
+    s = x.split(char)
+    return char.join([f(s[0])] + s[1:])
+
+
+
 if __name__ == '__main__':
     cost_file_raw = sys.argv[1]
     with open(cost_file_raw) as f:
@@ -667,5 +695,8 @@ if __name__ == '__main__':
     res = {}
     for plutus_version in (1, 2, 3):
         version_full = f"PlutusV{plutus_version}"
-        res[version_full] = translate(version_full, raw_content[version_full])
+        res[version_full] = {
+            only_before("-", snake_case_to_camel_case, k): v for k,v in
+            translate(version_full, raw_content[version_full]).items()
+        }
     print(json.dumps(res, indent=4))
