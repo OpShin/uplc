@@ -271,7 +271,7 @@ class ConstAboveDiagonal(CostingFun):
         self.model_above_diagonal.constant = network_config.get(
             f"{prefix}-arguments-constant", DEFAULT_COST_COEFF)
         self.model_below_equal_diagonal.update_from_network_config(
-            network_config, f"{prefix}-arguments-model"
+            network_config, f"{prefix}-arguments-model" if not isinstance(self.model_below_equal_diagonal, QuadraticInXAndY) else prefix
         )
 
 
@@ -588,6 +588,11 @@ def default_builtin_cost_model_plutus_v2():
     return default_builtin_cost_model(PlutusVersion.PlutusV2)
 
 
+@functools.lru_cache()
+def default_builtin_cost_model_plutus_v3():
+    return default_builtin_cost_model(PlutusVersion.PlutusV3)
+
+
 def parse_cek_machine_cost_model(model: dict):
     cost_model = CekMachineCostModel({}, {})
     for op, d in model.items():
@@ -641,6 +646,9 @@ def default_cek_machine_cost_model_plutus_v1():
 def default_cek_machine_cost_model_plutus_v2():
     return default_cek_machine_cost_model(PlutusVersion.PlutusV2)
 
+@functools.lru_cache()
+def default_cek_machine_cost_model_plutus_v3():
+    return default_cek_machine_cost_model(PlutusVersion.PlutusV3)
 
 def default_budget():
     return Budget(memory=14000000, cpu=10000000000)
