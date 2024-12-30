@@ -187,7 +187,7 @@ class BuiltinInteger(Constant):
     def ex_mem(self) -> int:
         if self.value == 0:
             return 1
-        return (math.ceil(math.log2(abs(self.value))) // 64) + 1
+        return ((abs(self.value).bit_length() - 1) // 64) + 1
 
     def __add__(self, other):
         assert isinstance(

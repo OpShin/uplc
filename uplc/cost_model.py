@@ -324,7 +324,6 @@ class QuadraticInY(CostingFun):
         self.c1 = network_config.get(f"{prefix}-arguments-c1", DEFAULT_COST_COEFF)
         self.c2 = network_config.get(f"{prefix}-arguments-c2", DEFAULT_COST_COEFF)
 
-
 @dataclasses.dataclass
 class QuadraticInZ(CostingFun):
     c0: int = 0
@@ -380,11 +379,19 @@ class LiteralInYOrLinearInZ(CostingFun):
     slope: int = 0
 
     def cost(self, *memories: int, values=[]) -> int:
+        # LOL good for you having implemented this extra step to pass actual values to the costing function
+        # because the specs say you need it
+        # (correct implementation based on official specifications below)
         y = values[1].value
         if y == 0:
-            return self.intercept + self.slope * memories[2]
-        # "+ 7" for ceil
-        return ((abs(y) - 1 + 7) // 8) + 1
+          return self.intercept + self.slope * memories[2]
+        return int(math.ceil((abs(y) - 1) / 8))
+        # NO FCK YOU and instead use this completely broken implementation because possibly some IOHK engineer
+        # was too lazy to implement the specs or they realized that the specs were a terrible idea
+        # y = memories[1]
+        # if y == 0:
+        #   return self.intercept + self.slope * memories[2]
+        # return y
 
     @classmethod
     def from_arguments(cls, arguments: Dict[str, int]):
@@ -516,6 +523,7 @@ class PlutusVersion(enum.Enum):
 
 @functools.lru_cache()
 def default_builtin_cost_model_base():
+    # TODO choose different base cost model based on Plutus Version
     builtinCostModel = (
         Path(__file__)
         .parent.joinpath("cost_model_files")
