@@ -1752,3 +1752,14 @@ class MiscTest(unittest.TestCase):
             r.result,
             PlutusConstr(0, []),
         )
+
+    def test_case_constr_encoding(self):
+        with open(Path(__file__).parent / "case_constr" / "case_constr.uplc", "r") as f:
+            program = f.read()
+        p = parse(program)
+        encoded = flatten(p)
+        with open(Path(__file__).parent / "case_constr" / "case_constr.flat", "r") as f:
+            encoded_ref = bytes.fromhex(f.read())
+        self.assertEqual(encoded, encoded_ref)
+        decoded = unflatten(encoded_ref)
+        self.assertEqual(p, decoded)
