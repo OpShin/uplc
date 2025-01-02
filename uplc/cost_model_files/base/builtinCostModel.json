@@ -1051,14 +1051,14 @@
                 "intercept": 180194,
                 "slope": 159
             },
-            "type": "linear_in_x"
+            "type": "literal_in_x"
         },
         "memory": {
             "arguments": {
                 "intercept": 1,
                 "slope": 1
             },
-            "type": "linear_in_x"
+            "type": "literal_in_x"
         }
     },
     "shiftByteString": {

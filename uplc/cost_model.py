@@ -6,12 +6,11 @@ import functools
 import json
 import math
 from pathlib import Path
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, List
 from enum import Enum
 
-import pycardano
 
-from .ast import BuiltInFun
+from .ast import BuiltInFun, AST
 
 # 30000000 appears to be default (see https://github.com/aiken-lang/aiken/blob/e1d46fa8f063445da8c0372e3c031c8a11ad0b14/crates/uplc/src/machine/cost_model.rs#L3376)
 DEFAULT_COST_COEFF = 30000000000
@@ -79,7 +78,7 @@ class Budget:
 
 
 class CostingFun:
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values: List[AST]=()) -> int:
         raise NotImplementedError("Abstract cost not implemented")
 
     @classmethod
@@ -102,7 +101,7 @@ class CostingFun:
 class ConstantCost(CostingFun):
     constant: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.constant
 
     @classmethod
@@ -120,7 +119,7 @@ class LinearCost(CostingFun):
     intercept: int = 0
     slope: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.intercept + self.slope * memories[0]
 
     @classmethod
@@ -150,29 +149,33 @@ class Derived(CostingFun):
 
 @dataclasses.dataclass
 class LinearInX(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[0])
 
 
 @dataclasses.dataclass
 class LinearInY(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[1])
 
 @dataclasses.dataclass
 class LinearInMaxYz(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(max(memories[1], memories[2]))
 
+@dataclasses.dataclass
+class LiteralInX(Derived):
+    def cost(self, *memories: int, values=()) -> int:
+        return self.model.cost(values[0].literal_cost())
 
 @dataclasses.dataclass
 class LinearInZ(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[2])
 
 @dataclasses.dataclass
 class AddedSizes(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(sum(memories))
 
 
@@ -180,7 +183,7 @@ class AddedSizes(Derived):
 class SubtractedSizes(Derived):
     minimum: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(max(memories[0] - memories[1], self.minimum))
 
     @classmethod
@@ -202,19 +205,19 @@ class SubtractedSizes(Derived):
 
 @dataclasses.dataclass
 class MultipliedSizes(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(math.prod(memories))
 
 
 @dataclasses.dataclass
 class MinSize(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(min(memories))
 
 
 @dataclasses.dataclass
 class MaxSize(Derived):
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(max(memories))
 
 
@@ -225,7 +228,7 @@ class LinearOnDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         x, y = memories[0], memories[1]
         if x == y:
             return self.model_on_diagonal.cost(x)
@@ -253,7 +256,7 @@ class ConstAboveDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         x, y = memories[0], memories[1]
         if x > y:
             return self.model_above_diagonal.cost(x, y)
@@ -282,7 +285,7 @@ class ConstBelowDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         x, y = memories[0], memories[1]
         if x >= y:
             return self.model_above_equal_diagonal.cost(x, y)
@@ -310,7 +313,7 @@ class QuadraticInY(CostingFun):
     c1: int = 0
     c2: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.c0 + self.c1 * memories[1] + self.c2 * memories[1]**2
 
     @classmethod
@@ -330,7 +333,7 @@ class QuadraticInZ(CostingFun):
     c1: int = 0
     c2: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.c0 + self.c1 * memories[2] + self.c2 * memories[2]**2
 
     @classmethod
@@ -354,7 +357,7 @@ class QuadraticInXAndY(CostingFun):
     c20: int = 0
     minimum: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         x, y = memories[0], memories[1]
         poly = self.c00 + self.c10 * x + self.c01 * y + + self.c20 * x * x  + self.c11 * x * y + self.c02 * y * y
         return max(poly, self.minimum)
@@ -379,20 +382,11 @@ class LiteralInYOrLinearInZ(CostingFun):
     intercept: int = 0
     slope: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
-        # LOL good for you having implemented this extra step to pass actual values to the costing function
-        # because the specs say you need it
-        # (correct implementation based on official specifications below)
-        y = values[1].value
+    def cost(self, *memories: int, values=()) -> int:
+        y = values[1].literal_cost()
         if y == 0:
           return self.intercept + self.slope * memories[2]
-        return int(math.ceil((abs(y) - 1) / 8))
-        # NO FCK YOU and instead use this completely broken implementation because possibly some IOHK engineer
-        # was too lazy to implement the specs or they realized that the specs were a terrible idea
-        # y = memories[1]
-        # if y == 0:
-        #   return self.intercept + self.slope * memories[2]
-        # return y
+        return y
 
     @classmethod
     def from_arguments(cls, arguments: Dict[str, int]):
@@ -415,7 +409,7 @@ class LinearInYAndZ(CostingFun):
     slope1: int = 0
     slope2: int = 0
 
-    def cost(self, *memories: int, values=[]) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.intercept + self.slope1 * memories[1] + self.slope2 * memories[2]
 
     @classmethod
@@ -470,6 +464,7 @@ COSTING_FUN_DICT = {
         MultipliedSizes,
         MinSize,
         MaxSize,
+        LiteralInX,
         LinearInX,
         LinearInY,
         LinearInZ,

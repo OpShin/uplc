@@ -135,6 +135,10 @@ class AST:
         """The memory consumption of this element"""
         raise NotImplementedError()
 
+    def literal_cost(self):
+        """The memory consumption of this element if interpreted literally as size"""
+        raise NotImplementedError()
+
 
 @dataclass(frozen=True)
 class Constant(AST):
@@ -187,7 +191,13 @@ class BuiltinInteger(Constant):
     def ex_mem(self) -> int:
         if self.value == 0:
             return 1
-        return ((abs(self.value).bit_length() - 1) // 64) + 1
+        return ((self.value.bit_length() - 1) // 64) + 1
+
+    def literal_cost(self):
+        # based on https://github.com/aiken-lang/aiken/blob/620fe6b2997537aab655fefaf27b43e5c8ed1916/crates/uplc/src/machine/value.rs#L256
+        if self.value == 0:
+            return 0
+        return (self.value - 1) // 8 + 1
 
     def __add__(self, other):
         assert isinstance(
