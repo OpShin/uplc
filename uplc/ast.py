@@ -46,7 +46,7 @@ def pyblst():
     try:
         import pyblst
     except ImportError:
-        raise RuntimeError("BLS extensions not installed. Install uplc[bls] or pyblst for bls primitive support.")
+        raise RuntimeError("BLS extensions not installed. Run 'pip install \"uplc[bls]\"', 'pip install pyblst' or 'poetry install --all-extras' for bls primitive support.")
     return pyblst
 
 sys.set_int_max_str_digits(32000)
