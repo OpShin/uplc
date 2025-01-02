@@ -1731,7 +1731,7 @@ class MiscTest(unittest.TestCase):
             p = parse(f.read())
         p1 = tools.compile(p, compiler_config.OPT_O0_CONFIG)
         p2 = tools.compile(p, compiler_config.OPT_O3_CONFIG)
-        self.assertNotEquals(
+        self.assertNotEqual(
             p1.dumps(), p2.dumps(), "Compiler options did not change the program."
         )
         for i in range(5):

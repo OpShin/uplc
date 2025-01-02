@@ -634,6 +634,12 @@ def default_encoder(encoder: CBOREncoder, value: Union[PlutusData, IndefiniteLis
             encoder.encode(item)
         encoder.write(b"\xff")
         return
+    if isinstance(value, frozendict.frozendict):
+        encoder.encode(dict(value))
+        return
+    if isinstance(value, frozenlist):
+        encoder.encode(list(value))
+        return
     if not isinstance(value, PlutusData):
         raise NotImplementedError(f"Can not encode type {type(value)}")
     value = value.to_cbor()

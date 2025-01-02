@@ -218,6 +218,10 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program, hst.sampled_from(UPLCDialect))
     @hypothesis.settings(max_examples=1000, deadline=None)
     @hypothesis.example(
+        Program(version=(1, 0, 0), term=PlutusMap(frozendict.frozendict({}))),
+        UPLCDialect.LegacyAiken,
+    )
+    @hypothesis.example(
         Program(version=(1, 0, 0), term=BuiltinByteString(value=b"")),
         UPLCDialect.LegacyAiken,
     )
@@ -452,6 +456,7 @@ class HypothesisTests(unittest.TestCase):
     # TODO test invalid programs being detected with an free variable error
 
     @hypothesis.given(uplc_data)
+    @hypothesis.example(PlutusMap({}))
     def test_cbor_plutus_data_roundtrip(self, p: PlutusData):
         encoded = plutus_cbor_dumps(p)
         decoded = data_from_cbor(encoded)
