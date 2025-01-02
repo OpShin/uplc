@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11', '3.12']
       fail-fast: true
     
     steps:
@@ -37,7 +37,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -U poetry
-        poetry install --with dev
+        poetry install --with dev --all-extras
     
     - name: Run tests and coverage
       run: |
