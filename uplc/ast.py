@@ -1522,6 +1522,17 @@ class Constr(AST):
             pass
         return object.__getattribute__(self, item)
 
+    def __setattr__(self, key, value):
+        try:
+            if key.startswith("fields_"):
+                index = int(key.split("_")[1])
+                newlist = self.fields.copy()
+                newlist[index] = value
+                self.fields = newlist
+        except:
+            pass
+        return object.__setattr__(self, key, value)
+
 
 @dataclass
 class Case(AST):
@@ -1533,7 +1544,7 @@ class Case(AST):
 
     @property
     def _fields(self):
-        return [f"branches_{i}" for i in range(len(self.branches))]
+        return ["scrutinee"] + [f"branches_{i}" for i in range(len(self.branches))]
 
     def __getattr__(self, item):
         try:
@@ -1542,4 +1553,15 @@ class Case(AST):
                 return self.branches[index]
         except:
             pass
-        return super().__getattr__(item)
+        return super().__getattribute__(item)
+
+    def __setattr__(self, key, value):
+        try:
+            if key.startswith("branches_"):
+                index = int(key.split("_")[1])
+                newlist = self.branches.copy()
+                newlist[index] = value
+                self.branches = newlist
+        except:
+            pass
+        return object.__setattr__(self, key, value)

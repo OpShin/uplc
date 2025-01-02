@@ -2,6 +2,8 @@ from ast import NodeVisitor
 from typing import Callable
 
 from .ast import *
+from .parser import PLUTUS_V3
+from .transformer.plutus_version_enforcer import UnsupportedTerm
 
 UPLC_TAG_WIDTHS = {
     "term": 4,
@@ -69,6 +71,7 @@ class UplcDeserializer:
     def __init__(self, bits: str):
         self._bits = bits
         self._pos = 0
+        self._version = None
 
     def tag_width(self, category: str) -> int:
         assert category in UPLC_TAG_WIDTHS, f"unknown tag category {category}"
@@ -108,6 +111,8 @@ class UplcDeserializer:
             return self.read_builtin()
         elif tag == 8:
             return self.read_constr()
+        elif tag == 9:
+            return self.read_case()
         else:
             raise ValueError(f"term tag {tag} unhandled")
 
@@ -300,12 +305,23 @@ class UplcDeserializer:
         return BuiltIn(builtin)
 
     def read_constr(self) -> Constr:
+        if self._version < PLUTUS_V3:
+            raise UnsupportedTerm("Invalid term encoded (Constr in pre-PlutusV3)")
         # in theory limited to 64 bits
         id = self.read_integer(signed=False)
 
-        builtin = self.read_integer()
+        fields = self.read_list(self.read_term)
 
-        return BuiltIn(builtin)
+        return Constr(id, fields)
+
+    def read_case(self) -> Case:
+        if self._version < PLUTUS_V3:
+            raise UnsupportedTerm("Invalid term encoded (Case in pre-PlutusV3)")
+        scrutinee = self.read_term()
+
+        branches = self.read_list(self.read_term)
+
+        return Case(scrutinee, branches)
 
     def finalize(self):
         self.move_to_byte_boundary(True)
@@ -333,6 +349,7 @@ class UplcDeserializer:
             self.read_integer(signed=False),
             self.read_integer(signed=False),
         )
+        self._version = version
 
         expr = self.read_term()
 

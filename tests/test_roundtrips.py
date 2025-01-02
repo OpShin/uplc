@@ -14,7 +14,10 @@ from uplc.tools import unflatten
 from uplc.transformer import unique_variables, debrujin_variables, undebrujin_variables
 from uplc.ast import *
 from uplc import lexer
-from uplc.transformer.plutus_version_enforcer import PlutusVersionEnforcer, UnsupportedTerm
+from uplc.transformer.plutus_version_enforcer import (
+    PlutusVersionEnforcer,
+    UnsupportedTerm,
+)
 from uplc.util import NodeVisitor
 
 
@@ -107,6 +110,7 @@ class UnboundVariableVisitor(NodeVisitor):
     def visit_Variable(self, node: Variable):
         self.check_bound(node.name)
 
+
 @hst.composite
 def uplc_expr_all_bound(draw, uplc_expr):
     x = draw(uplc_expr)
@@ -128,7 +132,13 @@ def rec_expr_strategies(uplc_expr):
     uplc_case = hst.builds(Case, uplc_expr, hst.lists(uplc_expr))
     uplc_lambda_bound = uplc_expr_all_bound(uplc_expr)
     return hst.one_of(
-        uplc_lambda, uplc_delay, uplc_force, uplc_apply, uplc_lambda_bound, uplc_case, uplc_constr
+        uplc_lambda,
+        uplc_delay,
+        uplc_force,
+        uplc_apply,
+        uplc_lambda_bound,
+        uplc_case,
+        uplc_constr,
     )
 
 
@@ -143,6 +153,7 @@ uplc_version = hst.sampled_from([(1, 0, 0), (1, 1, 0)])
 # This strategy also produces invalid programs (due to variables not being bound)
 uplc_program_any = hst.builds(Program, uplc_version, uplc_expr)
 
+
 class HasConstrCaseVisitor(NodeVisitor):
     has_constr_or_case: bool = False
 
@@ -152,15 +163,17 @@ class HasConstrCaseVisitor(NodeVisitor):
     def visit_Constr(self, _: Constr):
         self.has_constr_or_case = True
 
+
 @hst.composite
 def uplc_program_correct_version(draw, uplc_expr, uplc_version):
     x = draw(uplc_expr)
     has_constr_or_case_visitor = HasConstrCaseVisitor()
     has_constr_or_case_visitor.visit(x)
     if has_constr_or_case_visitor.has_constr_or_case:
-        return Program((1,1,0), x)
+        return Program((1, 1, 0), x)
     version = draw(uplc_version)
     return Program(version, x)
+
 
 uplc_expr_valid = uplc_expr_all_bound(uplc_expr)
 # This strategy only produces valid programs (all variables are bound)
@@ -180,6 +193,7 @@ uplc_token_concat = hst.recursive(
 
 uplc_program = hst.one_of(uplc_program_any, uplc_program_valid)
 
+
 def has_correct_version(x: Program):
     v = PlutusVersionEnforcer()
     try:
@@ -187,6 +201,17 @@ def has_correct_version(x: Program):
     except UnsupportedTerm:
         return False
     return True
+
+
+class AllVarsNumbersVisitor(NodeVisitor):
+    all_vars_are_numbers: bool = True
+
+    def visit_Variable(self, node: Variable):
+        try:
+            int(node.name)
+        except ValueError:
+            self.all_vars_are_numbers = False
+        self.generic_visit(node)
 
 
 class HypothesisTests(unittest.TestCase):
@@ -246,14 +271,16 @@ class HypothesisTests(unittest.TestCase):
         code = dumps(p)
         try:
             rewrite_p = unique_variables.UniqueVariableTransformer().visit(parse(code))
-        except unique_variables.FreeVariableError:
+        except (unique_variables.FreeVariableError, SyntaxError):
             return
         try:
             res = eval(p)
             res = unique_variables.UniqueVariableTransformer().visit(res.result)
             res = res.dumps()
-        except unique_variables.FreeVariableError:
-            self.fail(f"Free variable error occurred after evaluation in {code}")
+        except (unique_variables.FreeVariableError, SyntaxError):
+            self.fail(
+                f"Free variable/ Syntax error occurred after evaluation in {code}"
+            )
         except Exception as e:
             res = e.__class__
         try:
@@ -262,7 +289,7 @@ class HypothesisTests(unittest.TestCase):
                 rewrite_res.result
             )
             rewrite_res = rewrite_res.dumps()
-        except unique_variables.FreeVariableError:
+        except (unique_variables.FreeVariableError, SyntaxError):
             self.fail(f"Free variable error occurred after evaluation in {code}")
         except Exception as e:
             rewrite_res = e.__class__
@@ -317,7 +344,10 @@ class HypothesisTests(unittest.TestCase):
     )
     def test_preeval_no_semantic_change(self, p):
         code = dumps(p)
-        orig_p = parse(code).term
+        try:
+            orig_p = parse(code).term
+        except SyntaxError:
+            return
         rewrite_p = pre_evaluation.PreEvaluationOptimizer().visit(p).term
         params = []
         try:
@@ -389,9 +419,21 @@ class HypothesisTests(unittest.TestCase):
             debrujin
         )
         self.assertEqual(p_unique, undebrujin, "incorrect flatten roundtrip")
+        all_vars_numbers_visitor = AllVarsNumbersVisitor()
+        all_vars_numbers_visitor.visit(debrujin)
+        self.assertTrue(
+            all_vars_numbers_visitor.all_vars_are_numbers,
+            "Some variable is not a number",
+        )
 
     @hypothesis.given(uplc_program_valid)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(
+        Program(
+            version=(1, 1, 0),
+            term=Lambda(var_name="x", term=Constr(tag=0, fields=[Variable(name="x")])),
+        )
+    )
     @hypothesis.example(
         Program(version=(1, 0, 0), term=PlutusMap(value=frozendict.frozendict({})))
     )
@@ -401,7 +443,11 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.example(Program(version=(1, 0, 0), term=BuiltinUnit()))
     def test_flat_unflat_roundtrip(self, p: Program):
         p_unique = unique_variables.UniqueVariableTransformer().visit(p)
-        self.assertEqual(p_unique, unflatten(flatten(p)), "incorrect flatten roundtrip")
+        self.assertEqual(
+            p_unique,
+            unflatten(flatten(p)),
+            "incorrect flatten roundtrip",
+        )
 
     # TODO test invalid programs being detected with an free variable error
 

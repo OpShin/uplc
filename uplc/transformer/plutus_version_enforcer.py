@@ -6,7 +6,6 @@ from ..ast import *
 
 
 class UnsupportedTerm(ValueError):
-
     def __init__(self, message):
         self.message = message
 
