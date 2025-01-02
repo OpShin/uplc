@@ -12,7 +12,6 @@ from .ast import (
     PlutusList,
     PlutusMap,
     Constr,
-    BuiltinInteger,
     Case,
 )
 

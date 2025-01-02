@@ -14,6 +14,7 @@ from uplc.tools import unflatten
 from uplc.transformer import unique_variables, debrujin_variables, undebrujin_variables
 from uplc.ast import *
 from uplc import lexer
+from uplc.transformer.plutus_version_enforcer import PlutusVersionEnforcer, UnsupportedTerm
 from uplc.util import NodeVisitor
 
 
@@ -106,7 +107,6 @@ class UnboundVariableVisitor(NodeVisitor):
     def visit_Variable(self, node: Variable):
         self.check_bound(node.name)
 
-
 @hst.composite
 def uplc_expr_all_bound(draw, uplc_expr):
     x = draw(uplc_expr)
@@ -124,9 +124,11 @@ def rec_expr_strategies(uplc_expr):
     uplc_force = hst.builds(Force, uplc_expr)
     uplc_apply = hst.builds(Apply, uplc_expr, uplc_expr)
     uplc_lambda = hst.builds(Lambda, uplc_name, uplc_expr)
+    uplc_constr = hst.builds(Constr, pos_int, hst.lists(uplc_expr))
+    uplc_case = hst.builds(Case, uplc_expr, hst.lists(uplc_expr))
     uplc_lambda_bound = uplc_expr_all_bound(uplc_expr)
     return hst.one_of(
-        uplc_lambda, uplc_delay, uplc_force, uplc_apply, uplc_lambda_bound
+        uplc_lambda, uplc_delay, uplc_force, uplc_apply, uplc_lambda_bound, uplc_case, uplc_constr
     )
 
 
@@ -141,10 +143,28 @@ uplc_version = hst.sampled_from([(1, 0, 0), (1, 1, 0)])
 # This strategy also produces invalid programs (due to variables not being bound)
 uplc_program_any = hst.builds(Program, uplc_version, uplc_expr)
 
+class HasConstrCaseVisitor(NodeVisitor):
+    has_constr_or_case: bool = False
+
+    def visit_Case(self, _: Case):
+        self.has_constr_or_case = True
+
+    def visit_Constr(self, _: Constr):
+        self.has_constr_or_case = True
+
+@hst.composite
+def uplc_program_correct_version(draw, uplc_expr, uplc_version):
+    x = draw(uplc_expr)
+    has_constr_or_case_visitor = HasConstrCaseVisitor()
+    has_constr_or_case_visitor.visit(x)
+    if has_constr_or_case_visitor.has_constr_or_case:
+        return Program((1,1,0), x)
+    version = draw(uplc_version)
+    return Program(version, x)
 
 uplc_expr_valid = uplc_expr_all_bound(uplc_expr)
 # This strategy only produces valid programs (all variables are bound)
-uplc_program_valid = hst.builds(Program, uplc_version, uplc_expr_valid)
+uplc_program_valid = uplc_program_correct_version(uplc_expr_valid, uplc_version)
 
 uplc_token = hst.one_of(
     *(hst.from_regex(t, fullmatch=True) for t in lexer.TOKENS.values())
@@ -159,6 +179,14 @@ uplc_token_concat = hst.recursive(
 )
 
 uplc_program = hst.one_of(uplc_program_any, uplc_program_valid)
+
+def has_correct_version(x: Program):
+    v = PlutusVersionEnforcer()
+    try:
+        v.visit(x)
+    except UnsupportedTerm:
+        return False
+    return True
 
 
 class HypothesisTests(unittest.TestCase):
@@ -192,6 +220,9 @@ class HypothesisTests(unittest.TestCase):
         UPLCDialect.LegacyAiken,
     )
     def test_dumps_parse_roundtrip(self, p, dialect):
+        if not has_correct_version(p):
+            self.assertRaises(SyntaxError, parse, dumps(p, dialect))
+            return
         self.assertEqual(parse(dumps(p, dialect)), p)
 
     @hypothesis.given(uplc_program)

@@ -6,7 +6,9 @@ from ..ast import *
 
 
 class UnsupportedTerm(ValueError):
-    pass
+
+    def __init__(self, message):
+        self.message = message
 
 
 class PlutusVersionEnforcer(NodeVisitor):
