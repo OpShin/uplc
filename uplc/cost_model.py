@@ -301,7 +301,7 @@ class ConstBelowDiagonal(CostingFun):
             f"{prefix}-arguments-constant", DEFAULT_COST_COEFF
         )
         self.model_above_equal_diagonal.update_from_network_config(
-            network_config, f"{prefix}-arguments-model"
+            network_config, f"{prefix}-arguments-model" if not isinstance(self.model_above_equal_diagonal, QuadraticInXAndY) else prefix
         )
 
 @dataclasses.dataclass
@@ -355,7 +355,8 @@ class QuadraticInXAndY(CostingFun):
     minimum: int = 0
 
     def cost(self, *memories: int, values=[]) -> int:
-        poly = self.c00 + self.c10 * memories[0] + self.c01 * memories[1] + + self.c20 * memories[0] ** 2  + self.c11 * memories[0] * memories[1] + self.c02 * memories[1] ** 2
+        x, y = memories[0], memories[1]
+        poly = self.c00 + self.c10 * x + self.c01 * y + + self.c20 * x * x  + self.c11 * x * y + self.c02 * y * y
         return max(poly, self.minimum)
 
     @classmethod
