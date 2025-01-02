@@ -10,12 +10,16 @@ from .ast import (
     PlutusByteString,
     PlutusInteger,
     PlutusList,
-    PlutusMap, Constr, BuiltinInteger, Case,
+    PlutusMap,
+    Constr,
+    BuiltinInteger,
+    Case,
 )
 
-PLUTUS_V2 = (1,0,0)
-PLUTUS_V3 = (1,1,0)
+PLUTUS_V2 = (1, 0, 0)
+PLUTUS_V3 = (1, 1, 0)
 PLUTUS_VERSIONS = {PLUTUS_V2, PLUTUS_V3}
+
 
 class Parser:
     def __init__(self):
@@ -26,7 +30,9 @@ class Parser:
         )
         def program(p):
             version = tuple(map(int, p[2].split(".")))
-            assert version in PLUTUS_VERSIONS, "Invalid plutus version (must be 1.0.0 or 1.1.0)"
+            assert (
+                version in PLUTUS_VERSIONS
+            ), "Invalid plutus version (must be 1.0.0 or 1.1.0)"
             return ast.Program(version, p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
@@ -110,7 +116,9 @@ class Parser:
                 return []
             return p[0]
 
-        @self.pg.production("expression : PAREN_OPEN CONSTRT constantvalue empty_expression_list PAREN_CLOSE")
+        @self.pg.production(
+            "expression : PAREN_OPEN CONSTRT constantvalue empty_expression_list PAREN_CLOSE"
+        )
         def constr_term(p):
             assert isinstance(p[2], int), "First value in constr must be an integer"
             return Constr(
@@ -118,7 +126,9 @@ class Parser:
                 p[3],
             )
 
-        @self.pg.production("expression : PAREN_OPEN CASE expression empty_expression_list PAREN_CLOSE")
+        @self.pg.production(
+            "expression : PAREN_OPEN CASE expression empty_expression_list PAREN_CLOSE"
+        )
         def case_term(p):
             return Case(
                 p[2],
@@ -437,9 +447,13 @@ def wrap_builtin_type(typ: ast.Constant, val):
     if isinstance(typ, ast.BuiltinByteString):
         assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
     if isinstance(typ, ast.BuiltinBLS12381G1Element):
-        assert isinstance(val, ast.BlstP1Element), f"Expected BLS12-381 G1 element (compressed form 0x...) but found {type(val)}"
+        assert isinstance(
+            val, ast.BlstP1Element
+        ), f"Expected BLS12-381 G1 element (compressed form 0x...) but found {type(val)}"
     if isinstance(typ, ast.BuiltinBLS12381G2Element):
-        assert isinstance(val, ast.BlstP2Element), f"Expected BLS12-381 G2 element (compressed form 0x...) but found {type(val)}"
+        assert isinstance(
+            val, ast.BlstP2Element
+        ), f"Expected BLS12-381 G2 element (compressed form 0x...) but found {type(val)}"
     if isinstance(typ, ast.BuiltinString):
         assert isinstance(val, str), f"Expected str but found {type(val)}"
     if isinstance(typ, ast.BuiltinInteger):

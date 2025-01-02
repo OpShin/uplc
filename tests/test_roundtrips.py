@@ -137,7 +137,7 @@ uplc_expr = hst.recursive(
 )
 
 
-uplc_version = hst.sampled_from([(1,0,0), (1,1,0)])
+uplc_version = hst.sampled_from([(1, 0, 0), (1, 1, 0)])
 # This strategy also produces invalid programs (due to variables not being bound)
 uplc_program_any = hst.builds(Program, uplc_version, uplc_expr)
 

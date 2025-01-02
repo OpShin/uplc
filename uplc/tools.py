@@ -8,7 +8,8 @@ from .cost_model import (
     CekMachineCostModel,
     default_cek_machine_cost_model_plutus_v2,
     BuiltinCostModel,
-    default_builtin_cost_model_plutus_v2, default_cek_machine_cost_model_plutus_v3,
+    default_builtin_cost_model_plutus_v2,
+    default_cek_machine_cost_model_plutus_v3,
     default_builtin_cost_model_plutus_v3,
 )
 from .lexer import strip_comments, Lexer

@@ -96,11 +96,9 @@ class AcceptanceTests(unittest.TestCase):
             cost_content = f.read()
         if "error" in cost_content:
             return
-        numbers = re.findall(r'(cpu|mem)\s*:\s*(\d+)\b', cost_content)
+        numbers = re.findall(r"(cpu|mem)\s*:\s*(\d+)\b", cost_content)
         self.assertEqual(len(numbers), 2, "Could not parse cost pattern")
-        cost = {
-            k: int(v) for k, v in numbers
-        }
+        cost = {k: int(v) for k, v in numbers}
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
         if rewriter in (
             pre_evaluation.PreEvaluationOptimizer,

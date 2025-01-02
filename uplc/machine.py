@@ -51,6 +51,7 @@ def transfer_arg_stack(args: List[AST], context: Context) -> Context:
         return context
     return transfer_arg_stack(args[:-1], FrameApplyFunArg(args[-1], context))
 
+
 class Machine:
     def __init__(
         self,
