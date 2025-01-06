@@ -267,7 +267,7 @@ class ConstAboveDiagonal(CostingFun):
 
     def cost(self, *memories: int, values=()) -> int:
         x, y = memories[0], memories[1]
-        if x > y:
+        if x < y:
             return self.model_above_diagonal.cost(x, y)
         return self.model_below_equal_diagonal.cost(x, y)
 

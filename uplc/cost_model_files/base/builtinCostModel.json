@@ -724,7 +724,7 @@
                     "type": "quadratic_in_x_and_y"
                 }
             },
-            "type": "const_below_diagonal"
+            "type": "const_above_diagonal"
         },
         "memory": {
             "arguments": {
