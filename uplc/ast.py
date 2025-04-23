@@ -209,6 +209,7 @@ class BuiltinInteger(Constant):
 
     def literal_cost(self):
         # based on https://github.com/aiken-lang/aiken/blob/620fe6b2997537aab655fefaf27b43e5c8ed1916/crates/uplc/src/machine/value.rs#L256
+        # also found in https://github.com/IntersectMBO/plutus/blob/2ccdd22919e930b5b12d19ad8a934aa586734554/plutus-core/plutus-core/src/PlutusCore/Evaluation/Machine/ExMemoryUsage.hs#L199
         if self.value == 0:
             return 0
         return (self.value - 1) // 8 + 1
@@ -361,8 +362,8 @@ class BuiltinBLS12381G1Element(Constant):
         object.__setattr__(self, "value", BlstP1Element.uncompress(state))
 
     def ex_mem(self) -> int:
-        # TODO
-        return len(self.value.compress())
+        # based on https://github.com/IntersectMBO/plutus/blob/2ccdd22919e930b5b12d19ad8a934aa586734554/plutus-core/plutus-core/src/PlutusCore/Evaluation/Machine/ExMemoryUsage.hs#L333
+        return 18
 
 
 @dataclass(frozen=True)
@@ -376,8 +377,7 @@ class BuiltinBLS12381G2Element(Constant):
         return f"0x{self.value.compress().hex()}"
 
     def ex_mem(self) -> int:
-        # TODO
-        return len(self.value.compress())
+        return 36
 
 
 @dataclass(frozen=True)
@@ -391,8 +391,7 @@ class BuiltinBLS12381Mlresult(Constant):
         return "<opaque>"
 
     def ex_mem(self) -> int:
-        # TODO
-        return 0
+        return 72
 
 
 @dataclass(frozen=True)
