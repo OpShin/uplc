@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
       fail-fast: true
     
     steps:
@@ -42,7 +42,7 @@ jobs:
     - name: Run tests and coverage
       run: |
         poetry run black --check .
-        poetry run coverage run --source=uplc -m pytest uplc/tests
+        poetry run coverage run --source=uplc -m pytest tests
         poetry run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
         poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
         poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
