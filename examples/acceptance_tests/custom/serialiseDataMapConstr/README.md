@@ -1,0 +1,1 @@
+Checks that a plutus map with key = PlutusData can be encoded correctly (hashing)
