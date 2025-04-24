@@ -213,13 +213,13 @@ def main():
         cbor_wrapped_hex = cbor_wrapped.hex()
         # create plutus file
         d = {
-            "type": "PlutusScriptV2",
+            "type": "PlutusScriptV3",
             "description": f"",
             "cborHex": cbor_wrapped_hex,
         }
         with (target_dir / "script.plutus").open("w") as fp:
             json.dump(d, fp)
-        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
+        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV3Script(cbor))
         # generate policy ids
         with (target_dir / "script.policy_id").open("w") as fp:
             fp.write(script_hash.to_primitive().hex())
