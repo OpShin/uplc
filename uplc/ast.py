@@ -16,7 +16,7 @@ from frozenlist2 import frozenlist
 import nacl.exceptions
 from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
-from pycardano import IndefiniteList
+from pycardano.serialization import IndefiniteFrozenList
 
 try:
     import pysecp256k1
@@ -481,9 +481,11 @@ class PlutusConstr(PlutusData):
         object.__setattr__(self, "fields", frozenlist(self.fields))
 
     def to_cbor(self):
-        fields = (
-            IndefiniteList([f.to_cbor() for f in self.fields]) if self.fields else []
-        )
+        if self.fields:
+            fields = IndefiniteFrozenList([f.to_cbor() for f in self.fields])
+            fields.freeze()
+        else:
+            fields = []
         if 0 <= self.constructor < 7:
             return cbor2.CBORTag(self.constructor + 121, fields)
         elif 7 <= self.constructor < 128:
