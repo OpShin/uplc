@@ -1,5 +1,0 @@
-{
-  "result": "(lam y (lam z z))",
-  "cpu": 382454,
-  "mem": 1032
-}

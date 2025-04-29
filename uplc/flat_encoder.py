@@ -196,6 +196,22 @@ class FlatEncodingVisitor(NodeVisitor):
     def visit_Error(self, n: Error):
         self.bit_writer.write("0110")
 
+    def visit_Constr(self, n: Constr):
+        self.bit_writer.write("1000")
+        self.bit_writer.write_int(n.tag, False)
+        self.visit_list(n.fields)
+
+    def visit_Case(self, n: Case):
+        self.bit_writer.write("1001")
+        self.visit(n.scrutinee)
+        self.visit_list(n.branches)
+
+    def visit_list(self, n: List[AST]):
+        for v in n:
+            self.bit_writer.write("1")
+            self.visit(v)
+        self.bit_writer.write("0")
+
     def visit_BuiltIn(self, n: BuiltIn):
         self.bit_writer.write("0111")
         # write index of uplc builtin
