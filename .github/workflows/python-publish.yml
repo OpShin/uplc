@@ -8,6 +8,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # Build and publish the package to pypi.
+      - name: Build and publish to pypi
+        uses: JRubics/poetry-publish@v2.1
+        with:
+          python_version: "3.13"
+          pypi_token: ${{ secrets.PYPI_PASSWORD }}
+          package_directory: "uplc"
+          poetry_install_options: "--without dev"
       # If there isn't a release for this version, create a new one.
       - uses: ncipollo/release-action@v1
         with:
@@ -15,11 +23,3 @@ jobs:
           makeLatest: true
           prerelease: false
           skipIfReleaseExists: true
-      # Build and publish the package to pypi.
-      - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v2.0
-        with:
-          python_version: "3.13"
-          pypi_token: ${{ secrets.PYPI_PASSWORD }}
-          package_directory: "uplc"
-          poetry_install_options: "--without dev"
