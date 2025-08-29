@@ -71,7 +71,9 @@ jobs:
         poetry run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
 
     - name: Upload coverage data to coveralls.io
-      run: poetry run coveralls || true
+      run: |
+        pip install coveralls
+        coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
