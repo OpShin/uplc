@@ -14,12 +14,13 @@ jobs:
       fail-fast: true
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
 
     - name: Install secp256k1
       run: |
@@ -58,4 +59,4 @@ jobs:
         poetry run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
     
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
