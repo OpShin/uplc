@@ -13,7 +13,7 @@ from uplc.lexer import strip_comments
 from uplc.ast import *
 
 SAMPLE_CONTRACT = p = Program(
-    version=(0, 0, 1),
+    version=(1, 0, 0),
     term=Apply(
         Apply(
             Apply(
@@ -1434,7 +1434,7 @@ class MiscTest(unittest.TestCase):
 
     def test_unpack_plutus_data(self):
         p = Program(
-            (0, 0, 1),
+            (1, 0, 0),
             Apply(
                 BuiltIn(BuiltInFun.UnConstrData),
                 data_from_cbor(
@@ -1752,3 +1752,14 @@ class MiscTest(unittest.TestCase):
             r.result,
             PlutusConstr(0, []),
         )
+
+    def test_case_constr_encoding(self):
+        with open(Path(__file__).parent / "case_constr" / "case_constr.uplc", "r") as f:
+            program = f.read()
+        p = parse(program)
+        encoded = flatten(p)
+        with open(Path(__file__).parent / "case_constr" / "case_constr.flat", "r") as f:
+            encoded_ref = bytes.fromhex(f.read())
+        self.assertEqual(encoded, encoded_ref)
+        decoded = unflatten(encoded_ref)
+        self.assertEqual(p, decoded)

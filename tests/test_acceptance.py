@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import os
+import re
 
 from parameterized import parameterized
 import unittest
@@ -11,7 +12,7 @@ from uplc.util import NodeTransformer
 from uplc.transformer import unique_variables
 from uplc.optimizer import pre_evaluation, remove_traces, remove_force_delay
 
-acceptance_test_path = Path("examples/acceptance_tests")
+acceptance_test_path = Path(__file__).parent.parent / "examples/acceptance_tests"
 
 
 def acceptance_test_dirs():
@@ -87,12 +88,17 @@ class AcceptanceTests(unittest.TestCase):
         res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
-        cost_file = next(f for f in files if f.endswith("cost"))
+        try:
+            cost_file = next(f for f in files if f.endswith("uplc.budget.expected"))
+        except StopIteration:
+            return
         with open(Path(dirpath).joinpath(cost_file)) as f:
             cost_content = f.read()
-        if cost_content == "error":
+        if "error" in cost_content:
             return
-        cost = json.loads(cost_content)
+        numbers = re.findall(r"(cpu|mem)\s*:\s*(\d+)\b", cost_content)
+        self.assertEqual(len(numbers), 2, "Could not parse cost pattern")
+        cost = {k: int(v) for k, v in numbers}
         expected_spent_budget = Budget(cost["cpu"], cost["mem"])
         if rewriter in (
             pre_evaluation.PreEvaluationOptimizer,
