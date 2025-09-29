@@ -285,9 +285,11 @@ class ConstAboveDiagonal(CostingFun):
         )
         self.model_below_equal_diagonal.update_from_network_config(
             network_config,
-            f"{prefix}-arguments-model"
-            if not isinstance(self.model_below_equal_diagonal, QuadraticInXAndY)
-            else prefix,
+            (
+                f"{prefix}-arguments-model"
+                if not isinstance(self.model_below_equal_diagonal, QuadraticInXAndY)
+                else prefix
+            ),
         )
 
 
@@ -318,9 +320,11 @@ class ConstBelowDiagonal(CostingFun):
         )
         self.model_above_equal_diagonal.update_from_network_config(
             network_config,
-            f"{prefix}-arguments-model"
-            if not isinstance(self.model_above_equal_diagonal, QuadraticInXAndY)
-            else prefix,
+            (
+                f"{prefix}-arguments-model"
+                if not isinstance(self.model_above_equal_diagonal, QuadraticInXAndY)
+                else prefix
+            ),
         )
 
 
