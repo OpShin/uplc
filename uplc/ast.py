@@ -597,12 +597,22 @@ def data_from_cbor(cbor: bytes) -> PlutusData:
 
 def data_from_json_dict(d: dict) -> PlutusData:
     if "constructor" in d:
+        assert isinstance(
+            d["constructor"], int
+        ), "Expected integer in 'constructor' field"
         fields = frozenlist([data_from_json_dict(f) for f in d["fields"]])
         return PlutusConstr(d["constructor"], fields)
     if "int" in d:
+        assert (
+            isinstance(d["int"], int) and round(d["int"]) == d["int"]
+        ), "Expected integer in 'int' field"
         return PlutusInteger(d["int"])
     if "bytes" in d:
-        return PlutusByteString(bytes.fromhex(d["bytes"]))
+        assert isinstance(d["bytes"], str), "Expected bytes in 'bytes' field"
+        try:
+            return PlutusByteString(bytes.fromhex(d["bytes"]))
+        except ValueError as e:
+            raise ValueError("Invalid hex string in 'bytes' field") from e
     if "list" in d:
         entries = frozenlist(list(map(data_from_json_dict, d["list"])))
         return PlutusList(entries)
@@ -615,12 +625,19 @@ def data_from_json_dict(d: dict) -> PlutusData:
                 }
             )
         )
-    raise NotImplementedError(f"Unknown json notation in {d}")
+    raise NotImplementedError(f"Unknown JSON notation in {d}")
 
 
 def data_from_json(json_string: str) -> PlutusData:
-    raw_datum = json.loads(json_string)
-    return data_from_json_dict(raw_datum)
+    try:
+        raw_datum = json.loads(json_string)
+        return data_from_json_dict(raw_datum)
+    except json.JSONDecodeError as e:
+        raise ValueError("Invalid JSON") from e
+    except KeyError as e:
+        raise ValueError(f"Invalid PlutusData JSON, expected key {e.args}") from e
+    except Exception as e:
+        raise ValueError(f"Invalid PlutusData JSON, {e}") from e
 
 
 def plutus_json_dumps(x: PlutusData):
