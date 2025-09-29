@@ -31,6 +31,7 @@ python-secp256k1-cardano = ">=0.2.3"
 bitstring = ">=4.2.3"
 pycryptodome = ">=3.21.0"
 pyblst = {version = ">=0.3.13", optional = true}
+regex = ">=2025.9.18"
 
 [tool.poetry.extras]
 bls = ["pyblst"]
