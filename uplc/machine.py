@@ -1,6 +1,7 @@
 """
 DeBrujin Machine to evaluate UPLC AST
 """
+
 import copy
 from dataclasses import replace
 

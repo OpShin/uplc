@@ -126,9 +126,11 @@ def compile(
     new_dump = x.dumps(UPLCDialect.Plutus)
     while prev_dump != new_dump:
         for step in [
-            PreEvaluationOptimizer(skip_traces=not config.remove_traces)
-            if config.constant_folding
-            else NoOp(),
+            (
+                PreEvaluationOptimizer(skip_traces=not config.remove_traces)
+                if config.constant_folding
+                else NoOp()
+            ),
             TraceRemover() if config.remove_traces else NoOp(),
             ForceDelayRemover() if config.remove_force_delay else NoOp(),
         ]:

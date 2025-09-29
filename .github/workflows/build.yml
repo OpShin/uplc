@@ -2,7 +2,19 @@ name: CI/CD
 
 on:
   push:
+    branches:
+      - '**'
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/build.yml'
   pull_request:
+    branches:
+      - '**'
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/build.yml'
 
 jobs:
 
@@ -14,12 +26,13 @@ jobs:
       fail-fast: true
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v5
     
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
 
     - name: Install secp256k1
       run: |
@@ -56,6 +69,26 @@ jobs:
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
         poetry run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
-    
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v3
+
+    - name: Upload coverage data to coveralls.io
+      run: |
+        pip install coveralls
+        coveralls || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
+        COVERALLS_PARALLEL: true
+
+  coveralls:
+    name: Indicate completion to coveralls.io
+    needs: [build]
+    if: always()
+    runs-on: ubuntu-latest
+    container: python:3-slim
+    steps:
+      - name: Install coveralls
+        run: pip3 install --upgrade coveralls
+      - name: Finished
+        run: coveralls --finish || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

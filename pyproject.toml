@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uplc"
-version = "1.0.9"
+version = "1.0.12"
 description = "Python implementation of untyped plutus language core"
 authors = ["nielstron <n.muendler@web.de>"]
 license = "MIT"
@@ -16,34 +16,34 @@ classifiers=[
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 packages = [{include = "uplc"}]
 
 [tool.poetry.dependencies]
 python = ">=3.9, <4.0"
-frozendict = "^2.3.8"
-cbor2 = "^5.4.6"
-frozenlist2 = "^1.0.0"
-rply = "^0.7.8"
+frozendict = ">=2.3.8"
+cbor2 = ">=5.4.6"
+frozenlist2 = ">=1.0.0"
+rply = ">=0.7.8"
 pycardano = ">=0.9.0"
-python-secp256k1-cardano = "^0.2.3"
-bitstring = "^4.2.3"
-pycryptodome = "^3.21.0"
-pyblst = {version = "^0.3.13", optional = true}
+python-secp256k1-cardano = ">=0.2.3"
+bitstring = ">=4.2.3"
+pycryptodome = ">=3.21.0"
+pyblst = {version = ">=0.3.13", optional = true}
 
 [tool.poetry.extras]
 bls = ["pyblst"]
 
-
 [tool.poetry.group.dev.dependencies]
-pyaiken = "^0.5.5"
-hypothesis = "^6.75.0"
-parameterized = "^0.9.0"
-poetry-bumpversion = "^0.3.0"
-pre-commit = "^3.2.2"
-black = "^23.3.0"
-coverage = "^7.2.5"
-pytest = "^7.3.1"
+pyaiken = ">=0.5.5"
+hypothesis = ">=6.75.0"
+parameterized = ">=0.9.0"
+poetry-bumpversion = ">=0.3.0"
+pre-commit = ">=3.2.2"
+black = ">=23.3.0"
+coverage = ">=7.2.5"
+pytest = ">=7.3.1"
 
 [tool.poetry.scripts]
 uplc = "uplc.__main__:main"

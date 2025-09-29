@@ -10,7 +10,7 @@ This is a basic library to support creating and manipulating programs written in
 
 ## Installation
 
-Install anything between python 3.8 and 3.11.
+Install Python 3.9 or higher and make sure you have `pip` installed.
 Then run
 
 ```bash
@@ -20,11 +20,19 @@ pip install uplc
 ### Secp256k1
 
 If you want to use the builtin functions for verification of ECDSA and Schnorr signatures,
-follow the instructions to install `libsecp256k1` with schnorr support enabled:
+follow the instructions to install `libsecp256k1` with schnorr support enabled. We provide a script to do this for you on Linux and MacOS.
 
-https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/getting-started/install.md#installing-secp256k1
+```bash
+curl -sSL https://raw.githubusercontent.com/OpShin/uplc/refs/heads/master/install_secp256k1.sh | bash
+```
+
 
 This makes sure that the exact same version is used that is used in the `cardano-node`.
+Then, install the python bindings for `secp256k1` with
+
+```bash
+pip install python-secp256k1-cardano
+```
 
 ## Usage
 
