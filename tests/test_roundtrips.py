@@ -3,7 +3,6 @@ import unittest
 
 import hypothesis
 from hypothesis import strategies as hst
-from frozenlist2 import frozenlist
 import pyaiken
 from parameterized import parameterized
 
@@ -197,6 +196,8 @@ class HypothesisTests(unittest.TestCase):
 
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
+    @hypothesis.example(parse('(program 0.0.0 (con -- string "--" --"))\n string ""))'))
+    @hypothesis.example(parse('(program 0.0.0 (con string "--" --"))\n))'))
     @hypothesis.example(parse("(program 0.0.0 [(lam a (delay a)) (lam c c)])"))
     @hypothesis.example(
         parse("(program 0.0.0 [(lam a (lam b (error))) (lam _ (error))])")
@@ -212,6 +213,7 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
     @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
     @hypothesis.example(parse("(program 0.0.0 (delay _))"))
+    @hypothesis.example(parse('(program 0.0.0 (con string "---"))'))
     def test_rewrite_no_semantic_change(self, p):
         code = dumps(p)
         try:

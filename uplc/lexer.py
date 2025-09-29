@@ -1,10 +1,37 @@
 from rply import LexerGenerator
-import re
+import regex as re
+
+TEXT_REGEX = re.compile(r'"(([^\n\r"]|(?<!\\)(\\\\)*\\")*(?<!\\)(\\\\)*)"')
 
 
 def strip_comments(s: str):
-    ssub = re.sub(r"--.*$", "", s, flags=re.RegexFlag.MULTILINE)
-    return ssub
+    # find all occurrences of -- outside of strings and remove everything after it until the end of the line
+
+    changed = True
+    while changed:
+        all_strings = [x for x in re.finditer(TEXT_REGEX, s)]
+        all_comments = reversed(
+            list(
+                re.finditer(
+                    r"--[^\n]*$", s, flags=re.RegexFlag.MULTILINE, overlapped=True
+                )
+            )
+        )
+        changed = False
+        for comment in all_comments:
+            # check if the comment is inside a string
+            inside_string = False
+            for string in all_strings:
+                if string.start() < comment.start() < string.end():
+                    inside_string = True
+                    break
+            if not inside_string:
+                # remove the comment
+                s = s[: comment.start()] + s[comment.end() :]
+                changed = True
+                break
+
+    return s
 
 
 TOKENS = {
@@ -23,7 +50,7 @@ TOKENS = {
     "CARET_CLOSE": r"\>",
     # there may be an escaped " inside the string (marked by an uneven number of \ before it)
     # the " at the end must be preceded by an even number of \ -- it is not escaped
-    "TEXT": r'"(([^\n\r"]|(?<!\\)(\\\\)*\\")*(?<!\\)(\\\\)*)"',
+    "TEXT": TEXT_REGEX.pattern,
     "COMMA": r",",
     "DOT": r"\.",
     "NUMBER": r"[-\+]?\d+",
