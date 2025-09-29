@@ -596,10 +596,13 @@ def data_from_cbor(cbor: bytes) -> PlutusData:
 
 
 def data_from_json_dict(d: dict) -> PlutusData:
+    if not isinstance(d, dict):
+        raise ValueError("Expected a dictionary")
     if "constructor" in d:
         assert isinstance(
             d["constructor"], int
         ), "Expected integer in 'constructor' field"
+        assert isinstance(d["fields"], list), "Expected a list in 'fields' field"
         fields = frozenlist([data_from_json_dict(f) for f in d["fields"]])
         return PlutusConstr(d["constructor"], fields)
     if "int" in d:
@@ -614,9 +617,13 @@ def data_from_json_dict(d: dict) -> PlutusData:
         except ValueError as e:
             raise ValueError("Invalid hex string in 'bytes' field") from e
     if "list" in d:
+        assert isinstance(d["list"], list), "Expected a list in 'list' field"
         entries = frozenlist(list(map(data_from_json_dict, d["list"])))
         return PlutusList(entries)
     if "map" in d:
+        assert isinstance(
+            d["map"], list
+        ), "Expected a list in 'map' field (entries are dicts with field 'k' and 'v')"
         return PlutusMap(
             frozendict.frozendict(
                 {
@@ -635,7 +642,7 @@ def data_from_json(json_string: str) -> PlutusData:
     except json.JSONDecodeError as e:
         raise ValueError("Invalid JSON") from e
     except KeyError as e:
-        raise ValueError(f"Invalid PlutusData JSON, expected key {e.args}") from e
+        raise ValueError(f"Invalid PlutusData JSON, expected key {e}") from e
     except Exception as e:
         raise ValueError(f"Invalid PlutusData JSON, {e}") from e
 

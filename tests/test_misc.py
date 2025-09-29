@@ -1752,3 +1752,89 @@ class MiscTest(unittest.TestCase):
             r.result,
             PlutusConstr(0, []),
         )
+
+    def test_invalid_json_combination(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"bytes": 2}'
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected bytes in 'bytes'", str(context.exception).lower())
+
+    def test_invalid_json_combination_2(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"int": "0F"}'
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected integer in 'int'", str(context.exception).lower())
+
+    def test_invalid_json_combination_3(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"int": 1.2}'
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected integer in 'int'", str(context.exception).lower())
+
+    def test_invalid_json_format(self):
+        """Test error handling for invalid JSON format"""
+        param = '{"int": 42'  # Missing closing brace
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("Invalid JSON", str(context.exception))
+
+    def test_invalid_json_syntax(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"int": }'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("Invalid JSON", str(context.exception))
+
+    def test_invalid_json_key(self):
+        """Test error handling for invalid JSON syntax"""
+        param = "{}"  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("Unknown JSON", str(context.exception))
+
+    def test_invalid_constructor_json(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"constructor": "hi", "fields": []}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn(
+            "expected integer in 'constructor'", str(context.exception).lower()
+        )
+
+    def test_invalid_constructor_field_json(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"constructor": 0}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected key 'fields'", str(context.exception).lower())
+
+    def test_invalid_constructor_fields(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"constructor": 0, "fields": 2}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected a list", str(context.exception).lower())
+
+    def test_invalid_map(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"map": [{"k": 0}]}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected a dictionary", str(context.exception).lower())
+
+    def test_invalid_map_2(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"map": {"k": 0}}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected a list", str(context.exception).lower())
+
+    def test_invalid_list(self):
+        """Test error handling for invalid JSON syntax"""
+        param = '{"list": 1}'  # Invalid JSON syntax
+        with self.assertRaises(ValueError) as context:
+            data_from_json(param)
+        self.assertIn("expected a list", str(context.exception).lower())
