@@ -5,7 +5,7 @@
 import logging
 
 
-__version__ = "1.0.12"
+__version__ = "1.0.13"
 __author__ = "nielstron"
 __author_email__ = "n.muendler@web.de"
 __copyright__ = "Copyright (C) 2023 nielstron"
