@@ -263,7 +263,10 @@ class BuiltinString(Constant):
         return "string"
 
     def valuestring(self, dialect=UPLCDialect.Plutus):
-        return json.dumps(self.value)
+        escaped = self.value.encode("unicode_escape").decode()
+        if '"' in escaped:
+            escaped = escaped.replace('"', '\\"')
+        return f'"{escaped}"'
 
     def ex_mem(self) -> int:
         return len(self.value)

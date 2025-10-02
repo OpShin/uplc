@@ -7,9 +7,14 @@ import unittest
 
 from uplc import parse, dumps, UPLCDialect, eval
 from uplc.cost_model import Budget
+from uplc.transformer.unique_variables import UniqueVariableTransformer
 from uplc.util import NodeTransformer
 from uplc.transformer import unique_variables
-from uplc.optimizer import pre_evaluation, remove_force_delay
+from uplc.optimizer import (
+    pre_evaluation,
+    remove_force_delay,
+    pre_apply_args,
+)
 
 acceptance_test_path = Path("examples/acceptance_tests")
 
@@ -33,6 +38,8 @@ rewriters = [
     pre_evaluation.PreEvaluationOptimizer,
     # Force Delay Removal
     remove_force_delay.ForceDelayRemover,
+    # Apply lambda pre-application
+    pre_apply_args.ApplyLambdaTransformer,
 ]
 
 
@@ -61,7 +68,9 @@ class AcceptanceTests(unittest.TestCase):
             )
             return
         try:
-            input_parsed = rewriter().visit(input_parsed)
+            input_parsed = rewriter().visit(
+                UniqueVariableTransformer().visit(input_parsed)
+            )
         except unique_variables.FreeVariableError:
             # will raise an evaluation error anyways
             pass
@@ -84,7 +93,9 @@ class AcceptanceTests(unittest.TestCase):
         )
         res_dumps = dumps(res_parsed_unique, dialect=UPLCDialect.LegacyAiken)
         output_dumps = dumps(output_parsed_unique, dialect=UPLCDialect.LegacyAiken)
-        self.assertEqual(output_dumps, res_dumps, "Program evaluated to wrong output")
+        self.assertEqual(
+            output_dumps, res_dumps, f"Program evaluated to wrong output ({dirpath})"
+        )
         cost_file = next(f for f in files if f.endswith("cost"))
         with open(Path(dirpath).joinpath(cost_file)) as f:
             cost_content = f.read()
@@ -95,6 +106,7 @@ class AcceptanceTests(unittest.TestCase):
         if rewriter in (
             pre_evaluation.PreEvaluationOptimizer,
             remove_force_delay.ForceDelayRemover,
+            pre_apply_args.ApplyLambdaTransformer,
         ):
             self.assertGreaterEqual(
                 expected_spent_budget,
