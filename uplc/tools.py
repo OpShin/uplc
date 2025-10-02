@@ -132,6 +132,7 @@ def compile(
             (
                 ApplyLambdaTransformer(max_increase=config.fold_apply_lambda_increase)
                 if config.unique_variable_names
+                and config.fold_apply_lambda_increase is not None
                 else NoOp()
             ),
         ]:
