@@ -124,7 +124,10 @@ def compile(
     while prev_dump != new_dump:
         for step in [
             (
-                PreEvaluationOptimizer(skip_traces=config.constant_folding_keep_traces)
+                PreEvaluationOptimizer(
+                    skip_traces=config.constant_folding_keep_traces is None
+                    or config.constant_folding_keep_traces
+                )
                 if config.constant_folding
                 else NoOp()
             ),
