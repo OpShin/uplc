@@ -9,6 +9,7 @@ class CompilationConfig:
     unique_variable_names: Optional[bool] = None
     remove_force_delay: Optional[bool] = None
     fold_apply_lambda_increase: Optional[Union[int, float]] = None
+    deduplicate: Optional[bool] = None
 
     def update(
         self, other: Optional["CompilationConfig"] = None, **kwargs
@@ -29,7 +30,7 @@ OPT_O1_CONFIG = OPT_O0_CONFIG.update(remove_force_delay=True)
 OPT_O2_CONFIG = OPT_O1_CONFIG.update(
     constant_folding=True, fold_apply_lambda_increase=1
 )
-OPT_O3_CONFIG = OPT_O2_CONFIG.update()
+OPT_O3_CONFIG = OPT_O2_CONFIG.update(deduplicate=True)
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
 DEFAULT_CONFIG = CompilationConfig(unique_variable_names=True).update(OPT_O2_CONFIG)
@@ -53,7 +54,11 @@ ARGPARSE_ARGS = {
     "fold_apply_lambda_increase": {
         "__alts__": ["--ala"],
         "help": "Applies terms to lambdas at compile time. The parameter controls how much larger the resulting term is allowed to be. Default is 1, i.e., at most 100% of the original size. Set to 0 to disable.",
-        "type": Union[int, float],
+        "type": float,
+    },
+    "deduplicate": {
+        "__alts__": ["--dedup"],
+        "help": "Deduplicate identical subterms by introducing a let-binding. This reduces size but may increase runtime slightly.",
     },
 }
 for k in ARGPARSE_ARGS:

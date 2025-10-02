@@ -14,6 +14,7 @@ from uplc.optimizer import (
     pre_evaluation,
     remove_force_delay,
     pre_apply_args,
+    deduplicate,
 )
 
 acceptance_test_path = Path("examples/acceptance_tests")
@@ -40,6 +41,8 @@ rewriters = [
     remove_force_delay.ForceDelayRemover,
     # Apply lambda pre-application
     pre_apply_args.ApplyLambdaTransformer,
+    # Apply deduplication
+    deduplicate.Deduplicate,
 ]
 
 
@@ -113,6 +116,9 @@ class AcceptanceTests(unittest.TestCase):
                 comp_res.cost,
                 "Program cost more after preeval/trace removal rewrite",
             )
+        elif rewriter is deduplicate.Deduplicate:
+            # deduplication can go either way, more likely more expensive due to an additional apply
+            pass
         else:
             self.assertEqual(
                 expected_spent_budget,
