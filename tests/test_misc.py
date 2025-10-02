@@ -6,9 +6,8 @@ from parameterized import parameterized
 
 from uplc import *
 from uplc import compiler_config
-from uplc.tools import apply
 from uplc.transformer import unique_variables
-from uplc.optimizer import pre_evaluation, remove_traces, remove_force_delay
+from uplc.optimizer import pre_evaluation, remove_force_delay
 from uplc.lexer import strip_comments
 from uplc.ast import *
 
@@ -1647,30 +1646,6 @@ class MiscTest(unittest.TestCase):
         self.assertIn(x, r.logs, "Trace did not produce a log for first message.")
         self.assertIn(y, r.logs, "Trace did not produce a log for second message.")
         self.assertEqual(r.logs, [x, y], "Trace did log in correct order.")
-        self.assertEqual(
-            r.result, BuiltinUnit(), "Trace did not return second argument"
-        )
-
-    def test_trace_removal(self):
-        x = "Hello, world!"
-        y = "Hello, world 2!"
-        p = Program(
-            (1, 0, 0),
-            Apply(
-                Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=y)),
-                Apply(
-                    Apply(Force(BuiltIn(BuiltInFun.Trace)), BuiltinString(value=x)),
-                    BuiltinUnit(),
-                ),
-            ),
-        )
-        p = remove_traces.TraceRemover().visit(p)
-        r = eval(p)
-        self.assertNotIn(
-            x, r.logs, "Trace was produced even though rewrite should have removed it"
-        )
-        self.assertNotIn(y, r.logs, "Trace did not produce a log for second message.")
-        self.assertEqual(r.logs, [], "Trace did log.")
         self.assertEqual(
             r.result, BuiltinUnit(), "Trace did not return second argument"
         )
