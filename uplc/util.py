@@ -114,3 +114,14 @@ def bind_variables(ast: AST):
     for var in visitor.unbound:
         ast = Lambda(var, ast)
     return ast
+
+
+class VariableVisitor(NodeVisitor):
+    def __init__(self):
+        self.vars = set()
+
+    def visit_Lambda(self, node: Lambda):
+        self.vars.add(node.var_name)
+
+    def visit_Variable(self, node: Variable):
+        self.vars.add(node.name)
