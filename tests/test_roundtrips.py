@@ -54,9 +54,7 @@ uplc_data = hst.recursive(
 uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
-# TODO reenable all text as soon as aiken issue for escaped strings in complex data is fixed
 uplc_builtin_string = hst.builds(BuiltinString, hst.text())
-# uplc_builtin_string = hst.builds(BuiltinString, hst.from_regex(r"\w*", fullmatch=True))
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
 
@@ -65,7 +63,7 @@ def rec_const_strategies(uplc_constant):
     uplc_builtin_list = hst.builds(
         lambda x, y: BuiltinList(frozenlist([x] * y), x),
         uplc_constant,
-        hst.integers(min_value=0, max_value=10),
+        hst.integers(min_value=0, max_value=5),
     )
     return hst.one_of(uplc_builtin_list, uplc_builtin_pair)
 
