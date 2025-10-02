@@ -4,9 +4,9 @@ from typing import Optional, Union
 
 @dataclass(frozen=True)
 class CompilationConfig:
+    constant_folding_keep_traces: Optional[bool] = None
     constant_folding: Optional[bool] = None
     unique_variable_names: Optional[bool] = None
-    remove_traces: Optional[bool] = None
     remove_force_delay: Optional[bool] = None
     fold_apply_lambda_increase: Optional[Union[int, float]] = None
 
@@ -29,15 +29,12 @@ OPT_O1_CONFIG = OPT_O0_CONFIG.update(remove_force_delay=True)
 OPT_O2_CONFIG = OPT_O1_CONFIG.update(
     constant_folding=True, fold_apply_lambda_increase=1
 )
-OPT_O3_CONFIG = OPT_O2_CONFIG.update(remove_traces=True)
+OPT_O3_CONFIG = OPT_O2_CONFIG.update()
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
 DEFAULT_CONFIG = CompilationConfig(unique_variable_names=True).update(OPT_O2_CONFIG)
 
 ARGPARSE_ARGS = {
-    "remove_traces": {
-        "help": "Remove traces from the compiled contract.",
-    },
     "unique_variable_names": {
         "__alts__": ["--unique-varnames"],
         "help": "Assign variables a unique name. Some optimizations require this and will be disabled if this is not set.",
@@ -45,6 +42,9 @@ ARGPARSE_ARGS = {
     "constant_folding": {
         "__alts__": ["--cf"],
         "help": "Enables experimental constant folding, including propagation and code execution.",
+    },
+    "constant_folding_keep_traces": {
+        "help": "Do not remove traces from the compiled contract during constant folding.",
     },
     "remove_force_delay": {
         "__alts__": ["--rfd"],

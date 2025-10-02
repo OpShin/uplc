@@ -12,7 +12,6 @@ from uplc.util import NodeTransformer
 from uplc.transformer import unique_variables
 from uplc.optimizer import (
     pre_evaluation,
-    remove_traces,
     remove_force_delay,
     pre_apply_args,
 )
@@ -37,8 +36,6 @@ rewriters = [
     unique_variables.UniqueVariableTransformer,
     # Pre-evaluating subterms - here it will always evaluate the whole expression as there are no missing variables
     pre_evaluation.PreEvaluationOptimizer,
-    # Trace removal
-    remove_traces.TraceRemover,
     # Force Delay Removal
     remove_force_delay.ForceDelayRemover,
     # Apply lambda pre-application
@@ -116,8 +113,6 @@ class AcceptanceTests(unittest.TestCase):
                 comp_res.cost,
                 "Program cost more after preeval/trace removal rewrite",
             )
-        elif rewriter == remove_traces.TraceRemover:
-            pass
         else:
             self.assertEqual(
                 expected_spent_budget,

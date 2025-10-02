@@ -14,7 +14,6 @@ from .lexer import strip_comments, Lexer
 from .optimizer.pre_apply_args import ApplyLambdaTransformer
 from .optimizer.pre_evaluation import PreEvaluationOptimizer
 from .optimizer.remove_force_delay import ForceDelayRemover
-from .optimizer.remove_traces import TraceRemover
 from .parser import Parser
 from .machine import Machine
 from .ast import AST, UPLCDialect, Program, plutus_cbor_dumps, PlutusByteString, Apply
@@ -125,11 +124,10 @@ def compile(
     while prev_dump != new_dump:
         for step in [
             (
-                PreEvaluationOptimizer(skip_traces=not config.remove_traces)
+                PreEvaluationOptimizer(skip_traces=config.constant_folding_keep_traces)
                 if config.constant_folding
                 else NoOp()
             ),
-            TraceRemover() if config.remove_traces else NoOp(),
             ForceDelayRemover() if config.remove_force_delay else NoOp(),
             (
                 ApplyLambdaTransformer(max_increase=config.fold_apply_lambda_increase)
