@@ -1,4 +1,5 @@
-from .. import unflatten, parse
+from copy import deepcopy
+
 from ..transformer.unique_variables import UniqueVariableTransformer
 from ..util import (
     NodeTransformer,
@@ -77,11 +78,12 @@ class Deduplicate(NodeTransformer):
         # where count is the number of occurrences of the term
         candidates = []
         for term, count in occ.occurence_counter.items():
-            if count < 2:
-                continue
             # find the original term
             size = len(term)
-            impact = (count - 1) * size
+            # subtracting 2 to account for the fact that we need to add an apply and a lambda
+            impact = (count - 1) * size - 2
+            if impact <= 0:
+                continue
             candidates.append((impact, term))
         candidates.sort(reverse=True, key=lambda x: x[0])
         # now substitute the first candidate
@@ -100,11 +102,25 @@ class Deduplicate(NodeTransformer):
         term_to_sub_flat = candidates[0][1]
         # find the original term
         sub_list = occ.flattened_map[term_to_sub_flat]
-        sub_list_dumped = [x.dumps() for x in occ.flattened_map[term_to_sub_flat]]
-        node = Substitute(var_name, sub_list_dumped).visit(node)
-        subbed_term = UniqueVariableTransformer().visit(node)
-        node = Apply(Lambda(var_name, node), subbed_term)
-        return node
+        sub_list_dumped = [x.dumps() for x in sub_list]
+        new_node = Substitute(var_name, sub_list_dumped).visit(node)
+        subbed_term = UniqueVariableTransformer().visit(sub_list[0])
+        new_node = Apply(Lambda(var_name, new_node), subbed_term)
+
+        return new_node
 
     def visit_Program(self, node: Program) -> AST:
-        return Program(version=node.version, term=self.deduplicate(node.term))
+        from ..tools import flatten, parse
+
+        # make a copy of the node by dumping and parsing again
+        copied_node = parse(node.dumps())
+        # perform deduplication
+        subbed_node = Program(
+            version=node.version, term=self.deduplicate(copied_node.term)
+        )
+        # check size has decreased
+        size_orig = len(flatten(node))
+        size_new = len(flatten(subbed_node))
+        if size_new >= size_orig:
+            return node
+        return subbed_node

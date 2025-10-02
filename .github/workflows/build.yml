@@ -67,6 +67,8 @@ jobs:
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fdeduplicate
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -ffold_apply_lambda_increase 1.2
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
