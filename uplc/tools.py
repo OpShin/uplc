@@ -11,6 +11,7 @@ from .cost_model import (
     default_builtin_cost_model_plutus_v2,
 )
 from .lexer import strip_comments, Lexer
+from .optimizer.pre_apply_args import ApplyLambdaTransformer
 from .optimizer.pre_evaluation import PreEvaluationOptimizer
 from .optimizer.remove_force_delay import ForceDelayRemover
 from .optimizer.remove_traces import TraceRemover
@@ -114,6 +115,11 @@ def compile(
     This is useful for applying low-level optimizations to the program
     :param x: the program to compile
     """
+    # pre-processing: ensure that the input has unique variable names for later steps
+    for step in [
+        UniqueVariableTransformer() if config.unique_variable_names else NoOp(),
+    ]:
+        x = step.visit(x)
     prev_dump = None
     new_dump = x.dumps(UPLCDialect.Plutus)
     while prev_dump != new_dump:
@@ -125,10 +131,16 @@ def compile(
             ),
             TraceRemover() if config.remove_traces else NoOp(),
             ForceDelayRemover() if config.remove_force_delay else NoOp(),
+            (
+                ApplyLambdaTransformer(max_increase=config.fold_apply_lambda_increase)
+                if config.unique_variable_names
+                else NoOp()
+            ),
         ]:
             x = step.visit(x)
         prev_dump = new_dump
         new_dump = x.dumps(UPLCDialect.Plutus)
+    # post-processing: ensure that the output has unique variable names (and minimal)
     for step in [
         UniqueVariableTransformer() if config.unique_variable_names else NoOp(),
     ]:

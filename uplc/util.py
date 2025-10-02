@@ -1,6 +1,8 @@
 from ast import iter_fields
 from copy import copy
 
+from uplc.ast import Lambda, Variable, AST
+
 
 class NodeVisitor(object):
     """
@@ -22,13 +24,13 @@ class NodeVisitor(object):
     allows modifications.
     """
 
-    def visit(self, node):
+    def visit(self, node: AST):
         """Visit a node."""
         method = "visit_" + node.__class__.__name__
         visitor = getattr(self, method, self.generic_visit)
         return visitor(node)
 
-    def generic_visit(self, node):
+    def generic_visit(self, node: AST):
         """Called if no explicit visitor function exists for a node."""
         for field, value in iter_fields(node):
             self.visit(value)
@@ -70,7 +72,7 @@ class NodeTransformer(NodeVisitor):
        node = YourTransformer().visit(node)
     """
 
-    def generic_visit(self, node):
+    def generic_visit(self, node: AST):
         node = copy(node)
         for field, old_value in iter_fields(node):
             new_node = self.visit(old_value)
@@ -85,3 +87,30 @@ class NoOp(NodeTransformer):
     """A variation of the Node transformer that performs no changes"""
 
     pass
+
+
+class UnboundVariableVisitor(NodeVisitor):
+    def __init__(self):
+        self.scope = []
+        self.unbound = set()
+
+    def check_bound(self, name: str):
+        if name in self.scope:
+            return
+        self.unbound.add(name)
+
+    def visit_Lambda(self, node: Lambda):
+        self.scope.append(node.var_name)
+        self.visit(node.term)
+        self.scope.pop()
+
+    def visit_Variable(self, node: Variable):
+        self.check_bound(node.name)
+
+
+def bind_variables(ast: AST):
+    visitor = UnboundVariableVisitor()
+    visitor.visit(ast)
+    for var in visitor.unbound:
+        ast = Lambda(var, ast)
+    return ast
