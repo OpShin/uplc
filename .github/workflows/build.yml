@@ -54,7 +54,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -U poetry
-        poetry install --with dev
+        poetry install --with dev --all-extras
     
     - name: Run tests and coverage
       run: |

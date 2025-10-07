@@ -6,12 +6,14 @@ import functools
 import json
 import math
 from pathlib import Path
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, List
 from enum import Enum
 
-import pycardano
 
-from .ast import BuiltInFun
+from .ast import BuiltInFun, AST
+
+# 30000000 appears to be default (see https://github.com/aiken-lang/aiken/blob/e1d46fa8f063445da8c0372e3c031c8a11ad0b14/crates/uplc/src/machine/cost_model.rs#L3376)
+DEFAULT_COST_COEFF = 30000000000
 
 
 class BudgetMode(Enum):
@@ -77,7 +79,7 @@ class Budget:
 
 
 class CostingFun:
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values: List[AST] = ()) -> int:
         raise NotImplementedError("Abstract cost not implemented")
 
     @classmethod
@@ -100,7 +102,7 @@ class CostingFun:
 class ConstantCost(CostingFun):
     constant: int = 0
 
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.constant
 
     @classmethod
@@ -110,7 +112,7 @@ class ConstantCost(CostingFun):
     def update_from_network_config(
         self, network_config: Dict[str, int], prefix: str = ""
     ):
-        self.constant = network_config[f"{prefix}-arguments"]
+        self.constant = network_config.get(f"{prefix}-arguments", DEFAULT_COST_COEFF)
 
 
 @dataclasses.dataclass
@@ -118,7 +120,7 @@ class LinearCost(CostingFun):
     intercept: int = 0
     slope: int = 0
 
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.intercept + self.slope * memories[0]
 
     @classmethod
@@ -128,8 +130,10 @@ class LinearCost(CostingFun):
     def update_from_network_config(
         self, network_config: Dict[str, int], prefix: str = ""
     ):
-        self.intercept = network_config[f"{prefix}-arguments-intercept"]
-        self.slope = network_config[f"{prefix}-arguments-slope"]
+        self.intercept = network_config.get(
+            f"{prefix}-arguments-intercept", DEFAULT_COST_COEFF
+        )
+        self.slope = network_config.get(f"{prefix}-arguments-slope", DEFAULT_COST_COEFF)
 
 
 @dataclasses.dataclass
@@ -148,25 +152,37 @@ class Derived(CostingFun):
 
 @dataclasses.dataclass
 class LinearInX(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[0])
 
 
 @dataclasses.dataclass
 class LinearInY(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[1])
 
 
 @dataclasses.dataclass
+class LinearInMaxYz(Derived):
+    def cost(self, *memories: int, values=()) -> int:
+        return self.model.cost(max(memories[1], memories[2]))
+
+
+@dataclasses.dataclass
+class LiteralInX(Derived):
+    def cost(self, *memories: int, values=()) -> int:
+        return self.model.cost(values[0].literal_cost())
+
+
+@dataclasses.dataclass
 class LinearInZ(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(memories[2])
 
 
 @dataclasses.dataclass
 class AddedSizes(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(sum(memories))
 
 
@@ -174,13 +190,14 @@ class AddedSizes(Derived):
 class SubtractedSizes(Derived):
     minimum: int = 0
 
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(max(memories[0] - memories[1], self.minimum))
 
     @classmethod
     def from_arguments(cls, arguments: Union[Dict[str, Any]]):
-        min = arguments["minimum"]
-        del arguments["minimum"]
+        min = arguments.get("minimum", DEFAULT_COST_COEFF)
+        if "minimum" in arguments:
+            del arguments["minimum"]
         return cls(
             CostingFun.from_arguments(arguments),
             min,
@@ -190,24 +207,26 @@ class SubtractedSizes(Derived):
         self, network_config: Dict[str, int], prefix: str = ""
     ):
         self.model.update_from_network_config(network_config, prefix)
-        self.minimum = network_config[f"{prefix}-arguments-minimum"]
+        self.minimum = network_config.get(
+            f"{prefix}-arguments-minimum", DEFAULT_COST_COEFF
+        )
 
 
 @dataclasses.dataclass
 class MultipliedSizes(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(math.prod(memories))
 
 
 @dataclasses.dataclass
 class MinSize(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(min(memories))
 
 
 @dataclasses.dataclass
 class MaxSize(Derived):
-    def cost(self, *memories: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
         return self.model.cost(max(memories))
 
 
@@ -218,7 +237,8 @@ class LinearOnDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, x: int, y: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
+        x, y = memories[0], memories[1]
         if x == y:
             return self.model_on_diagonal.cost(x)
         return self.model_off_diagonal.cost(x, y)
@@ -232,9 +252,9 @@ class LinearOnDiagonal(CostingFun):
     def update_from_network_config(
         self, network_config: Dict[str, int], prefix: str = ""
     ):
-        self.model_off_diagonal.constant = network_config[
-            f"{prefix}-arguments-constant"
-        ]
+        self.model_off_diagonal.constant = network_config.get(
+            f"{prefix}-arguments-constant", DEFAULT_COST_COEFF
+        )
         self.model_on_diagonal.update_from_network_config(network_config, prefix)
 
 
@@ -245,8 +265,9 @@ class ConstAboveDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, x: int, y: int) -> int:
-        if x > y:
+    def cost(self, *memories: int, values=()) -> int:
+        x, y = memories[0], memories[1]
+        if x < y:
             return self.model_above_diagonal.cost(x, y)
         return self.model_below_equal_diagonal.cost(x, y)
 
@@ -259,11 +280,16 @@ class ConstAboveDiagonal(CostingFun):
     def update_from_network_config(
         self, network_config: Dict[str, int], prefix: str = ""
     ):
-        self.model_above_diagonal.constant = network_config[
-            f"{prefix}-arguments-constant"
-        ]
+        self.model_above_diagonal.constant = network_config.get(
+            f"{prefix}-arguments-constant", DEFAULT_COST_COEFF
+        )
         self.model_below_equal_diagonal.update_from_network_config(
-            network_config, f"{prefix}-arguments-model"
+            network_config,
+            (
+                f"{prefix}-arguments-model"
+                if not isinstance(self.model_below_equal_diagonal, QuadraticInXAndY)
+                else prefix
+            ),
         )
 
 
@@ -274,7 +300,8 @@ class ConstBelowDiagonal(CostingFun):
         default_factory=lambda: ConstantCost(0)
     )
 
-    def cost(self, x: int, y: int) -> int:
+    def cost(self, *memories: int, values=()) -> int:
+        x, y = memories[0], memories[1]
         if x >= y:
             return self.model_above_equal_diagonal.cost(x, y)
         return self.model_below_diagonal.cost(x, y)
@@ -288,17 +315,159 @@ class ConstBelowDiagonal(CostingFun):
     def update_from_network_config(
         self, network_config: Dict[str, int], prefix: str = ""
     ):
-        self.model_below_diagonal.constant = network_config[
-            f"{prefix}-arguments-constant"
-        ]
+        self.model_below_diagonal.constant = network_config.get(
+            f"{prefix}-arguments-constant", DEFAULT_COST_COEFF
+        )
         self.model_above_equal_diagonal.update_from_network_config(
-            network_config, f"{prefix}-arguments-model"
+            network_config,
+            (
+                f"{prefix}-arguments-model"
+                if not isinstance(self.model_above_equal_diagonal, QuadraticInXAndY)
+                else prefix
+            ),
         )
 
 
-# TODO automatically parse from
+@dataclasses.dataclass
+class QuadraticInY(CostingFun):
+    c0: int = 0
+    c1: int = 0
+    c2: int = 0
+
+    def cost(self, *memories: int, values=()) -> int:
+        return self.c0 + self.c1 * memories[1] + self.c2 * memories[1] ** 2
+
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.c0 = network_config.get(f"{prefix}-arguments-c0", DEFAULT_COST_COEFF)
+        self.c1 = network_config.get(f"{prefix}-arguments-c1", DEFAULT_COST_COEFF)
+        self.c2 = network_config.get(f"{prefix}-arguments-c2", DEFAULT_COST_COEFF)
+
+
+@dataclasses.dataclass
+class QuadraticInZ(CostingFun):
+    c0: int = 0
+    c1: int = 0
+    c2: int = 0
+
+    def cost(self, *memories: int, values=()) -> int:
+        return self.c0 + self.c1 * memories[2] + self.c2 * memories[2] ** 2
+
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.c0 = network_config.get(f"{prefix}-arguments-c0", DEFAULT_COST_COEFF)
+        self.c1 = network_config.get(f"{prefix}-arguments-c1", DEFAULT_COST_COEFF)
+        self.c2 = network_config.get(f"{prefix}-arguments-c2", DEFAULT_COST_COEFF)
+
+
+@dataclasses.dataclass
+class QuadraticInXAndY(CostingFun):
+    c00: int = 0
+    c01: int = 0
+    c02: int = 0
+    c10: int = 0
+    c11: int = 0
+    c20: int = 0
+    minimum: int = 0
+
+    def cost(self, *memories: int, values=()) -> int:
+        x, y = memories[0], memories[1]
+        poly = (
+            self.c00
+            + self.c10 * x
+            + self.c01 * y
+            + +self.c20 * x * x
+            + self.c11 * x * y
+            + self.c02 * y * y
+        )
+        return max(poly, self.minimum)
+
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.c00 = network_config.get(f"{prefix}-arguments-c00", DEFAULT_COST_COEFF)
+        self.c10 = network_config.get(f"{prefix}-arguments-c10", DEFAULT_COST_COEFF)
+        self.c01 = network_config.get(f"{prefix}-arguments-c01", DEFAULT_COST_COEFF)
+        self.c20 = network_config.get(f"{prefix}-arguments-c20", DEFAULT_COST_COEFF)
+        self.c11 = network_config.get(f"{prefix}-arguments-c11", DEFAULT_COST_COEFF)
+        self.c02 = network_config.get(f"{prefix}-arguments-c02", DEFAULT_COST_COEFF)
+        self.minimum = network_config.get(
+            f"{prefix}-arguments-minimum", DEFAULT_COST_COEFF
+        )
+
+
+@dataclasses.dataclass
+class LiteralInYOrLinearInZ(CostingFun):
+    intercept: int = 0
+    slope: int = 0
+
+    def cost(self, *memories: int, values=()) -> int:
+        y = values[1].literal_cost()
+        if y == 0:
+            return self.intercept + self.slope * memories[2]
+        return y
+
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.c00 = network_config.get(f"{prefix}-arguments-c00", DEFAULT_COST_COEFF)
+        self.c10 = network_config.get(f"{prefix}-arguments-c10", DEFAULT_COST_COEFF)
+        self.c01 = network_config.get(f"{prefix}-arguments-c01", DEFAULT_COST_COEFF)
+        self.c20 = network_config.get(f"{prefix}-arguments-c20", DEFAULT_COST_COEFF)
+        self.c11 = network_config.get(f"{prefix}-arguments-c11", DEFAULT_COST_COEFF)
+        self.c02 = network_config.get(f"{prefix}-arguments-c02", DEFAULT_COST_COEFF)
+        self.minimum = network_config.get(
+            f"{prefix}-arguments-minimum", DEFAULT_COST_COEFF
+        )
+
+
+@dataclasses.dataclass
+class LinearInYAndZ(CostingFun):
+    intercept: int = 0
+    slope1: int = 0
+    slope2: int = 0
+
+    def cost(self, *memories: int, values=()) -> int:
+        return self.intercept + self.slope1 * memories[1] + self.slope2 * memories[2]
+
+    @classmethod
+    def from_arguments(cls, arguments: Dict[str, int]):
+        return cls(**arguments)
+
+    def update_from_network_config(
+        self, network_config: Dict[str, int], prefix: str = ""
+    ):
+        self.intercept = network_config.get(
+            f"{prefix}-arguments-intercept", DEFAULT_COST_COEFF
+        )
+        self.slope1 = network_config.get(
+            f"{prefix}-arguments-slope1", DEFAULT_COST_COEFF
+        )
+        self.slope2 = network_config.get(
+            f"{prefix}-arguments-slope2", DEFAULT_COST_COEFF
+        )
+
+
+# we automatically parse the model of each builtin from
 # https://github.com/input-output-hk/plutus/blob/43ecfc3403cf908c55af57c8461e96e8b131b97c/plutus-core/cost-model/data/builtinCostModel.json
-# or similar files
 
 
 @dataclasses.dataclass
@@ -338,10 +507,17 @@ COSTING_FUN_DICT = {
         MultipliedSizes,
         MinSize,
         MaxSize,
+        LiteralInX,
         LinearInX,
         LinearInY,
         LinearInZ,
+        LinearInMaxYz,
+        LinearInYAndZ,
         SubtractedSizes,
+        QuadraticInY,
+        QuadraticInZ,
+        QuadraticInXAndY,
+        LiteralInYOrLinearInZ,
     )
 }
 
@@ -356,7 +532,7 @@ def parse_costing_fun(model: dict):
 def parse_builtin_cost_model(model: dict):
     cost_model = BuiltinCostModel({}, {})
     for fun, d in model.items():
-        builtin_fun_name = fun[:1].capitalize() + fun[1:]
+        builtin_fun_name = "_".join(x[:1].capitalize() + x[1:] for x in fun.split("_"))
         builtin_fun = BuiltInFun.__dict__[builtin_fun_name]
         cost_model.memory[builtin_fun] = parse_costing_fun(d["memory"])
         cost_model.cpu[builtin_fun] = parse_costing_fun(d["cpu"])
@@ -381,10 +557,12 @@ def updated_builtin_cost_model_from_network_config(
 class PlutusVersion(enum.Enum):
     PlutusV1 = "PlutusV1"
     PlutusV2 = "PlutusV2"
+    PlutusV3 = "PlutusV3"
 
 
 @functools.lru_cache()
 def default_builtin_cost_model_base():
+    # TODO choose different base cost model based on Plutus Version
     builtinCostModel = (
         Path(__file__)
         .parent.joinpath("cost_model_files")
@@ -457,6 +635,11 @@ def default_builtin_cost_model_plutus_v2():
     return default_builtin_cost_model(PlutusVersion.PlutusV2)
 
 
+@functools.lru_cache()
+def default_builtin_cost_model_plutus_v3():
+    return default_builtin_cost_model(PlutusVersion.PlutusV3)
+
+
 def parse_cek_machine_cost_model(model: dict):
     cost_model = CekMachineCostModel({}, {})
     for op, d in model.items():
@@ -490,7 +673,9 @@ def updated_cek_machine_cost_model_from_network_config(
     ):
         for cek_op, cost_model in cost_fun_dicts.items():
             cek_op_name = f"cek{cek_op.name}Cost"
-            cost_model.constant = network_config[f"{cek_op_name}-exBudget{mode}"]
+            cost_model.constant = network_config.get(
+                f"{cek_op_name}-exBudget{mode}", DEFAULT_COST_COEFF
+            )
     return cek_machine_cost_model
 
 
@@ -509,6 +694,11 @@ def default_cek_machine_cost_model_plutus_v1():
 @functools.lru_cache()
 def default_cek_machine_cost_model_plutus_v2():
     return default_cek_machine_cost_model(PlutusVersion.PlutusV2)
+
+
+@functools.lru_cache()
+def default_cek_machine_cost_model_plutus_v3():
+    return default_cek_machine_cost_model(PlutusVersion.PlutusV3)
 
 
 def default_budget():

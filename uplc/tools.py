@@ -9,6 +9,8 @@ from .cost_model import (
     default_cek_machine_cost_model_plutus_v2,
     BuiltinCostModel,
     default_builtin_cost_model_plutus_v2,
+    default_cek_machine_cost_model_plutus_v3,
+    default_builtin_cost_model_plutus_v3,
 )
 from .lexer import strip_comments, Lexer
 from .optimizer.pre_apply_args import ApplyLambdaTransformer
@@ -22,6 +24,7 @@ from .flat_decoder import UplcDeserializer
 from .transformer.debrujin_variables import DeBrujinVariableTransformer
 from .transformer.undebrujin_variables import UnDeBrujinVariableTransformer
 from .transformer.unique_variables import UniqueVariableTransformer
+from .transformer.plutus_version_enforcer import PlutusVersionEnforcer, UnsupportedTerm
 from .util import NoOp
 
 
@@ -54,6 +57,7 @@ def parse(s: str, filename=None):
     try:
         tks = l.lex(s)
         program = p.parse(tks)
+        PlutusVersionEnforcer().visit(program)
     except rply.errors.LexingError as e:
         source = s.splitlines()[e.source_pos.lineno - 1]
         raise SyntaxError(
@@ -65,6 +69,10 @@ def parse(s: str, filename=None):
         raise SyntaxError(
             f"Parsing failed, invalid production: {e.message}",
             (filename, e.source_pos.lineno, e.source_pos.colno, source),
+        ) from None
+    except UnsupportedTerm as e:
+        raise SyntaxError(
+            f"Parsing failed, unsupported term: {e.message}",
         ) from None
     return program
 
@@ -85,15 +93,15 @@ def eval(
     u: AST,
     *args: AST,
     budget: Budget = default_budget(),
-    cek_machine_cost_model: CekMachineCostModel = default_cek_machine_cost_model_plutus_v2(),
-    builtin_cost_model: BuiltinCostModel = default_builtin_cost_model_plutus_v2(),
+    cek_machine_cost_model: CekMachineCostModel = default_cek_machine_cost_model_plutus_v3(),
+    builtin_cost_model: BuiltinCostModel = default_builtin_cost_model_plutus_v3(),
 ):
     """
     Evaluates the given UPLC program and returns the result
     """
     m = Machine(budget, cek_machine_cost_model, builtin_cost_model)
     if not isinstance(u, Program):
-        u = Program((1, 0, 0), u)
+        u = Program((1, 1, 0), u)
     u = apply(u, *args)
     return m.eval(u)
 

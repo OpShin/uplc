@@ -3,6 +3,7 @@ DeBrujin Machine to evaluate UPLC AST
 """
 
 import copy
+from dataclasses import replace
 
 from .ast import *
 from .transformer.unique_variables import UniqueVariableTransformer, FreeVariableError
@@ -22,12 +23,13 @@ def budget_cost_of_op_on_model(
     model: Union[BuiltinCostModel, CekMachineCostModel],
     op: Union[BuiltInFun, CekOp],
     *args: int,
+    values=[],
 ):
     if op not in model.cpu or op not in model.memory:
         return Budget(0, 0)
     return Budget(
-        cpu=model.cpu[op].cost(*args),
-        memory=model.memory[op].cost(*args),
+        cpu=model.cpu[op].cost(*args, values=values),
+        memory=model.memory[op].cost(*args, values=values),
     )
 
 
@@ -40,7 +42,15 @@ AST_TO_CEK_OP_MAP = {
     BoundStateDelay: CekOp.Delay,
     Force: CekOp.Force,
     Apply: CekOp.Apply,
+    Constr: CekOp.Constr,
+    Case: CekOp.Case,
 }
+
+
+def transfer_arg_stack(args: List[AST], context: Context) -> Context:
+    if not args:
+        return context
+    return transfer_arg_stack(args[:-1], FrameApplyFunArg(args[-1], context))
 
 
 class Machine:
@@ -165,11 +175,41 @@ class Machine:
                     f"Access to uninitialized variable {term.name} in {term.dumps()}"
                 )
                 raise e
+        elif isinstance(term, Constr):
+            if term.fields:
+                return Compute(
+                    FrameConstr(
+                        state,
+                        term.tag,
+                        term.fields[1:],
+                        [],
+                        context,
+                    ),
+                    state,
+                    term.fields[0],
+                )
+            else:
+                return Return(
+                    context,
+                    term,
+                )
+        elif isinstance(term, Case):
+            return Compute(
+                FrameCases(
+                    state,
+                    term.branches,
+                    context,
+                ),
+                state,
+                term.scrutinee,
+            )
         raise NotImplementedError(f"Invalid term to compute: {term}")
 
     def return_compute(self, context, value):
         if isinstance(context, FrameApplyFun):
-            return self.apply_evaluate(context.ctx, context.val, value)
+            return self.apply_evaluate(context.ctx, context.fun, value)
+        elif isinstance(context, FrameApplyFunArg):
+            return self.apply_evaluate(context.ctx, value, context.arg)
         elif isinstance(context, FrameApplyArg):
             return Compute(
                 FrameApplyFun(
@@ -184,6 +224,35 @@ class Machine:
         elif isinstance(context, NoFrame):
             term = value
             return Done(term)
+        elif isinstance(context, FrameConstr):
+            resolved_fields = context.resolved_fields + [value]
+            if context.fields:
+                return Compute(
+                    replace(
+                        context,
+                        fields=context.fields[1:],
+                        resolved_fields=resolved_fields,
+                    ),
+                    context.env,
+                    context.fields[0],
+                )
+            else:
+                return Return(
+                    context.ctx,
+                    Constr(context.tag, resolved_fields),
+                )
+        elif isinstance(context, FrameCases):
+            if not isinstance(value, Constr):
+                raise RuntimeError("Scrutinized non-constr in case")
+            try:
+                branch = context.branches[value.tag]
+            except IndexError as e:
+                raise RuntimeError("No branch provided for constr tag") from None
+            return Compute(
+                transfer_arg_stack(value.fields, context.ctx),
+                context.env,
+                branch,
+            )
         raise NotImplementedError(f"Invalid context to return compute: {context}")
 
     def apply_evaluate(self, context, function, argument):
@@ -203,6 +272,7 @@ class Machine:
                         self.builtin_cost_model,
                         function.builtin,
                         *(arg.ex_mem() for arg in arguments),
+                        values=arguments,
                     )
                     self.spend_budget(cost)
                     if function.builtin == BuiltInFun.Trace:

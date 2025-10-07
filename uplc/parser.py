@@ -11,7 +11,13 @@ from .ast import (
     PlutusInteger,
     PlutusList,
     PlutusMap,
+    Constr,
+    Case,
 )
+
+PLUTUS_V2 = (1, 0, 0)
+PLUTUS_V3 = (1, 1, 0)
+PLUTUS_VERSIONS = {PLUTUS_V2, PLUTUS_V3}
 
 
 class Parser:
@@ -22,7 +28,11 @@ class Parser:
             "program : PAREN_OPEN PROGRAM version expression PAREN_CLOSE"
         )
         def program(p):
-            return ast.Program(tuple(map(int, p[2].split("."))), p[3])
+            version = tuple(map(int, p[2].split(".")))
+            assert (
+                version in PLUTUS_VERSIONS
+            ), "Invalid plutus version (must be 1.0.0 or 1.1.0)"
+            return ast.Program(version, p[3])
 
         @self.pg.production("version : NUMBER DOT NUMBER DOT NUMBER")
         def version(p):
@@ -42,6 +52,8 @@ class Parser:
         @self.pg.production("name : BUILTIN")
         @self.pg.production("name : CON")
         @self.pg.production("name : ERROR")
+        @self.pg.production("name : CONSTRT")
+        @self.pg.production("name : CASE")
         def name(p):
             return p[0]
 
@@ -83,19 +95,44 @@ class Parser:
         @self.pg.production(
             "expression : BRACK_OPEN expression expression_list BRACK_CLOSE"
         )
-        def delay(p):
+        def expression(p):
             res = p[1]
             for e in p[2]:
                 res = ast.Apply(res, e)
             return res
 
         @self.pg.production("expression_list : expression")
-        def delay(p):
+        def expression_list_head(p):
             return [p[0]]
 
         @self.pg.production("expression_list : expression expression_list")
-        def delay(p):
+        def expression_list_cons(p):
             return [p[0]] + p[1]
+
+        @self.pg.production("empty_expression_list : | expression_list")
+        def expression_list_head(p):
+            if not p:
+                return []
+            return p[0]
+
+        @self.pg.production(
+            "expression : PAREN_OPEN CONSTRT constantvalue empty_expression_list PAREN_CLOSE"
+        )
+        def constr_term(p):
+            assert isinstance(p[2], int), "First value in constr must be an integer"
+            return Constr(
+                p[2],
+                p[3],
+            )
+
+        @self.pg.production(
+            "expression : PAREN_OPEN CASE expression empty_expression_list PAREN_CLOSE"
+        )
+        def case_term(p):
+            return Case(
+                p[2],
+                p[3],
+            )
 
         @self.pg.production("constanttype : name")
         def constanttype(p):
@@ -104,6 +141,10 @@ class Parser:
                 return ast.BuiltinInteger(0)
             if name == "bytestring":
                 return ast.BuiltinByteString(b"")
+            if name == "bls12_381_G1_element":
+                return ast.BuiltinBLS12381G1Element(ast.BlstP1Element())
+            if name == "bls12_381_G2_element":
+                return ast.BuiltinBLS12381G2Element(ast.BlstP2Element())
             if name == "string":
                 return ast.BuiltinString("")
             if name == "bool":
@@ -165,6 +206,14 @@ class Parser:
         @self.pg.production("builtinvalue : HEX")
         def expression(p):
             return bytes.fromhex(p[0].value[1:])
+
+        @self.pg.production("builtinvalue : HEX_BLS_G1")
+        def expression(p):
+            return ast.BlstP1Element.uncompress(bytes.fromhex(p[0].value[2:]))
+
+        @self.pg.production("builtinvalue : HEX_BLS_G2")
+        def expression(p):
+            return ast.BlstP2Element.uncompress(bytes.fromhex(p[0].value[2:]))
 
         @self.pg.production("builtinvalue : NUMBER")
         def expression(p):
@@ -396,6 +445,14 @@ def wrap_builtin_type(typ: ast.Constant, val):
         return ast.BuiltinUnit()
     if isinstance(typ, ast.BuiltinByteString):
         assert isinstance(val, bytes), f"Expected bytes but found {type(val)}"
+    if isinstance(typ, ast.BuiltinBLS12381G1Element):
+        assert isinstance(
+            val, ast.BlstP1Element
+        ), f"Expected BLS12-381 G1 element (compressed form 0x...) but found {type(val)}"
+    if isinstance(typ, ast.BuiltinBLS12381G2Element):
+        assert isinstance(
+            val, ast.BlstP2Element
+        ), f"Expected BLS12-381 G2 element (compressed form 0x...) but found {type(val)}"
     if isinstance(typ, ast.BuiltinString):
         assert isinstance(val, str), f"Expected str but found {type(val)}"
     if isinstance(typ, ast.BuiltinInteger):

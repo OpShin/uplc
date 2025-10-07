@@ -116,9 +116,9 @@ def get_args():
     )
     a.add_argument(
         "--plutus-version",
-        default=2,
+        default=3,
         help="Plutus version to use.",
-        choices=[1, 2],
+        choices=[1, 2, 3],
         type=int,
     )
     for k, v in ARGPARSE_ARGS.items():
@@ -196,11 +196,12 @@ def main():
 
     # Apply CLI parameters to code (i.e. to parameterize a parameterized contract)
     # UPLC lambdas may only take one argument at a time, so we evaluate by repeatedly applying
-    code = apply(code, *map(lambda a: parse(f"(program 1.0.0 {a})").term, args.args))
+    code = apply(code, *map(lambda a: parse(f"(program 1.1.0 {a})").term, args.args))
 
     if command == Command.dump:
         print(dumps(code, UPLCDialect(args.dialect)))
         return
+    # TODO we probably want to check somewhere here that plutus version and program match or change the version
 
     if command == Command.build:
         if args.output_directory == "":
@@ -224,13 +225,13 @@ def main():
         cbor_wrapped_hex = cbor_wrapped.hex()
         # create plutus file
         d = {
-            "type": "PlutusScriptV2",
+            "type": "PlutusScriptV3",
             "description": f"",
             "cborHex": cbor_wrapped_hex,
         }
         with (target_dir / "script.plutus").open("w") as fp:
             json.dump(d, fp)
-        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV2Script(cbor))
+        script_hash = pycardano.plutus_script_hash(pycardano.PlutusV3Script(cbor))
         # generate policy ids
         with (target_dir / "script.policy_id").open("w") as fp:
             fp.write(script_hash.to_primitive().hex())
