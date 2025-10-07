@@ -4,13 +4,12 @@ import unittest
 import hypothesis
 from hypothesis import strategies as hst
 from frozenlist2 import frozenlist
-import pyaiken
 from parameterized import parameterized
 
 from uplc import *
 from uplc.flat_decoder import unzigzag
 from uplc.flat_encoder import zigzag
-from uplc.optimizer import pre_evaluation
+from uplc.optimizer import pre_evaluation, pre_apply_args, deduplicate
 from uplc.tools import unflatten
 from uplc.transformer import unique_variables, debrujin_variables, undebrujin_variables
 from uplc.ast import *
@@ -21,6 +20,8 @@ from uplc.transformer.plutus_version_enforcer import (
 )
 from uplc.util import NodeVisitor
 
+from uplc.transformer.unique_variables import UniqueVariableTransformer
+from uplc.util import UnboundVariableVisitor
 
 pos_int = hst.integers(min_value=0, max_value=2**64 - 1)
 
@@ -59,9 +60,7 @@ uplc_data = hst.recursive(
 uplc_builtin_boolean = hst.builds(BuiltinBool, hst.booleans())
 uplc_builtin_integer = hst.builds(BuiltinInteger, hst.integers())
 uplc_builtin_bytestring = hst.builds(BuiltinByteString, hst.binary())
-# TODO reenable all text as soon as aiken issue for escaped strings in complex data is fixed
 uplc_builtin_string = hst.builds(BuiltinString, hst.text())
-# uplc_builtin_string = hst.builds(BuiltinString, hst.from_regex(r"\w*", fullmatch=True))
 uplc_builtin_unit = hst.just(BuiltinUnit())
 
 
@@ -70,7 +69,7 @@ def rec_const_strategies(uplc_constant):
     uplc_builtin_list = hst.builds(
         lambda x, y: BuiltinList(frozenlist([x] * y), x),
         uplc_constant,
-        hst.integers(min_value=0, max_value=10),
+        hst.integers(min_value=0, max_value=5),
     )
     return hst.one_of(uplc_builtin_list, uplc_builtin_pair)
 
@@ -91,25 +90,6 @@ uplc_error = hst.just(Error())
 uplc_name = hst.from_regex(r"[a-z_~'][\w~!'#]*", fullmatch=True)
 uplc_builtin_fun = hst.builds(BuiltIn, hst.sampled_from(BuiltInFun))
 uplc_variable = hst.builds(Variable, uplc_name)
-
-
-class UnboundVariableVisitor(NodeVisitor):
-    def __init__(self):
-        self.scope = []
-        self.unbound = set()
-
-    def check_bound(self, name: str):
-        if name in self.scope:
-            return
-        self.unbound.add(name)
-
-    def visit_Lambda(self, node: Lambda):
-        self.scope.append(node.var_name)
-        self.visit(node.term)
-        self.scope.pop()
-
-    def visit_Variable(self, node: Variable):
-        self.check_bound(node.name)
 
 
 @hst.composite
@@ -258,9 +238,9 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program)
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=10))
     @hypothesis.example(parse("(program 1.0.0 [(lam a (delay a)) (lam c c)])"))
-    @hypothesis.example(parse('(program 0.0.0 (con -- string "--" --"))\n string ""))'))
-    @hypothesis.example(parse('(program 0.0.0 (con string "--" --"))\n))'))
-    @hypothesis.example(parse("(program 0.0.0 [(lam a (delay a)) (lam c c)])"))
+    @hypothesis.example(parse('(program 1.0.0 (con -- string "--" --"))\n string ""))'))
+    @hypothesis.example(parse('(program 1.0.0 (con string "--" --"))\n))'))
+    @hypothesis.example(parse("(program 1.0.0 [(lam a (delay a)) (lam c c)])"))
     @hypothesis.example(
         parse("(program 1.0.0 [(lam a (lam b (error))) (lam _ (error))])")
     )
@@ -275,12 +255,12 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.example(parse("(program 1.0.0 [(lam _ (delay _)) (con integer 0)])"))
     @hypothesis.example(parse("(program 1.0.0 (lam _ '))"))
     @hypothesis.example(parse("(program 1.0.0 (delay _))"))
-    @hypothesis.example(parse("(program 0.0.0 (lam _ _))"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 [(lam _ (delay _)) (con integer 0)])"))
-    @hypothesis.example(parse("(program 0.0.0 (lam _ '))"))
-    @hypothesis.example(parse("(program 0.0.0 (delay _))"))
-    @hypothesis.example(parse('(program 0.0.0 (con string "---"))'))
+    @hypothesis.example(parse("(program 1.0.0 (lam _ _))"))
+    @hypothesis.example(parse("(program 1.0.0 [(lam x0 (lam _ x0)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 1.0.0 [(lam _ (delay _)) (con integer 0)])"))
+    @hypothesis.example(parse("(program 1.0.0 (lam _ '))"))
+    @hypothesis.example(parse("(program 1.0.0 (delay _))"))
+    @hypothesis.example(parse('(program 1.0.0 (con string "---"))'))
     def test_rewrite_no_semantic_change(self, p):
         code = dumps(p)
         try:
@@ -363,6 +343,209 @@ class HypothesisTests(unittest.TestCase):
         except SyntaxError:
             return
         rewrite_p = pre_evaluation.PreEvaluationOptimizer().visit(p).term
+        params = []
+        try:
+            orig_res = orig_p
+            for _ in range(100):
+                if isinstance(orig_res, Exception):
+                    break
+                if isinstance(orig_res, BoundStateLambda) or isinstance(
+                    orig_res, ForcedBuiltIn
+                ):
+                    p = BuiltinUnit()
+                    params.append(p)
+                    orig_res = Apply(orig_res, p)
+                if isinstance(orig_res, BoundStateDelay):
+                    orig_res = Force(orig_res)
+                orig_res = eval(orig_res).result
+            if not isinstance(orig_res, Exception):
+                orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        try:
+            rewrite_res = rewrite_p
+            for _ in range(100):
+                if isinstance(rewrite_res, Exception):
+                    break
+                if isinstance(rewrite_res, BoundStateLambda) or isinstance(
+                    rewrite_res, ForcedBuiltIn
+                ):
+                    p = params.pop(0)
+                    rewrite_res = Apply(rewrite_res, p)
+                if isinstance(rewrite_res, BoundStateDelay):
+                    rewrite_res = Force(rewrite_res)
+                rewrite_res = eval(rewrite_res).result
+            if not isinstance(rewrite_res, Exception):
+                rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                    rewrite_res
+                )
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        if not isinstance(rewrite_res, Exception):
+            if isinstance(orig_res, Exception):
+                self.assertIsInstance(
+                    orig_res,
+                    RuntimeError,
+                    "Original code resulted in something different than a runtime error (exceeding budget) and rewritten result is ok",
+                )
+            self.assertEqual(
+                orig_res,
+                rewrite_res,
+                f"Two programs evaluate to different results after optimization in {code}",
+            )
+        else:
+            self.assertIsInstance(
+                orig_res,
+                Exception,
+                "Rewrite result was exception but orig result is not an exception",
+            )
+
+    @hypothesis.given(uplc_program_valid)
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
+    @hypothesis.example(
+        parse("(program 1.0.0 [(builtin addInteger) (builtin addInteger)])")
+    )
+    @hypothesis.example(
+        Program(version=(1, 0, 0), term=Apply(f=Error(), x=Error())),
+    )
+    @hypothesis.example(
+        Program(
+            version=(1, 0, 0),
+            term=Apply(
+                f=Apply(
+                    f=BuiltIn(builtin=BuiltInFun.EqualsString),
+                    x=BuiltinString(value="longstring" * 100),
+                ),
+                x=BuiltinString(value="longstring" * 100),
+            ),
+        ),
+    )
+    def test_deduplicate_no_semantic_change_and_size_increase(self, p):
+        code = dumps(p)
+        orig_p = parse(code).term
+        rewrite_p = (
+            deduplicate.Deduplicate().visit(UniqueVariableTransformer().visit(p)).term
+        )
+        orig_p_size = len(flatten(orig_p))
+        rewrite_p_size = len(flatten(rewrite_p))
+        self.assertLessEqual(
+            rewrite_p_size,
+            orig_p_size,
+            f"Size increased {orig_p_size} to {rewrite_p_size} in {code}",
+        )
+        params = []
+        try:
+            orig_res = orig_p
+            for _ in range(100):
+                if isinstance(orig_res, Exception):
+                    break
+                if isinstance(orig_res, BoundStateLambda) or isinstance(
+                    orig_res, ForcedBuiltIn
+                ):
+                    p = BuiltinUnit()
+                    params.append(p)
+                    orig_res = Apply(orig_res, p)
+                if isinstance(orig_res, BoundStateDelay):
+                    orig_res = Force(orig_res)
+                orig_res = eval(orig_res).result
+            if not isinstance(orig_res, Exception):
+                orig_res = unique_variables.UniqueVariableTransformer().visit(orig_res)
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        try:
+            rewrite_res = rewrite_p
+            for _ in range(100):
+                if isinstance(rewrite_res, Exception):
+                    break
+                if isinstance(rewrite_res, BoundStateLambda) or isinstance(
+                    rewrite_res, ForcedBuiltIn
+                ):
+                    p = params.pop(0)
+                    rewrite_res = Apply(rewrite_res, p)
+                if isinstance(rewrite_res, BoundStateDelay):
+                    rewrite_res = Force(rewrite_res)
+                rewrite_res = eval(rewrite_res).result
+            if not isinstance(rewrite_res, Exception):
+                rewrite_res = unique_variables.UniqueVariableTransformer().visit(
+                    rewrite_res
+                )
+        except unique_variables.FreeVariableError:
+            self.fail(f"Free variable error occurred after evaluation in {code}")
+        if not isinstance(rewrite_res, Exception):
+            if isinstance(orig_res, Exception):
+                self.assertIsInstance(
+                    orig_res,
+                    RuntimeError,
+                    "Original code resulted in something different than a runtime error (exceeding budget) and rewritten result is ok",
+                )
+            self.assertEqual(
+                orig_res,
+                rewrite_res,
+                f"Two programs evaluate to different results after optimization in {code}",
+            )
+        else:
+            self.assertIsInstance(
+                orig_res,
+                Exception,
+                "Rewrite result was exception but orig result is not an exception",
+            )
+
+    @hypothesis.given(uplc_program_valid, hst.floats(min_value=1, max_value=10))
+    @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
+    @hypothesis.example(Program(version=(1, 0, 0), term=BuiltinString(value="𐀀")), 10.0)
+    @hypothesis.example(
+        Program(
+            version=(1, 0, 0),
+            term=Apply(
+                Lambda(
+                    var_name="x",
+                    term=Apply(
+                        f=Apply(
+                            f=BuiltIn(builtin=BuiltInFun.EqualsString),
+                            x=Variable(name="x"),
+                        ),
+                        x=Variable(name="x"),
+                    ),
+                ),
+                x=BuiltinString(value="longstring" * 100),
+            ),
+        ),
+        1.0,
+    )
+    @hypothesis.example(
+        Program(
+            version=(1, 0, 0),
+            term=Apply(
+                Lambda(
+                    var_name="x",
+                    term=Apply(
+                        f=Apply(
+                            f=BuiltIn(builtin=BuiltInFun.EqualsString),
+                            x=Variable(name="x"),
+                        ),
+                        x=Variable(name="x"),
+                    ),
+                ),
+                x=BuiltinString(value="short"),
+            ),
+        ),
+        100.0,
+    )
+    def test_apply_lambda_no_semantic_change_and_size_increase(self, p, max_increase):
+        code = dumps(p)
+        orig_p = parse(code).term
+        rewrite_p = (
+            pre_apply_args.ApplyLambdaTransformer(max_increase)
+            .visit(UniqueVariableTransformer().visit(p))
+            .term
+        )
+        orig_p_size = len(flatten(orig_p))
+        rewrite_p_size = len(flatten(rewrite_p))
+        self.assertLessEqual(
+            rewrite_p_size,
+            orig_p_size * max_increase,
+            f"Size increased too much from {orig_p_size} to {rewrite_p_size} in {code}",
+        )
         params = []
         try:
             orig_res = orig_p

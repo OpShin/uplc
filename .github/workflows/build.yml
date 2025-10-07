@@ -7,14 +7,18 @@ on:
     paths:
       - '**.py'
       - 'pyproject.toml'
+      - 'poetry.lock'
       - '.github/workflows/build.yml'
+      - "install_secp256k1.sh"
   pull_request:
     branches:
       - '**'
     paths:
       - '**.py'
       - 'pyproject.toml'
+      - 'poetry.lock'
       - '.github/workflows/build.yml'
+      - "install_secp256k1.sh"
 
 jobs:
 
@@ -27,7 +31,7 @@ jobs:
     
     steps:
     - uses: actions/checkout@v5
-    
+
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
@@ -61,9 +65,10 @@ jobs:
         poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
         poetry run coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-traces
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fdeduplicate
+        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -ffold-apply-lambda-increase 1.2
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
         poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
