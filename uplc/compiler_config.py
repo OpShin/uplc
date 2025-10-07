@@ -28,6 +28,7 @@ class CompilationConfig:
 OPT_O0_CONFIG = CompilationConfig()
 OPT_O1_CONFIG = OPT_O0_CONFIG.update(remove_force_delay=True)
 OPT_O2_CONFIG = OPT_O1_CONFIG.update(
+    unique_variable_names=True,
     constant_folding=True,
     fold_apply_lambda_increase=1,
     constant_folding_keep_traces=True,
@@ -37,7 +38,7 @@ OPT_O3_CONFIG = OPT_O2_CONFIG.update(
 )
 OPT_CONFIGS = [OPT_O0_CONFIG, OPT_O1_CONFIG, OPT_O2_CONFIG, OPT_O3_CONFIG]
 
-DEFAULT_CONFIG = CompilationConfig(unique_variable_names=True).update(OPT_O2_CONFIG)
+DEFAULT_CONFIG = OPT_O2_CONFIG
 
 ARGPARSE_ARGS = {
     "unique_variable_names": {
