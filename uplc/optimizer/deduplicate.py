@@ -32,7 +32,6 @@ class Substitute(NodeTransformer):
 # or even their appearance (e.g. if we apply an error to a lambda in which the errors is not in the body)
 _CONSTANT_FINAL_RESULTS = (
     Constant,
-    Variable,
     ForcedBuiltIn,
     BuiltIn,
     Lambda,
@@ -54,6 +53,10 @@ class OccurrenceCounter(NodeVisitor):
         from ..tools import flatten
 
         super().generic_visit(node)
+        # check if it is a constant final result, if not we can not safely optimize it
+        # TODO For others, we can wrap them into delay and force the called variable, but need to really check size impact then
+        if not isinstance(node, _CONSTANT_FINAL_RESULTS):
+            return
         # first check whether there are any unbound variables
         unbound = UnboundVariableVisitor()
         unbound.visit(node)

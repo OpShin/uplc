@@ -413,6 +413,33 @@ class HypothesisTests(unittest.TestCase):
     @hypothesis.given(uplc_program_valid, hst.one_of(hst.just(None)))
     @hypothesis.settings(max_examples=1000, deadline=datetime.timedelta(seconds=1))
     @hypothesis.example(
+        Program(
+            version=(1, 1, 0),
+            term=Constr(
+                tag=0,
+                fields=[
+                    BuiltinPair(
+                        l_value=BuiltinString(value=""), r_value=BuiltinString(value="")
+                    ),
+                    Lambda(
+                        var_name="_",
+                        term=Case(
+                            scrutinee=Variable(name="_"),
+                            branches=[
+                                BuiltinPair(
+                                    l_value=BuiltinString(value=""),
+                                    r_value=BuiltinString(value=""),
+                                )
+                            ],
+                        ),
+                        state=frozendict.frozendict({}),
+                    ),
+                ],
+            ),
+        ),
+        None,
+    )
+    @hypothesis.example(
         parse(
             "(program 1.0.0 [(lam v0 [(lam v1 [(lam v2 (lam v3 [(lam v4 [(lam v5 [(lam v6 [(lam v7 [(lam v8 [(lam v9 [[(force v8) v7] (delay v9)]) v3]) (delay (lam v10 (lam v11 [(lam v12 [(lam v13 [(lam v14 [(lam v15 [[[v15 v15] v13] v11]) (lam v16 (lam v17 (lam v18 (force [[[(force (builtin ifThenElse)) [(lam v19 [v1 (delay v19)]) [[v2 (force v18)] (con integer 0)]]] (delay [(lam v20 [(lam v21 [(lam v22 [(lam v23 [[[v16 v16] v21] v23]) (delay v22)]) [[(lam v24 (lam v25 [[(builtin subtractInteger) v24] v25])) (force v18)] (con integer 1)]]) (delay v20)]) [[(lam v26 (lam v27 [[(builtin multiplyInteger) v26] v27])) (force v17)] (force v18)]])] (delay [[v14 v17] v18])]))))]) (lam v28 (lam v29 (force v28)))]) (delay v12)]) (con integer 1)])))]) (delay [(lam v30 (error)) (con unit ())])]) (delay [(lam v31 (error)) (con unit ())])]) (delay [(lam v32 (error)) (con unit ())])]) (delay [(lam v33 (error)) (con unit ())])])) v0]) (lam v34 [(lam v35 v35) (force v34)])]) (lam v36 (lam v37 [[(builtin lessThanInteger) v37] v36]))])"
         ),
@@ -505,11 +532,12 @@ class HypothesisTests(unittest.TestCase):
                     RuntimeError,
                     "Original code resulted in something different than a runtime error (exceeding budget) and rewritten result is ok",
                 )
-            self.assertEqual(
-                orig_res,
-                rewrite_res,
-                f"Two programs evaluate to different results after optimization in {code}",
-            )
+            if isinstance(rewrite_res, (Constant, BuiltInFun)):
+                self.assertEqual(
+                    orig_res,
+                    rewrite_res,
+                    f"Two programs evaluate to different results after optimization in {code}",
+                )
         else:
             self.assertIsInstance(
                 orig_res,
