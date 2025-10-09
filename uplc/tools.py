@@ -13,6 +13,7 @@ from .cost_model import (
     default_builtin_cost_model_plutus_v3,
 )
 from .lexer import strip_comments, Lexer
+from .optimizer.deduplicate import Deduplicate
 from .optimizer.pre_apply_args import ApplyLambdaTransformer
 from .optimizer.pre_evaluation import PreEvaluationOptimizer
 from .optimizer.remove_force_delay import ForceDelayRemover
@@ -144,6 +145,11 @@ def compile(
                 ApplyLambdaTransformer(max_increase=config.fold_apply_lambda_increase)
                 if config.unique_variable_names
                 and config.fold_apply_lambda_increase is not None
+                else NoOp()
+            ),
+            (
+                Deduplicate()
+                if config.unique_variable_names and config.deduplicate is not None
                 else NoOp()
             ),
         ]:
