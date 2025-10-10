@@ -127,6 +127,8 @@ class Machine:
             res = stack.pop()
         except Exception as e:
             res = e
+            if not isinstance(res, RuntimeError):
+                _LOGGER.error(f"Error during execution: {e}", exc_info=True)
 
         return ComputationResult(
             res,
@@ -278,7 +280,12 @@ class Machine:
                     if function.builtin == BuiltInFun.Trace:
                         # Hack to add this side effect to the machine
                         self.logs.append(arguments[0].value)
-                    res = eval_fun(*arguments)
+                    try:
+                        res = eval_fun(*arguments)
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Error when evaluating builtin {function.builtin} on arguments {arguments}"
+                        ) from e
                 else:
                     res = ForcedBuiltIn(
                         function.builtin,
