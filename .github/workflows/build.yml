@@ -44,41 +44,39 @@ jobs:
         echo "/usr/local/lib" >> $GITHUB_PATH
         echo "LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
 
+    - name: Install uv
+      uses: astral-sh/setup-uv@v6
+
     - name: Install secp256k1-py
-      run: pip install python-secp256k1-cardano
+      run: uv pip install python-secp256k1-cardano
 
     - name: Verify secp256k1 installation
       run: |
-        python -c "import pysecp256k1; print('secp256k1 installed successfully')"
+        uv run python -c "import pysecp256k1; print('secp256k1 installed successfully')"
 
-    - name: Install dependencies
-      run: |
-        pip install -U poetry
-        poetry install --with dev --all-extras
-    
     - name: Run tests and coverage
       run: |
-        poetry run black --check .
-        poetry run coverage run --source=uplc -m pytest tests
-        poetry run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
-        poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
-        poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
-        poetry run coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fdeduplicate
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -ffold-apply-lambda-increase 1.2
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
-        poetry run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
-        poetry run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
+        uv run black --check .
+        uv run coverage run --source=uplc -m pytest tests
+        uv run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
+        uv run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
+        uv run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
+        uv run coverage run -a --source=uplc -m uplc eval examples/fibonacci.uplc "(con integer 5)"
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fconstant-folding
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fremove-force-delay
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -fdeduplicate
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -ffold-apply-lambda-increase 1.2
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O0
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O1
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O2
+        uv run coverage run -a --source=uplc -m uplc build examples/fibonacci.uplc -O3
+        uv run coverage run -a --source=uplc -m uplc dump build/fibonacci/script.cbor --from-cbor
 
     - name: Upload coverage data to coveralls.io
       run: |
-        pip install coveralls
-        coveralls || true
+        uv pip install coveralls
+        uv run coveralls || true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
@@ -92,8 +90,8 @@ jobs:
     container: python:3-slim
     steps:
       - name: Install coveralls
-        run: pip3 install --upgrade coveralls
+        run: uv pip install --upgrade coveralls
       - name: Finished
-        run: coveralls --finish || true
+        run: uv run coveralls --finish || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
