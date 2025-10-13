@@ -60,6 +60,7 @@ jobs:
       run: |
         poetry run black --check .
         poetry run coverage run --source=uplc -m pytest tests
+        poetry run coverage run -a --source=uplc -m uplc --help
         poetry run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
         poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
         poetry run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect plutus --unique-varnames
