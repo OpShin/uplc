@@ -104,8 +104,10 @@ jobs:
 
   coveralls:
     name: Indicate completion to coveralls.io
-    needs: [build]
-    if: always()
+    needs:
+      - check-run
+      - build
+    if: needs.check-run.outputs.should_skip != 'true'
     runs-on: ubuntu-latest
     container: python:3-slim
     steps:
