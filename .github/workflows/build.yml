@@ -112,8 +112,8 @@ jobs:
     container: python:3-slim
     steps:
       - name: Install coveralls
-        run: uv pip install --upgrade coveralls
+        run: pip install --upgrade coveralls
       - name: Finished
-        run: uv run coveralls --finish || true
+        run: coveralls --finish || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
