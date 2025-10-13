@@ -21,6 +21,20 @@ on:
       - "install_secp256k1.sh"
 
 jobs:
+  check-run:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'same_content_newer'
+          skip_after_successful_duplicate: 'true'
+          do_not_skip: '["workflow_dispatch", "schedule"]'
 
   build:
     runs-on: ubuntu-latest
@@ -28,7 +42,10 @@ jobs:
       matrix:
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13']
       fail-fast: true
-    
+    needs:
+      - check-run
+    if: needs.check-run.outputs.should_skip != 'true'
+
     steps:
     - uses: actions/checkout@v5
 
