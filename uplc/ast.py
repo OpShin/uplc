@@ -27,22 +27,22 @@ from Crypto.Hash.RIPEMD160 import RIPEMD160Hash
 
 try:
     import pysecp256k1
-except ImportError:
+except ImportError as e:
     pysecp256k1 = None
 
 try:
     import pysecp256k1.extrakeys
     import pysecp256k1.schnorrsig as schnorrsig
-except (RuntimeError, ImportError):
+except (RuntimeError, ImportError) as e:
     schnorrsig = None
 
 try:
     from pyblst import BlstP1Element, BlstP2Element, BlstFP12Element
 except ImportError:
     BlstP1Element, BlstP2Element, BlstFP12Element = (
-        type("BlstP1Element"),
-        type("BlstP2Element"),
-        type("BlstFP12Element"),
+        type("BlstP1Element", (), {}),
+        type("BlstP2Element", (), {}),
+        type("BlstFP12Element", (), {}),
     )
 
 
@@ -52,7 +52,7 @@ def pyblst():
         import pyblst
     except ImportError:
         raise RuntimeError(
-            "BLS extensions not installed. Run 'pip install \"uplc[bls]\"', 'pip install pyblst' or 'poetry install --all-extras' for bls primitive support."
+            "BLS extensions not installed. Run 'pip install \"uplc[bls]\"', 'pip install pyblst' or 'uv sync --dev' for bls primitive support."
         )
     return pyblst
 

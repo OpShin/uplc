@@ -1,14 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-
+import importlib.metadata
 import logging
 
 
-__version__ = "1.2.1"
+__version__ = importlib.metadata.version(__package__ or __name__)
 __author__ = "nielstron"
-__author_email__ = "n.muendler@web.de"
-__copyright__ = "Copyright (C) 2023 nielstron"
+__author_email__ = "niels@opshin.dev"
+__copyright__ = "Copyright (C) 2025 nielstron"
 __license__ = "MIT"
 __url__ = "https://github.com/opshin/uplc"
 
