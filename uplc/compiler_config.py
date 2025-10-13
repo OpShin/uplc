@@ -58,7 +58,7 @@ ARGPARSE_ARGS = {
     },
     "fold_apply_lambda_increase": {
         "__alts__": ["--ala"],
-        "help": "Applies terms to lambdas at compile time. The parameter controls how much larger the resulting term is allowed to be. Default is 1, i.e., at most 100% of the original size. Set to 0 to disable.",
+        "help": "Applies terms to lambdas at compile time. The parameter controls how much larger the resulting term is allowed to be. Default is 1, i.e., at most 100%% of the original size. Set to 0 to disable.",
         "type": float,
     },
     "deduplicate": {
