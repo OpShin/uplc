@@ -77,6 +77,7 @@ jobs:
     - name: Run tests and coverage
       run: |
         uv run black --check .
+        uv run coverage run --source=uplc -m uplc --help
         uv run coverage run --source=uplc -m pytest tests
         uv run coverage run -a --source=uplc -m uplc parse examples/fibonacci.uplc
         uv run coverage run -a --source=uplc -m uplc dump examples/fibonacci.uplc --dialect legacy-aiken
