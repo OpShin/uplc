@@ -1,6 +1,6 @@
 [project]
 name = "uplc"
-version = "1.2.1"
+version = "1.2.2"
 description = "Python implementation of untyped plutus language core"
 authors = [{ name = "nielstron", email = "n.muendler@web.de" }]
 requires-python = ">=3.9, <4.0"
