@@ -76,7 +76,7 @@ class Lexer:
     def _add_tokens(self):
         for k, v in TOKENS.items():
             self.lexer.add(k, v)
-        self.lexer.ignore("\s+")
+        self.lexer.ignore(r"\s+")
 
     def get_lexer(self):
         self._add_tokens()
