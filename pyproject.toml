@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "frozendict>=2.3.8",
@@ -38,7 +39,7 @@ dependencies = [
     "regex>=2025.9.18",
     "pynacl>=1.6.0",
     "bitarray>=3.7.2",
-    "pyblst>=0.3.13",
+    "pyblst>=0.3.14",
 ]
 
 [project.urls]
