@@ -39,7 +39,7 @@ dependencies = [
     "regex>=2025.9.18",
     "pynacl>=1.6.0",
     "bitarray>=3.7.2",
-    "pyblst>=0.3.13",
+    "pyblst>=0.3.14",
 ]
 
 [project.urls]
