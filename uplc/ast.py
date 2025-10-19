@@ -45,6 +45,11 @@ except ImportError:
         type("BlstFP12Element", (), {}),
     )
 
+if hasattr(sys, "set_int_max_str_digits"):
+    sys.set_int_max_str_digits(32000)
+else:
+    pass  # Python <= 3.10
+
 
 @functools.lru_cache()
 def pyblst():
@@ -55,9 +60,6 @@ def pyblst():
             "BLS extensions not installed. Run 'pip install \"uplc[bls]\"', 'pip install pyblst' or 'uv sync --dev' for bls primitive support."
         )
     return pyblst
-
-
-sys.set_int_max_str_digits(32000)
 
 
 class UPLCDialect(enum.Enum):
