@@ -703,7 +703,7 @@ def data_from_cbortag(cbor) -> PlutusData:
         return PlutusInteger(cbor)
     if isinstance(cbor, bytes):
         return PlutusByteString(cbor)
-    if isinstance(cbor, list):
+    if isinstance(cbor, list) or isinstance(cbor, IndefiniteList):
         entries = frozenlist(list(map(data_from_cbortag, cbor)))
         return PlutusList(entries)
     if isinstance(cbor, dict):
