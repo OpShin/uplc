@@ -3,7 +3,6 @@ import enum
 import functools
 import json
 import logging
-import math
 import sys
 import typing
 from collections import defaultdict
@@ -19,7 +18,6 @@ import frozendict
 from bitstring import BitArray
 from frozenlist2 import frozenlist
 import nacl.exceptions
-from _cbor2 import CBOREncoder
 from pycardano.crypto.bip32 import BIP32ED25519PublicKey
 from pycardano.serialization import IndefiniteFrozenList, IndefiniteList
 from Crypto.Hash import keccak
@@ -629,7 +627,9 @@ def _int_to_bytes(x: int):
     return x.to_bytes((x.bit_length() + 7) // 8, byteorder="big")
 
 
-def default_encoder(encoder: CBOREncoder, value: Union[PlutusData, IndefiniteList]):
+def default_encoder(
+    encoder: cbor2.CBOREncoder, value: Union[PlutusData, IndefiniteList]
+):
     """A fallback function that encodes PlutusData objects"""
     if isinstance(value, IndefiniteList):
         # Currently, cbor2 doesn't support indefinite list, therefore we need special

@@ -65,7 +65,11 @@ jobs:
       uses: astral-sh/setup-uv@v6
 
     - name: Install project
-      run: uv sync --dev
+      run: |
+        uv sync --dev
+        uv run python -c "from importlib.metadata import version; print(version('cbor2'))" > .cbor2_version
+        CBOR2_VERSION=$(cat .cbor2_version)
+        CBOR2_BUILD_C_EXTENSION=0 uv pip install --no-binary cbor2 "cbor2==$CBOR2_VERSION" --force-reinstall
 
     - name: Install secp256k1-py
       run: uv pip install python-secp256k1-cardano
