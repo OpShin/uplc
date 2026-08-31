@@ -598,7 +598,7 @@ def load_network_config(config_date: datetime.date):
     network_config_dir = NETWORK_CONFIG_DIR.joinpath(latest_dir_name)
     file = None
     for file in network_config_dir.iterdir():
-        if file.suffix == "json":
+        if file.suffix == ".json":
             break
     if file is None:
         raise ValueError("Latest network config could not be loaded")

@@ -26,7 +26,10 @@ def budget_cost_of_op_on_model(
     values=[],
 ):
     if op not in model.cpu or op not in model.memory:
-        return Budget(0, 0)
+        raise RuntimeError(
+            f"No cost model entry for builtin {op!r}. "
+            f"This builtin may not be available in the selected Plutus version."
+        )
     return Budget(
         cpu=model.cpu[op].cost(*args, values=values),
         memory=model.memory[op].cost(*args, values=values),
@@ -244,14 +247,35 @@ class Machine:
                     Constr(context.tag, resolved_fields),
                 )
         elif isinstance(context, FrameCases):
-            if not isinstance(value, Constr):
+            # Convert constant types to constr-like (tag, fields) for case scrutiny
+            if isinstance(value, Constr):
+                tag, fields = value.tag, value.fields
+            elif isinstance(value, BuiltinBool):
+                # False=0, True=1, no fields
+                tag, fields = (1 if value.value else 0), []
+            elif isinstance(value, BuiltinUnit):
+                # unit -> tag 0, no fields
+                tag, fields = 0, []
+            elif isinstance(value, BuiltinPair):
+                # pair (l, r) -> tag 0, fields [l, r]
+                tag, fields = 0, [value.l_value, value.r_value]
+            elif isinstance(value, BuiltinList):
+                # [] -> tag 0 (nil), [x, ...xs] -> tag 1 with fields [x, xs]
+                if len(value.values) == 0:
+                    tag, fields = 0, []
+                else:
+                    tag, fields = 1, [
+                        value.values[0],
+                        BuiltinList(list(value.values[1:]), value.sample_value),
+                    ]
+            else:
                 raise RuntimeError("Scrutinized non-constr in case")
             try:
-                branch = context.branches[value.tag]
+                branch = context.branches[tag]
             except IndexError as e:
                 raise RuntimeError("No branch provided for constr tag") from None
             return Compute(
-                transfer_arg_stack(value.fields, context.ctx),
+                transfer_arg_stack(fields, context.ctx),
                 context.env,
                 branch,
             )

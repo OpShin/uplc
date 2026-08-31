@@ -991,7 +991,8 @@ def verify_ed25519(pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteSt
 def verify_ecdsa_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    # TODO length checks
+    # Let the underlying crypto library validate sizes — the Haskell spec
+    # uses varying encodings (compressed/uncompressed pubkeys, DER/compact sigs)
     if pysecp256k1 is None:
         _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
         raise RuntimeError("ECDSA not supported")
@@ -1005,10 +1006,11 @@ def verify_ecdsa_secp256k1(
 def verify_schnorr_secp256k1(
     pk: BuiltinByteString, m: BuiltinByteString, s: BuiltinByteString
 ):
-    # TODO length checks
     if pysecp256k1 is None:
-        _LOGGER.error("libsecp256k1 is not installed. ECDSA verification will not work")
-        raise RuntimeError("ECDSA not supported")
+        _LOGGER.error(
+            "libsecp256k1 is not installed. Schnorr verification will not work"
+        )
+        raise RuntimeError("Schnorr not supported")
     if schnorrsig is None:
         _LOGGER.error(
             "libsecp256k1 is installed without schnorr support. Schnorr verification will not work"

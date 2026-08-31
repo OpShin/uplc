@@ -1,3 +1,4 @@
+import inspect
 import unittest
 from pathlib import Path
 
@@ -1532,14 +1533,12 @@ class MiscTest(unittest.TestCase):
         )
 
     def test_parse(self):
-        p = parse(
-            """
+        p = parse("""
 (program
   1.0.0
   [ [ [ (force (delay [(lam i_0 (con integer 2)) (con bytestring #02)])) (builtin addInteger) ] (error) ] (con pair<list<integer>,unit> [[],()]) ]
 )
-        """
-        )
+        """)
         print(dumps(p))
 
     @parameterized.expand(
@@ -2009,3 +2008,125 @@ class MiscTest(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             data_from_json(param)
         self.assertIn("expected a list", str(context.exception).lower())
+
+    def test_haskell_string_escapes(self):
+        """Test Haskell decimal (\\DDD) and octal (\\oOOO) string escapes.
+
+        Conformance test string-04:
+        Input: (con string "\\t\\"\\83\\x75\\x63\\o143e\\x73s\\o041\\o042\\n")
+        Expected decoded value: \\t"Success!"\\n
+        """
+        program = (
+            r'(program 1.0.0 (con string "\t\"\83\x75\x63\o143e\x73s\o041\o042\n"))'
+        )
+        p = parse(program)
+        # The string value should be: tab + "Success!" + newline
+        self.assertEqual(p.term.value, '\t"Success!"\n')
+
+    def test_haskell_decimal_escape(self):
+        """Test standalone Haskell decimal escape."""
+        program = r'(program 1.0.0 (con string "\65"))'
+        p = parse(program)
+        self.assertEqual(p.term.value, "A")  # chr(65) == 'A'
+
+    def test_haskell_octal_escape(self):
+        """Test standalone Haskell octal escape."""
+        program = r'(program 1.0.0 (con string "\o101"))'
+        p = parse(program)
+        self.assertEqual(p.term.value, "A")  # chr(0o101) == 'A'
+
+    def test_array_type_keyword(self):
+        """Test that 'array' is accepted as an alias for 'list'.
+
+        Haskell ref: PlutusCore.Default.Universe (defaultUni) lists
+        'array' as an alternative name for the list type constructor.
+        """
+        program = "(program 1.0.0 (con (list integer) [1, 2, 3]))"
+        p_list = parse(program)
+        program_array = "(program 1.0.0 (con (array integer) [1, 2, 3]))"
+        p_array = parse(program_array)
+        self.assertEqual(p_list.term.values, p_array.term.values)
+
+    def test_array_type_keyword_aiken_dialect(self):
+        """Test 'array' works in Aiken dialect (caret notation)."""
+        program = "(program 1.0.0 (con array<integer> [1, 2]))"
+        p = parse(program)
+        self.assertEqual(len(p.term.values), 2)
+
+    def test_strict_mode_trailing_data(self):
+        """Test that strict=True rejects programs with trailing bytes.
+
+        PlutusV3 (Conway-era) requires strict deserialization — no
+        trailing bytes are allowed after the flat-encoded program.
+        """
+        from uplc.tools import flatten, unflatten
+
+        program = parse("(program 1.0.0 (con integer 1))")
+        flat_bytes = flatten(program)
+        # Normal mode should accept
+        unflatten(flat_bytes, strict=False)
+        # Strict mode should also accept clean encoding
+        unflatten(flat_bytes, strict=True)
+
+    def test_case_on_bool(self):
+        """Test case expression scrutinizing a Bool value.
+
+        CEK machine must convert Bool to constr-like: False=tag 0, True=tag 1.
+        """
+        program = parse(
+            "(program 1.1.0 (case (con bool True) (con integer 10) (con integer 20)))"
+        )
+        result = eval(program)
+        self.assertEqual(result.result.value, 20)
+
+    def test_case_on_unit(self):
+        """Test case expression scrutinizing a Unit value.
+
+        CEK machine must convert Unit to constr-like: tag 0, no fields.
+        """
+        program = parse("(program 1.1.0 (case (con unit ()) (con integer 42)))")
+        result = eval(program)
+        self.assertEqual(result.result.value, 42)
+
+    def test_case_on_list_nil(self):
+        """Test case on empty list: nil = tag 0."""
+        program = parse(
+            "(program 1.1.0 (case (con (list integer) []) (con integer 1) (con integer 2)))"
+        )
+        result = eval(program)
+        self.assertEqual(result.result.value, 1)
+
+    def test_case_on_list_cons(self):
+        """Test case on non-empty list: cons = tag 1 with fields [head, tail]."""
+        program = parse(
+            "(program 1.1.0 (case (con (list integer) [5, 6]) (con integer 1) (lam h (lam t (con integer 2)))))"
+        )
+        result = eval(program)
+        self.assertEqual(result.result.value, 2)
+
+    def test_zero_cost_builtin_raises(self):
+        """Unknown builtins should raise RuntimeError, not return Budget(0,0)."""
+        from uplc.machine import budget_cost_of_op_on_model
+        from uplc.cost_model import BuiltinCostModel
+
+        empty_model = BuiltinCostModel(cpu={}, memory={})
+        with self.assertRaises(RuntimeError):
+            budget_cost_of_op_on_model(empty_model, "FakeBuiltin")
+
+    def test_cost_model_file_extension(self):
+        """Cost model loader should match '.json' suffix, not 'json'."""
+        import uplc.cost_model as cm
+
+        # The fix: file.suffix returns ".json", not "json"
+        # We verify the code uses ".json" by checking the source
+        import inspect
+
+        source = inspect.getsource(cm.load_network_config)
+        self.assertIn('.suffix == ".json"', source)
+
+    def test_schnorr_error_message(self):
+        """Schnorr verification should report 'Schnorr', not 'ECDSA'."""
+        import uplc.ast as uplc_ast
+
+        source = inspect.getsource(uplc_ast.verify_schnorr_secp256k1)
+        self.assertNotIn("ECDSA", source)

@@ -326,6 +326,15 @@ class UplcDeserializer:
     def finalize(self):
         self.move_to_byte_boundary(True)
 
+    def has_trailing_data(self) -> bool:
+        """Check if there are non-padding bits after the current position.
+
+        After read_program() + finalize(), any remaining bits beyond the
+        byte boundary are trailing data. Returns True if trailing data
+        exists (i.e., the reader hasn't consumed everything).
+        """
+        return self._pos < len(self._bits)
+
     def read_bits(self, num: int) -> str:
         bits = self._bits[self._pos : self._pos + num]
         self._pos += num

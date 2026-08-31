@@ -1,4 +1,3 @@
-import ast as python_ast
 import re
 
 from rply import ParserGenerator
@@ -14,6 +13,58 @@ from .ast import (
     Constr,
     Case,
 )
+
+_HASKELL_ESCAPE_RE = re.compile(
+    r"\\(?:"
+    r"o([0-7]+)"  # group 1: \oOOO octal
+    r"|x([0-9a-fA-F]{2})"  # group 2: \xHH hex (exactly 2 digits)
+    r"|u([0-9a-fA-F]{4})"  # group 3: \uHHHH unicode (4 hex digits)
+    r"|U([0-9a-fA-F]{8})"  # group 4: \UHHHHHHHH unicode (8 hex digits)
+    r"|(\d+)"  # group 5: \DDD decimal
+    r"|([\\\"\'abfnrtv&])"  # group 6: single-char escapes
+    r")"
+)
+
+# Standard single-character Haskell/Python escapes
+_SIMPLE_ESCAPES = {
+    "\\": "\\",
+    '"': '"',
+    "'": "'",
+    "a": "\a",
+    "b": "\b",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "\t",
+    "v": "\v",
+    "&": "",  # Haskell's \& is a null-width escape (empty string)
+}
+
+
+def _decode_haskell_string(s: str) -> str:
+    """Decode a Haskell string literal (with surrounding quotes removed).
+
+    Handles all escape sequences: \\n, \\t, \\\\, \\", \\xHH (hex),
+    \\DDD (decimal), and \\oOOO (octal).
+    """
+
+    def replace_escape(m):
+        if m.group(1) is not None:  # \oOOO octal
+            return chr(int(m.group(1), 8))
+        if m.group(2) is not None:  # \xHH hex
+            return chr(int(m.group(2), 16))
+        if m.group(3) is not None:  # \uHHHH unicode
+            return chr(int(m.group(3), 16))
+        if m.group(4) is not None:  # \UHHHHHHHH unicode
+            return chr(int(m.group(4), 16))
+        if m.group(5) is not None:  # \DDD decimal
+            return chr(int(m.group(5), 10))
+        if m.group(6) is not None:  # single-char escape
+            return _SIMPLE_ESCAPES[m.group(6)]
+        return m.group(0)  # fallback: leave as-is
+
+    return _HASKELL_ESCAPE_RE.sub(replace_escape, s)
+
 
 PLUTUS_V2 = (1, 0, 0)
 PLUTUS_V3 = (1, 1, 0)
@@ -153,13 +204,15 @@ class Parser:
                 return ast.BuiltinUnit()
             if name == "data":
                 return ast.PlutusData()
+            if name == "array":
+                return ast.BuiltinList([], ast.PlutusData())  # default element type
             raise SyntaxError(f"Unknown builtin type {name}")
 
         @self.pg.production("constanttype : name CARET_OPEN constanttype CARET_CLOSE")
         def constanttype(p):
             # the Aiken dialect
             name = p[0].value
-            if name == "list":
+            if name == "list" or name == "array":
                 return ast.BuiltinList([], p[2])
             raise SyntaxError(f"Unknown builtin type {name}")
 
@@ -167,7 +220,7 @@ class Parser:
         def constanttype(p):
             # the Plutus dialect
             name = p[1].value
-            if name == "list":
+            if name == "list" or name == "array":
                 return ast.BuiltinList([], p[2])
             raise SyntaxError(f"Unknown builtin type {name}")
 
@@ -222,7 +275,9 @@ class Parser:
         @self.pg.production("builtinvalue : TEXT")
         def expression(p):
             s = p[0].value
-            return python_ast.literal_eval(s)
+            # Strip surrounding quotes and decode all escape sequences
+            # including Haskell-specific \DDD (decimal) and \oOOO (octal)
+            return _decode_haskell_string(s[1:-1])
 
         @self.pg.production("builtinvalue : PAREN_OPEN PAREN_CLOSE")
         def expression(p):
